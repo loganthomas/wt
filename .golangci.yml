@@ -12,5 +12,12 @@ linters:
     - errname
     - lll
   settings:
+    errcheck:
+      # Print-to-stream errors are conventionally ignored in CLIs;
+      # real write failures still surface via tabwriter.Flush and friends.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
     lll:
       line-length: 100
