@@ -71,7 +71,8 @@ body:
         (it contains no personal information):
 
         ```sh
-        wt --version; git --version; sw_vers -productVersion; uname -m; zsh --version; which -a wt git
+        wt --version; git --version; sw_vers -productVersion
+        uname -m; zsh --version; which -a wt git
         ```
       render: shell
       placeholder: |
