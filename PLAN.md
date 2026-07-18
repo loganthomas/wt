@@ -415,8 +415,7 @@ and a release pipeline bolted on late is where "trivial install" dies.
       `lint.yml` with golangci-lint v2,
       branch protection on `main` marking both as required checks —
       every subsequent PR must pass tests to merge.
-      _(Workflows shipped; the protection API call itself
-      needs Logan's permission — command in the Phase 1 PR.)_
+      _(Protection applied to `main` and `dev`, 2026-07-18.)_
 - [x] Scaffold: `cmd/wt/main.go`, `internal/cli/root.go` (cobra),
       MIT `LICENSE`, README stub with the macOS+zsh-only statement,
       empty `docs/` with placeholder index.
@@ -438,8 +437,9 @@ and a release pipeline bolted on late is where "trivial install" dies.
 - **Exit:** brew-installable binary with one honest command;
   a PR cannot merge without green tests and lint.
 
-**Status (2026-07-18):** code complete, PR open against `dev`.
-Remaining before exit is met: branch protection, tap repo + token secret,
+**Status (2026-07-18):** code complete, CI green, PR open against `dev`;
+branch protection live on `main` and `dev`.
+Remaining before exit is met: tap repo + token secret,
 tag `v0.1.0`, clean-machine verify.
 Phase 2 is ready to be taken up once the tag is verified.
 
