@@ -1,0 +1,16 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+
+linters:
+  enable:
+    - misspell
+    - unconvert
+    - errname
+    - lll
+  settings:
+    lll:
+      line-length: 100
