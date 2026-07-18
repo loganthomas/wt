@@ -35,6 +35,7 @@ type BuildInfo struct {
 	Date    string
 }
 
+// String renders the version line shown by wt --version.
 func (b BuildInfo) String() string {
 	return fmt.Sprintf("%s (commit %s, built %s)",
 		cmp.Or(b.Version, "dev"),
