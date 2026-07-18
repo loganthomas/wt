@@ -267,16 +267,13 @@ func stagedFragments(dir string) ([]fragment, []string, error) {
 		if entry.IsDir() || name == "README.md" {
 			continue
 		}
-		parts := strings.Split(name, ".")
-		typ := ""
-		if len(parts) >= 3 && parts[len(parts)-1] == "md" {
-			typ = parts[len(parts)-2]
-		}
-		if !validType(typ) {
+		base, isMD := strings.CutSuffix(name, ".md")
+		dot := strings.LastIndex(base, ".")
+		if !isMD || dot < 1 || !validType(base[dot+1:]) {
 			strays = append(strays, filepath.Join(dir, name))
 			continue
 		}
-		stem := strings.Join(parts[:len(parts)-2], ".")
+		stem, typ := base[:dot], base[dot+1:]
 		pr, _ := strconv.Atoi(stem)
 		frags = append(frags, fragment{path: filepath.Join(dir, name), stem: stem, pr: pr, typ: typ})
 	}
@@ -294,36 +291,29 @@ func compareFragments(a, b fragment) int {
 		}
 		return -1
 	}
-	if c := cmp.Compare(a.pr, b.pr); c != 0 {
-		return c
-	}
-	return strings.Compare(a.stem, b.stem)
+	return cmp.Or(cmp.Compare(a.pr, b.pr), strings.Compare(a.stem, b.stem))
 }
 
 // renderSection renders fragments grouped by type in fragmentTypes order.
 func renderSection(frags []fragment) (string, error) {
-	var out strings.Builder
+	var sections []string
 	for _, t := range fragmentTypes {
-		wroteHeading := false
+		var bullets strings.Builder
 		for _, f := range frags {
 			if f.typ != t.Key {
 				continue
-			}
-			if !wroteHeading {
-				if out.Len() > 0 {
-					out.WriteString("\n")
-				}
-				fmt.Fprintf(&out, "### %s\n\n", t.Heading)
-				wroteHeading = true
 			}
 			raw, err := os.ReadFile(f.path)
 			if err != nil {
 				return "", err
 			}
-			fmt.Fprintf(&out, "- %s\n", strings.TrimSpace(string(raw)))
+			fmt.Fprintf(&bullets, "- %s\n", strings.TrimSpace(string(raw)))
+		}
+		if bullets.Len() > 0 {
+			sections = append(sections, fmt.Sprintf("### %s\n\n%s", t.Heading, bullets.String()))
 		}
 	}
-	return out.String(), nil
+	return strings.Join(sections, "\n"), nil
 }
 
 func writeFragment(dir string, pr int, typ, message string) (string, error) {
