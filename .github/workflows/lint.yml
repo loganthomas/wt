@@ -1,9 +1,15 @@
 name: lint
 
+# pull_request covers every PR (phase branches → dev, dev → main);
+# push runs only on main so a dev→main PR doesn't double-run the job.
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
