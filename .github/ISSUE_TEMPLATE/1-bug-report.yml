@@ -60,22 +60,29 @@ body:
     validations:
       required: false
 
+# TODO(phase-6): once `wt doctor` ships, replace this command with
+# `wt doctor --json` — it captures all of the below and more.
   - type: textarea
     id: environment
     attributes:
       label: Environment
       description: |
-        Run this and paste the output:
+        Run this and paste the output
+        (it contains no personal information):
 
         ```sh
-        wt --version; git --version; sw_vers -productVersion; zsh --version
+        wt --version; git --version; sw_vers -productVersion; uname -m; zsh --version; which -a wt git
         ```
       render: shell
       placeholder: |
         wt version 0.1.0 (commit abc1234, built 2026-07-18)
         git version 2.50.1
         14.6.1
+        arm64
         zsh 5.9 (x86_64-apple-darwin23.0)
+        /opt/homebrew/bin/wt
+        /opt/homebrew/bin/git
+        /usr/bin/git
     validations:
       required: true
 
