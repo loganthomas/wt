@@ -71,8 +71,9 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 		Use:     "wt",
 		Short:   "A thin, elegant wrapper around git worktree",
 		Version: info.String(),
-		Args:    rootArgs,
-		RunE:    runRoot,
+		// Wrapped so cobra's unknown-command error exits 2, not 1.
+		Args: usageArgs(cobra.NoArgs),
+		RunE: runRoot,
 		// Errors are reported once by Main, with wt's exit-code mapping.
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -80,15 +81,6 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 	root.SetFlagErrorFunc(wrapFlagError)
 	root.AddCommand(newLsCmd())
 	return root
-}
-
-// rootArgs replaces cobra's default unknown-command error,
-// which is not classified as a usage error.
-func rootArgs(cmd *cobra.Command, args []string) error {
-	if len(args) > 0 {
-		return usageError{fmt.Errorf("unknown command %q for %q", args[0], cmd.CommandPath())}
-	}
-	return nil
 }
 
 // runRoot handles bare `wt`: help for now, the fuzzy picker in Phase 3.
