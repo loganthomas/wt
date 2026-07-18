@@ -8,7 +8,21 @@ permissions:
   contents: write
 
 jobs:
+  # A tag can point at a commit main never tested;
+  # re-run the gate so a broken binary cannot ship.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test -race ./...
+
   goreleaser:
+    needs: test
     # Pure-Go cross-compile (CGO_ENABLED=0): ubuntu builds the darwin
     # binaries byte-identically, without macOS runner queues.
     runs-on: ubuntu-latest
