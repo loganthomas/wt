@@ -218,8 +218,18 @@ launchd by default (state mutating behind the user's back — rejected).
 
 **Decision:** SemVer.
 Conventional commits with light enforcement (PR-title lint only).
-goreleaser generates grouped changelogs into GitHub Releases
-(no hand-maintained CHANGELOG.md).
+Release notes come from news fragments, not commit messages:
+every PR into `dev` stages one or more single-sentence
+`.changes/<pr>.<type>.md` files
+(types: enh, bug, dep, doc, maint;
+created with `go run ./tools/changelog new`, enforced by CI),
+a release batches them into `CHANGELOG.md`
+(`go run ./tools/changelog batch <version>`),
+and the release workflow extracts that section as the
+GitHub Release notes (see CONTRIBUTING.md).
+This keeps notes user-facing and merge-method independent,
+so feature PRs may squash freely;
+`CHANGELOG.md` itself is machine-folded, never hand-edited.
 Version/commit/date embedded via ldflags, shown by `wt --version`.
 Only `wt doctor` checks the GitHub releases API for updates —
 an explicit command, so the network call is consented.
@@ -440,7 +450,7 @@ and a release pipeline bolted on late is where "trivial install" dies.
       quarantine `postflight` hook; ldflags version embed.
 - [ ] Tag `v0.1.0-alpha.1`; verify:
       the GitHub prerelease exists with darwin archives
-      and a grouped changelog,
+      and notes drawn from the batched news fragments,
       the archive binary runs (`wt ls`,
       `wt --version` shows the injected values),
       the rendered cask in `dist/` installs locally
