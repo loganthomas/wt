@@ -4,12 +4,13 @@ on:
   push:
     tags: ["v*"]
 
+permissions:
+  contents: read
+
 jobs:
   # A tag can point at a commit main never tested;
   # re-run the gate so a broken binary cannot ship.
   test:
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:
