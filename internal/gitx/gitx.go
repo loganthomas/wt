@@ -51,6 +51,8 @@ func (g *Git) run(ctx context.Context, args ...string) ([]byte, error) {
 // Error is a failed git invocation.
 // Its message surfaces git's own stderr,
 // which is almost always the text the user needs to see.
+// Err is always non-nil: run, the only constructor,
+// builds an Error solely from a failed exec.
 type Error struct {
 	Args   []string
 	Stderr string
