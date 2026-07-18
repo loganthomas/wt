@@ -21,6 +21,9 @@ func TestScript(t *testing.T) {
 		Setup: func(env *testscript.Env) error {
 			// Isolate git from the developer's real config and hooks
 			// so scripts behave identically everywhere, CI included.
+			// The ceiling keeps repo discovery inside the work dir even
+			// when the system temp dir sits under some git checkout.
+			env.Setenv("GIT_CEILING_DIRECTORIES", env.WorkDir)
 			env.Setenv("GIT_CONFIG_NOSYSTEM", "1")
 			env.Setenv("GIT_AUTHOR_NAME", "wt-test")
 			env.Setenv("GIT_AUTHOR_EMAIL", "wt-test@example.invalid")
