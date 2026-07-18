@@ -6,6 +6,7 @@
 package gitx
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -60,12 +61,7 @@ type Error struct {
 }
 
 func (e *Error) Error() string {
-	// Not cmp.Or: that would call e.Err.Error() eagerly,
-	// panicking on a nil Err even when stderr has the message.
-	msg := strings.TrimSpace(e.Stderr)
-	if msg == "" {
-		msg = e.Err.Error()
-	}
+	msg := cmp.Or(strings.TrimSpace(e.Stderr), e.Err.Error())
 	return fmt.Sprintf("git %s: %s", strings.Join(e.Args, " "), msg)
 }
 
