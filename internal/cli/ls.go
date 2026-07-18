@@ -25,11 +25,7 @@ func runLs(cmd *cobra.Command, _ []string) error {
 	if err != nil {
 		return err
 	}
-	rows, err := formatRows(trees)
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprint(cmd.OutOrStdout(), rows)
+	_, err = fmt.Fprint(cmd.OutOrStdout(), formatRows(trees))
 	return err
 }
 
@@ -40,21 +36,20 @@ func runLs(cmd *cobra.Command, _ []string) error {
 // The padding this leaves after empty state cells is trimmed,
 // since stdout must stay free of trailing whitespace
 // for machine consumers (D13).
-func formatRows(trees []gitx.Worktree) (string, error) {
+func formatRows(trees []gitx.Worktree) string {
 	var buf bytes.Buffer
 	tw := tabwriter.NewWriter(&buf, 2, 0, 2, ' ', 0)
 	for _, t := range trees {
 		fmt.Fprintf(tw, "%s\t%s\t%s\n", branchLabel(t), t.Path, stateLabel(t))
 	}
-	if err := tw.Flush(); err != nil {
-		return "", err
-	}
+	// Flushing into a bytes.Buffer cannot fail.
+	_ = tw.Flush()
 	var out strings.Builder
 	for line := range strings.Lines(buf.String()) {
 		out.WriteString(strings.TrimRight(line, " \n"))
 		out.WriteByte('\n')
 	}
-	return out.String(), nil
+	return out.String()
 }
 
 func branchLabel(t gitx.Worktree) string {

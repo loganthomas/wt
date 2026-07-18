@@ -8,14 +8,11 @@ import (
 )
 
 func TestFormatRowsKeepsStateAlignedAcrossStatelessRows(t *testing.T) {
-	rows, err := formatRows([]gitx.Worktree{
+	rows := formatRows([]gitx.Worktree{
 		{Branch: "main", Path: "/short", Locked: true},
 		{Branch: "feature/login", Path: "/a/plain/tree"},
 		{Branch: "fix", Path: "/a/much/longer/path", Locked: true},
 	})
-	if err != nil {
-		t.Fatalf("formatRows() error: %v", err)
-	}
 	lines := strings.Split(strings.TrimSuffix(rows, "\n"), "\n")
 	if len(lines) != 3 {
 		t.Fatalf("formatRows() = %d lines, want 3:\n%s", len(lines), rows)
@@ -32,12 +29,9 @@ func TestFormatRowsKeepsStateAlignedAcrossStatelessRows(t *testing.T) {
 }
 
 func TestFormatRowsJoinsMultipleStates(t *testing.T) {
-	rows, err := formatRows([]gitx.Worktree{
+	rows := formatRows([]gitx.Worktree{
 		{Branch: "old", Path: "/gone", Locked: true, Prunable: true},
 	})
-	if err != nil {
-		t.Fatalf("formatRows() error: %v", err)
-	}
 	if !strings.Contains(rows, "locked,prunable") {
 		t.Errorf("formatRows() = %q, want a locked,prunable state cell", rows)
 	}
