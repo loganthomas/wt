@@ -29,6 +29,10 @@ archives:
 checksum:
   name_template: checksums.txt
 
+release:
+  # Phase-exit alpha tags publish as GitHub prereleases (PLAN.md D8).
+  prerelease: auto
+
 changelog:
   sort: asc
   groups:
@@ -49,6 +53,9 @@ changelog:
 
 homebrew_casks:
   - name: wt
+    # Alphas cut a prerelease but stay out of the tap;
+    # the cask first publishes at the real v0.1.0 (PLAN.md D8).
+    skip_upload: auto
     repository:
       owner: loganthomas
       name: homebrew-tap
