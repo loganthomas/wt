@@ -130,6 +130,25 @@ func TestParseWorktrees(t *testing.T) {
 			}},
 		},
 		{
+			name: "missing separator between records is tolerated",
+			input: "worktree /repos/a\x00" +
+				"HEAD 1111567890abcdef1234567890abcdef12345678\x00" +
+				"branch refs/heads/main\x00" +
+				"worktree /repos/b\x00" +
+				"bare\x00",
+			want: []Worktree{
+				{
+					Path:   "/repos/a",
+					Head:   "1111567890abcdef1234567890abcdef12345678",
+					Branch: "main",
+				},
+				{
+					Path: "/repos/b",
+					Bare: true,
+				},
+			},
+		},
+		{
 			name: "missing trailing record separator is tolerated",
 			input: "worktree /repos/acme\x00" +
 				"HEAD 1234567890abcdef1234567890abcdef12345678\x00" +
