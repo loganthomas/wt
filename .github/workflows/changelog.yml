@@ -35,7 +35,7 @@ jobs:
             exit 0
           fi
           echo "::error::This PR adds no news fragment under .changes/."
-          echo "Create one with:"
-          echo '  go run ./tools/changelog new -pr <PR> -type <enh|bug|dep|doc|maint> "<one user-facing sentence>"'
+          echo "Create one with (types: enh, bug, dep, doc, maint):"
+          echo '  go run ./tools/changelog new -pr <PR> -type <type> "<one sentence>"'
           echo "See CONTRIBUTING.md for details."
           exit 1
