@@ -94,7 +94,6 @@ body:
         - Homebrew (brew install loganthomas/tap/wt)
         - go install
         - Built from source
-      default: 0
     validations:
       required: true
 
