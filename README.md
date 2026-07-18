@@ -7,8 +7,16 @@ and, for monorepos where cold worktrees are unusable,
 an opt-in pool of pre-warmed, reusable slots.
 
 > **Status: pre-1.0, under active development.**
-> **v1 targets macOS + zsh only**, with git ≥ 2.38.
+> **v1 targets macOS + zsh only.**
 > The design doesn't preclude Linux/bash/fish; v1 simply doesn't go there.
+
+## Requirements
+
+| Dependency | Minimum | Notes                                                  |
+| ---------- | ------- | ------------------------------------------------------ |
+| macOS      | —       | v1 scope, zsh as the shell                             |
+| git        | ≥ 2.38  | `wt` shells out to your git                            |
+| Go         | ≥ 1.25  | only to build from source; the brew install needs none |
 
 ## Install
 
@@ -37,6 +45,8 @@ lands phase by phase; see [PLAN.md](PLAN.md).
 ## Docs
 
 Deeper material lives in [docs/](docs/).
+
+## Developing
 
 ## License
 
