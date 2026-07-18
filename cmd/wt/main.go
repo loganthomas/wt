@@ -6,11 +6,12 @@ import (
 	"github.com/loganthomas/wt/internal/cli"
 )
 
-// Populated at release time by goreleaser via ldflags.
+// Populated at release time by goreleaser via ldflags;
+// cli.BuildInfo supplies the development-build fallbacks.
 var (
-	version = "dev"
-	commit  = "none"
-	date    = "unknown"
+	version string
+	commit  string
+	date    string
 )
 
 func main() {
