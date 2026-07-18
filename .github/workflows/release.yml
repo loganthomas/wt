@@ -9,7 +9,9 @@ permissions:
 
 jobs:
   goreleaser:
-    runs-on: macos-latest
+    # Pure-Go cross-compile (CGO_ENABLED=0): ubuntu builds the darwin
+    # binaries byte-identically, without macOS runner queues.
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
