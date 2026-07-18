@@ -6,6 +6,7 @@
 package cli
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"os"
@@ -36,16 +37,9 @@ type BuildInfo struct {
 
 func (b BuildInfo) String() string {
 	return fmt.Sprintf("%s (commit %s, built %s)",
-		orDefault(b.Version, "dev"),
-		orDefault(b.Commit, "none"),
-		orDefault(b.Date, "unknown"))
-}
-
-func orDefault(s, fallback string) string {
-	if s == "" {
-		return fallback
-	}
-	return s
+		cmp.Or(b.Version, "dev"),
+		cmp.Or(b.Commit, "none"),
+		cmp.Or(b.Date, "unknown"))
 }
 
 // Main runs the wt CLI and returns its process exit code.
