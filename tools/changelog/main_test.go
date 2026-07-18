@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"os"
 	"path/filepath"
 	"strings"
@@ -165,5 +166,21 @@ func TestWriteFragmentValidatesAndRefusesDuplicates(t *testing.T) {
 	}
 	if _, err := writeFragment(dir, 10, "enh", "Line one.\nLine two."); err == nil {
 		t.Error("writeFragment() accepted a multi-line message")
+	}
+}
+
+func TestPromptKeepsAnswerDeliveredWithEOF(t *testing.T) {
+	in := bufio.NewReader(strings.NewReader("final answer"))
+	got, err := prompt(in, "label")
+	if err != nil {
+		t.Fatalf("prompt() error: %v", err)
+	}
+	if got != "final answer" {
+		t.Errorf("prompt() = %q, want %q", got, "final answer")
+	}
+
+	empty := bufio.NewReader(strings.NewReader(""))
+	if _, err := prompt(empty, "label"); err == nil {
+		t.Error("prompt() succeeded on empty input")
 	}
 }

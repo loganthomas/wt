@@ -12,6 +12,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -295,10 +296,13 @@ func reportLeftovers(dir string, consumed []string) error {
 func prompt(in *bufio.Reader, label string) (string, error) {
 	fmt.Fprintf(os.Stderr, "%s: ", label)
 	line, err := in.ReadString('\n')
-	if err != nil {
+	line = strings.TrimSpace(line)
+	// Piped input often ends without a trailing newline;
+	// an answer delivered alongside io.EOF still counts.
+	if err != nil && (!errors.Is(err, io.EOF) || line == "") {
 		return "", err
 	}
-	return strings.TrimSpace(line), nil
+	return line, nil
 }
 
 func validType(typ string) bool {
