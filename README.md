@@ -48,6 +48,13 @@ Deeper material lives in [docs/](docs/).
 
 ## Developing
 
+After cloning, point git at the repo's hooks
+so every commit runs the same checks CI does:
+
+```sh
+git config core.hooksPath .githooks
+```
+
 ## License
 
 [MIT](LICENSE)
