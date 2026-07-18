@@ -56,6 +56,41 @@ func TestBatchGroupsTypesAndConsumesFragments(t *testing.T) {
 	}
 }
 
+func TestFragmentsSortByPRNumberWithinAType(t *testing.T) {
+	root := t.TempDir()
+	frags := makeFragmentsDir(t, root)
+	writeTestFragment(t, frags, "10.enh.md", "PR ten. (#10)")
+	writeTestFragment(t, frags, "2.enh.md", "PR two. (#2)")
+
+	if err := batchChangelog(root, "v0.1.0-alpha.1", "2026-07-18"); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, changelogFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(raw)
+	two, ten := strings.Index(text, "PR two. (#2)"), strings.Index(text, "PR ten. (#10)")
+	if two == -1 || ten == -1 || two > ten {
+		t.Errorf("expected PR 2 before PR 10:\n%s", text)
+	}
+}
+
+func TestBatchFailsOnStrayFragments(t *testing.T) {
+	root := t.TempDir()
+	frags := makeFragmentsDir(t, root)
+	writeTestFragment(t, frags, "40.feature.md", "Mistyped type. (#40)")
+	writeTestFragment(t, frags, "41.enh.md", "Valid. (#41)")
+
+	err := batchChangelog(root, "v0.1.0-alpha.1", "2026-07-18")
+	if err == nil || !strings.Contains(err.Error(), "40.feature.md") {
+		t.Fatalf("batchChangelog() error = %v, want a stray-fragment error naming the file", err)
+	}
+	if _, statErr := os.Stat(filepath.Join(frags, "41.enh.md")); statErr != nil {
+		t.Error("batchChangelog() consumed fragments despite failing on a stray")
+	}
+}
+
 func TestBatchPrependsAboveOlderSections(t *testing.T) {
 	root := t.TempDir()
 	frags := makeFragmentsDir(t, root)

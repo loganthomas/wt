@@ -9,6 +9,7 @@ package main
 
 import (
 	"bufio"
+	"cmp"
 	"errors"
 	"flag"
 	"fmt"
@@ -16,7 +17,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -28,17 +29,27 @@ const (
 	headerLine    = "# Changelog"
 )
 
-// fragmentTypes maps fragment type keys to changelog headings,
-// ordered by user impact for rendering.
-var fragmentTypes = []struct {
+// fragmentType maps a fragment type key to its changelog heading.
+type fragmentType struct {
 	Key     string
 	Heading string
-}{
+}
+
+// fragmentTypes lists the known types, ordered by user impact for rendering.
+var fragmentTypes = []fragmentType{
 	{"enh", "Enhancements"},
 	{"bug", "Fixes"},
 	{"dep", "Deprecations"},
 	{"doc", "Documentation"},
 	{"maint", "Infrastructure"},
+}
+
+// fragment is one staged news entry, parsed from a <pr>.<type>.md filename.
+type fragment struct {
+	path string
+	stem string
+	pr   int // 0 when the stem is not a PR number
+	typ  string
 }
 
 func main() {
@@ -113,7 +124,14 @@ func runNew(args []string) error {
 }
 
 func runPending() error {
-	body, _, err := pendingSection(fragmentsDir)
+	frags, strays, err := stagedFragments(fragmentsDir)
+	if err != nil {
+		return err
+	}
+	for _, stray := range strays {
+		fmt.Fprintf(os.Stderr, "warning: %s will not be collected (want <pr>.<type>.md)\n", stray)
+	}
+	body, err := renderSection(frags)
 	if err != nil {
 		return err
 	}
@@ -148,8 +166,18 @@ func runExtract(args []string) error {
 // batchChangelog folds the pending fragments into a dated version
 // section at the top of CHANGELOG.md and deletes the consumed files,
 // so each fragment is released exactly once.
+// Stray files are an error, not a warning:
+// a release must never silently drop a staged note.
 func batchChangelog(root, version, date string) error {
-	body, consumed, err := pendingSection(filepath.Join(root, fragmentsDir))
+	frags, strays, err := stagedFragments(filepath.Join(root, fragmentsDir))
+	if err != nil {
+		return err
+	}
+	if len(strays) > 0 {
+		return fmt.Errorf("stray files would be dropped from the notes: %s (want <pr>.<type>.md)",
+			strings.Join(strays, ", "))
+	}
+	body, err := renderSection(frags)
 	if err != nil {
 		return err
 	}
@@ -177,12 +205,12 @@ func batchChangelog(root, version, date string) error {
 		return err
 	}
 
-	for _, p := range consumed {
-		if err := os.Remove(p); err != nil {
+	for _, f := range frags {
+		if err := os.Remove(f.path); err != nil {
 			return err
 		}
 	}
-	return reportLeftovers(filepath.Join(root, fragmentsDir), consumed)
+	return nil
 }
 
 // extractSection returns one version's body from CHANGELOG.md,
@@ -212,34 +240,81 @@ func extractSection(root, version string) (string, error) {
 	return strings.TrimSpace(strings.Join(section, "\n")) + "\n", nil
 }
 
-// pendingSection renders the staged fragments grouped by type
-// and returns the file paths it consumed.
-func pendingSection(dir string) (string, []string, error) {
-	var out strings.Builder
-	var consumed []string
-	for _, t := range fragmentTypes {
-		paths, err := filepath.Glob(filepath.Join(dir, "*."+t.Key+".md"))
-		if err != nil {
-			return "", nil, err
-		}
-		if len(paths) == 0 {
+// stagedFragments parses the fragments directory in one pass,
+// separating well-formed fragments from strays
+// so callers can refuse or report files that would silently drop.
+func stagedFragments(dir string) ([]fragment, []string, error) {
+	entries, err := os.ReadDir(dir)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, nil, nil
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	var frags []fragment
+	var strays []string
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.IsDir() || name == "README.md" {
 			continue
 		}
-		sort.Strings(paths)
-		if out.Len() > 0 {
-			out.WriteString("\n")
+		parts := strings.Split(name, ".")
+		typ := ""
+		if len(parts) >= 3 && parts[len(parts)-1] == "md" {
+			typ = parts[len(parts)-2]
 		}
-		fmt.Fprintf(&out, "### %s\n\n", t.Heading)
-		for _, p := range paths {
-			raw, err := os.ReadFile(p)
+		if !validType(typ) {
+			strays = append(strays, filepath.Join(dir, name))
+			continue
+		}
+		stem := strings.Join(parts[:len(parts)-2], ".")
+		pr, _ := strconv.Atoi(stem)
+		frags = append(frags, fragment{path: filepath.Join(dir, name), stem: stem, pr: pr, typ: typ})
+	}
+	slices.SortFunc(frags, compareFragments)
+	return frags, strays, nil
+}
+
+// compareFragments orders fragments by PR number
+// so release notes read chronologically;
+// non-numeric stems sort last, by name.
+func compareFragments(a, b fragment) int {
+	if (a.pr == 0) != (b.pr == 0) {
+		if a.pr == 0 {
+			return 1
+		}
+		return -1
+	}
+	if c := cmp.Compare(a.pr, b.pr); c != 0 {
+		return c
+	}
+	return strings.Compare(a.stem, b.stem)
+}
+
+// renderSection renders fragments grouped by type in fragmentTypes order.
+func renderSection(frags []fragment) (string, error) {
+	var out strings.Builder
+	for _, t := range fragmentTypes {
+		wroteHeading := false
+		for _, f := range frags {
+			if f.typ != t.Key {
+				continue
+			}
+			if !wroteHeading {
+				if out.Len() > 0 {
+					out.WriteString("\n")
+				}
+				fmt.Fprintf(&out, "### %s\n\n", t.Heading)
+				wroteHeading = true
+			}
+			raw, err := os.ReadFile(f.path)
 			if err != nil {
-				return "", nil, err
+				return "", err
 			}
 			fmt.Fprintf(&out, "- %s\n", strings.TrimSpace(string(raw)))
-			consumed = append(consumed, p)
 		}
 	}
-	return out.String(), consumed, nil
+	return out.String(), nil
 }
 
 func writeFragment(dir string, pr int, typ, message string) (string, error) {
@@ -272,27 +347,6 @@ func writeFragment(dir string, pr int, typ, message string) (string, error) {
 	return path, nil
 }
 
-func reportLeftovers(dir string, consumed []string) error {
-	taken := make(map[string]bool, len(consumed))
-	for _, p := range consumed {
-		taken[filepath.Base(p)] = true
-	}
-	entries, err := os.ReadDir(dir)
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		if e.Name() == "README.md" || taken[e.Name()] {
-			continue
-		}
-		fmt.Fprintf(os.Stderr, "not collected: %s\n", filepath.Join(dir, e.Name()))
-	}
-	return nil
-}
-
 func prompt(in *bufio.Reader, label string) (string, error) {
 	fmt.Fprintf(os.Stderr, "%s: ", label)
 	line, err := in.ReadString('\n')
@@ -306,12 +360,7 @@ func prompt(in *bufio.Reader, label string) (string, error) {
 }
 
 func validType(typ string) bool {
-	for _, t := range fragmentTypes {
-		if t.Key == typ {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(fragmentTypes, func(t fragmentType) bool { return t.Key == typ })
 }
 
 func typeKeys() string {
