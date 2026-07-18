@@ -205,7 +205,7 @@ func TestWriteFragmentValidatesAndRefusesDuplicates(t *testing.T) {
 }
 
 func TestPromptKeepsAnswerDeliveredWithEOF(t *testing.T) {
-	in := bufio.NewReader(strings.NewReader("final answer"))
+	in := bufio.NewScanner(strings.NewReader("final answer"))
 	got, err := prompt(in, "label")
 	if err != nil {
 		t.Fatalf("prompt() error: %v", err)
@@ -214,7 +214,7 @@ func TestPromptKeepsAnswerDeliveredWithEOF(t *testing.T) {
 		t.Errorf("prompt() = %q, want %q", got, "final answer")
 	}
 
-	empty := bufio.NewReader(strings.NewReader(""))
+	empty := bufio.NewScanner(strings.NewReader(""))
 	if _, err := prompt(empty, "label"); err == nil {
 		t.Error("prompt() succeeded on empty input")
 	}

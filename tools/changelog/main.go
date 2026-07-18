@@ -13,7 +13,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -97,7 +96,7 @@ func runNew(args []string) error {
 	}
 	message := strings.Join(flags.Args(), " ")
 
-	in := bufio.NewReader(os.Stdin)
+	in := bufio.NewScanner(os.Stdin)
 	if *pr == 0 {
 		answer, err := prompt(in, "PR number")
 		if err != nil {
@@ -346,16 +345,17 @@ func writeFragment(dir string, pr int, typ, message string) (string, error) {
 	return path, nil
 }
 
-func prompt(in *bufio.Reader, label string) (string, error) {
+// prompt reads one answer via a Scanner,
+// which keeps a final line that piped input left unterminated.
+func prompt(in *bufio.Scanner, label string) (string, error) {
 	fmt.Fprintf(os.Stderr, "%s: ", label)
-	line, err := in.ReadString('\n')
-	line = strings.TrimSpace(line)
-	// Piped input often ends without a trailing newline;
-	// an answer delivered alongside io.EOF still counts.
-	if err != nil && (!errors.Is(err, io.EOF) || line == "") {
-		return "", err
+	if !in.Scan() {
+		if err := in.Err(); err != nil {
+			return "", err
+		}
+		return "", errors.New("no input")
 	}
-	return line, nil
+	return strings.TrimSpace(in.Text()), nil
 }
 
 func validType(typ string) bool {
