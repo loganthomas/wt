@@ -28,7 +28,14 @@ func runLs(cmd *cobra.Command) error {
 	}
 	tw := tabwriter.NewWriter(cmd.OutOrStdout(), 2, 0, 2, ' ', 0)
 	for _, t := range trees {
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", branchLabel(t), t.Path, stateLabel(t))
+		// The state cell is omitted when empty: tabwriter pads every
+		// tab-terminated cell, and stdout must stay free of trailing
+		// whitespace for machine consumers (D13).
+		if state := stateLabel(t); state != "" {
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", branchLabel(t), t.Path, state)
+		} else {
+			fmt.Fprintf(tw, "%s\t%s\n", branchLabel(t), t.Path)
+		}
 	}
 	return tw.Flush()
 }

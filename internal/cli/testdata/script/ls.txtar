@@ -9,8 +9,8 @@ exec git commit -q --allow-empty -m 'initial'
 exec git worktree add -q ../trees/login -b feature/login
 
 exec wt ls
-stdout 'main\s+.*[/\\]repo'
-stdout 'feature/login\s+.*[/\\]login'
+stdout 'main\s+.*[/\\]repo$'
+stdout 'feature/login\s+.*[/\\]login$'
 ! stderr .
 
 # a detached worktree is labeled, not blank
