@@ -1,0 +1,37 @@
+name: changelog
+
+# Every PR into dev must stage at least one news fragment;
+# a release-batch PR passes by consuming them instead.
+# See CONTRIBUTING.md.
+on:
+  pull_request:
+    branches: [dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fragment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: require a news fragment
+        run: |
+          base="origin/${{ github.base_ref }}"
+          added=$(git diff --diff-filter=A --name-only "$base...HEAD" -- '.changes/*.*.md')
+          deleted=$(git diff --diff-filter=D --name-only "$base...HEAD" -- '.changes/*.*.md')
+          if [ -n "$added" ] || [ -n "$deleted" ]; then
+            printf 'news fragments in this PR:\n%s%s\n' "$added" "$deleted"
+            exit 0
+          fi
+          echo "::error::This PR adds no news fragment under .changes/."
+          echo "Create one with:"
+          echo '  go run ./tools/changelog new -pr <PR> -type <enh|bug|dep|doc|maint> "<one user-facing sentence>"'
+          echo "See CONTRIBUTING.md for details."
+          exit 1
