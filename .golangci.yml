@@ -14,7 +14,8 @@ linters:
   settings:
     errcheck:
       # Print-to-stream errors are conventionally ignored in CLIs;
-      # real write failures still surface via tabwriter.Flush and friends.
+      # code that must honor write failures checks them explicitly,
+      # as runLs does for its stdout rows.
       exclude-functions:
         - fmt.Fprint
         - fmt.Fprintf
