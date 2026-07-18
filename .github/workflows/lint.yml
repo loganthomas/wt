@@ -24,4 +24,6 @@ jobs:
           go-version: stable
       - uses: golangci/golangci-lint-action@v8
         with:
-          version: latest
+          # Pinned so the required check can't shift under a merge;
+          # bump deliberately alongside .golangci.yml.
+          version: v2.12.2
