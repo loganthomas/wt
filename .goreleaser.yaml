@@ -1,0 +1,64 @@
+version: 2
+
+project_name: wt
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/wt
+    binary: wt
+    env:
+      - CGO_ENABLED=0
+    # v1 is macOS-only (see README); Linux targets arrive in Phase 9.
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .ShortCommit }}
+      - -X main.date={{ .Date }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    files: [LICENSE, README.md]
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  groups:
+    - title: Features
+      regexp: "^feat"
+      order: 0
+    - title: Fixes
+      regexp: "^fix"
+      order: 1
+    - title: Other
+      order: 999
+  filters:
+    exclude:
+      - "^docs"
+      - "^test"
+      - "^ci"
+      - "^chore"
+
+homebrew_casks:
+  - name: wt
+    repository:
+      owner: loganthomas
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/loganthomas/wt
+    description: Thin, elegant wrapper around git worktree
+    hooks:
+      post:
+        # Unsigned binary: strip the quarantine bit until notarization (post-1.0).
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/wt"]
+          end
