@@ -26,7 +26,7 @@ type Worktree struct {
 func ParseWorktrees(out []byte) ([]Worktree, error) {
 	var trees []Worktree
 	var cur *Worktree
-	for _, attr := range strings.Split(string(out), "\x00") {
+	for attr := range strings.SplitSeq(string(out), "\x00") {
 		key, value, _ := strings.Cut(attr, " ")
 		switch key {
 		case "":
