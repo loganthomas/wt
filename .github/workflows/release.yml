@@ -41,11 +41,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
+      # Fails if the tag was never batched into CHANGELOG.md,
+      # so a release can't ship without its notes (CONTRIBUTING.md).
+      - name: build release notes from the changelog
+        run: go run ./tools/changelog extract "$GITHUB_REF_NAME" > /tmp/release-notes.md
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: "~> v2"
-          args: release --clean
+          args: release --clean --release-notes /tmp/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Fine-grained PAT with contents:write on loganthomas/homebrew-tap;

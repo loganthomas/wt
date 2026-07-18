@@ -34,22 +34,9 @@ release:
   prerelease: auto
 
 changelog:
-  sort: asc
-  groups:
-    - title: Features
-      regexp: "^feat"
-      order: 0
-    - title: Fixes
-      regexp: "^fix"
-      order: 1
-    - title: Other
-      order: 999
-  filters:
-    exclude:
-      - "^docs"
-      - "^test"
-      - "^ci"
-      - "^chore"
+  # Release notes come from news fragments folded into CHANGELOG.md;
+  # release.yml passes them via --release-notes (see CONTRIBUTING.md).
+  disable: true
 
 homebrew_casks:
   - name: wt
