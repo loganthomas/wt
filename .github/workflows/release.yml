@@ -11,7 +11,12 @@ jobs:
   # A tag can point at a commit main never tested;
   # re-run the gate so a broken binary cannot ship.
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # same legs as test.yml: macOS is the v1 target
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
