@@ -224,6 +224,15 @@ Version/commit/date embedded via ldflags, shown by `wt --version`.
 Only `wt doctor` checks the GitHub releases API for updates —
 an explicit command, so the network call is consented.
 
+Pre-1.0 scheme: each phase exit tags `v0.1.0-alpha.N`,
+exercising the whole release pipeline
+(build, archive, changelog, GitHub prerelease, ldflags)
+at every milestone,
+while `skip_upload: auto` keeps alpha casks out of the Homebrew tap.
+The real `v0.1.0` ships when the plan completes (Phase 7);
+`v1.0.0` is earned afterwards by 0.1.x stability in real use,
+not by the checklist finishing.
+
 ### D9. License: MIT
 
 **Decision:** MIT.
@@ -429,18 +438,26 @@ and a release pipeline bolted on late is where "trivial install" dies.
 - [x] `release.yml` running goreleaser on tags;
       `.goreleaser.yaml` with `homebrew_casks` → `homebrew-tap` repo;
       quarantine `postflight` hook; ldflags version embed.
-- [ ] Tag `v0.1.0`; verify on a clean machine:
-      `brew install <owner>/tap/wt && wt ls && wt --version`,
-      and `brew uninstall` leaves nothing behind.
+- [ ] Tag `v0.1.0-alpha.1`; verify:
+      the GitHub prerelease exists with darwin archives
+      and a grouped changelog,
+      the archive binary runs (`wt ls`,
+      `wt --version` shows the injected values),
+      the rendered cask in `dist/` installs locally
+      (`brew install --cask`, proving cask syntax
+      and the quarantine hook),
+      and a one-off manual push to `homebrew-tap` proves the PAT.
+      The clean-machine `brew install <owner>/tap/wt` check
+      runs at the real `v0.1.0` (Phase 7).
       _(Post-merge: needs the `loganthomas/homebrew-tap` repo,
       a `HOMEBREW_TAP_GITHUB_TOKEN` secret, then the tag.)_
-- **Exit:** brew-installable binary with one honest command;
+- **Exit:** a proven release pipeline and one honest command;
   a PR cannot merge without green tests and lint.
 
 **Status (2026-07-18):** code complete, CI green, PR open against `dev`;
 branch protection live on `main` and `dev`.
 Remaining before exit is met: tap repo + token secret,
-tag `v0.1.0`, clean-machine verify.
+tag `v0.1.0-alpha.1`, verify the prerelease and local cask.
 Phase 2 is ready to be taken up once the tag is verified.
 
 ### Phase 2 — Core engine: config, init, new/done with safety guards (M)
@@ -463,7 +480,7 @@ Phase 2 is ready to be taken up once the tag is verified.
 - [ ] Exit-code + stdout/stderr contract enforced by a shared
       testscript assertion helper.
 - **Exit:** full default-mode lifecycle usable day-to-day from the raw binary
-  (no cd yet). Tag `v0.2.0`.
+  (no cd yet). Tag `v0.1.0-alpha.2`.
 
 ### Phase 3 — Shell integration & navigation (M)
 
@@ -480,7 +497,7 @@ Phase 2 is ready to be taken up once the tag is verified.
 - [ ] Optional prompt segment: chpwd-cached `WT_PROMPT`,
       `--prompt` flag on shell-init; starship recipe in docs.
 - **Exit:** the eval line in `.zshrc` gives cd-on-select, completions,
-  optional prompt. Tag `v0.3.0`.
+  optional prompt. Tag `v0.1.0-alpha.3`.
 
 ### Phase 4 — Pool mode (L)
 
@@ -501,7 +518,7 @@ Phase 2 is ready to be taken up once the tag is verified.
 - [ ] Fuzzy matching over slots targets the _branch/ticket_, not `pool-3`
       (picker shows `PROJ-123 → pool-3`).
 - **Exit:** claim → work → release loop with crash-safe leases and
-  warm-cache resets. Tag `v0.4.0`.
+  warm-cache resets. Tag `v0.1.0-alpha.4`.
 
 ### Phase 5 — Sync & freshness (M)
 
@@ -513,7 +530,8 @@ Phase 2 is ready to be taken up once the tag is verified.
       Testscript: a local "origin" fixture advanced by the test;
       assert slots re-park and a slot with user commits is untouched.
 - [ ] Docs: opt-in launchd plist recipe.
-- **Exit:** the 24h freshness window holds with zero daemons. Tag `v0.5.0`.
+- **Exit:** the 24h freshness window holds with zero daemons.
+  Tag `v0.1.0-alpha.5`.
 
 ### Phase 6 — Doctor, clean, status (M)
 
@@ -526,13 +544,15 @@ Phase 2 is ready to be taken up once the tag is verified.
       git ≥ 2.38; shim installed and current; config parse errors with
       line numbers; prunable/locked worktrees; branch-checked-out-twice;
       stale leases; submodules present (warn);
-      `core.hooksPath`/husky note; trees on a different volume; update check.
+      `core.hooksPath`/husky note; trees on a different volume;
+      update check (prerelease tags ignored when comparing versions).
 - [ ] `--json` for status/doctor/ls via a single `internal/render` layer
       so human and JSON views can't drift.
 - **Exit:** self-diagnosing tool —
-  support questions answerable with "run `wt doctor`." Tag `v0.6.0`.
+  support questions answerable with "run `wt doctor`."
+  Tag `v0.1.0-alpha.6`.
 
-### Phase 7 — Documentation, polish, v1.0 (L)
+### Phase 7 — Documentation, polish, first release (L)
 
 Docs have been written alongside each phase (standing rule 2);
 this phase is the editorial pass that makes them _good_ —
@@ -580,12 +600,18 @@ stays short):
 - [ ] `wt uninstall`; end-to-end `brew uninstall` re-verification.
 - [ ] Failure-message audit: every error names the fix
       (`error: branch 'x' already checked out in ../acme.trees/x — wt go x?`).
-- [ ] Cut `v1.0.0`.
+- [ ] Cut `v0.1.0` — the first real release:
+      the cask publishes to the tap;
+      clean-machine `brew install <owner>/tap/wt && wt ls && wt --version`,
+      and `brew uninstall` leaves nothing behind.
 - **Exit:** a stranger installs, inits, and ships a branch
   without reading past the README's top fold;
   everything deeper is one `docs/` link away.
+  `v1.0.0` is not a phase deliverable:
+  it is cut later, once 0.1.x has soaked in real use
+  and the command surface has stopped moving (see D8).
 
-### Phase 8 — Post-1.0: agent integration, opt-in (M)
+### Phase 8 — Post-release: agent integration, opt-in (M)
 
 - [ ] Claude Code hook adapter wiring `wt claim`/`release`
       to session start/stop; `wt new --json` envelope;
@@ -639,9 +665,11 @@ stays short):
   (fixture helpers create dirty, unpushed, detached-with-orphans,
   and merged states) →
   golden files for all human output (`-update` regeneration, `NO_COLOR` variants).
-- **Release verification (Phases 1 and 7):** clean-machine
+- **Release verification:** every phase exit tags an alpha
+  that must produce a working prerelease (Phase 1 defines the checks);
+  the clean-machine
   `brew install → init → new → go → done → uninstall` checklist,
-  scripted where possible.
+  scripted where possible, runs at `v0.1.0` (Phase 7).
 - **Contract tests:** one shared harness asserting stdout purity,
   exit codes, and `--json` schema stability for every command —
   regression-proofing the agent contract from Phase 2 onward.
