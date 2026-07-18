@@ -1,10 +1,9 @@
 package cli
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
-	"text/tabwriter"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -30,23 +29,30 @@ func runLs(cmd *cobra.Command, _ []string) error {
 }
 
 // formatRows renders one aligned row per worktree.
-// Every row carries the trailing state cell:
-// mixing two- and three-cell rows would split tabwriter's column block
-// and misalign the state column.
-// The padding this leaves after empty state cells is trimmed,
-// since stdout must stay free of trailing whitespace
-// for machine consumers (D13).
+// Widths are computed by hand rather than with text/tabwriter:
+// padding must only ever sit between cells,
+// because trimming rendered lines would also strip
+// a path's own trailing spaces,
+// and stdout must stay exact for machine consumers (D13).
 func formatRows(trees []gitx.Worktree) string {
-	var buf bytes.Buffer
-	tw := tabwriter.NewWriter(&buf, 2, 0, 2, ' ', 0)
+	branchWidth, pathWidth := 0, 0
+	rows := make([][3]string, 0, len(trees))
 	for _, t := range trees {
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", branchLabel(t), t.Path, stateLabel(t))
+		row := [3]string{branchLabel(t), t.Path, stateLabel(t)}
+		rows = append(rows, row)
+		branchWidth = max(branchWidth, utf8.RuneCountInString(row[0]))
+		pathWidth = max(pathWidth, utf8.RuneCountInString(row[1]))
 	}
-	// Flushing into a bytes.Buffer cannot fail.
-	_ = tw.Flush()
+	const gap = 2
 	var out strings.Builder
-	for line := range strings.Lines(buf.String()) {
-		out.WriteString(strings.TrimRight(line, " \n"))
+	for _, row := range rows {
+		out.WriteString(row[0])
+		out.WriteString(strings.Repeat(" ", gap+branchWidth-utf8.RuneCountInString(row[0])))
+		out.WriteString(row[1])
+		if row[2] != "" {
+			out.WriteString(strings.Repeat(" ", gap+pathWidth-utf8.RuneCountInString(row[1])))
+			out.WriteString(row[2])
+		}
 		out.WriteByte('\n')
 	}
 	return out.String()

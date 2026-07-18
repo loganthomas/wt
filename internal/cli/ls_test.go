@@ -28,6 +28,15 @@ func TestFormatRowsKeepsStateAlignedAcrossStatelessRows(t *testing.T) {
 	}
 }
 
+func TestFormatRowsPreservesPathTrailingSpace(t *testing.T) {
+	rows := formatRows([]gitx.Worktree{
+		{Branch: "main", Path: "/ends/with/space "},
+	})
+	if want := "main  /ends/with/space \n"; rows != want {
+		t.Errorf("formatRows() = %q, want %q", rows, want)
+	}
+}
+
 func TestFormatRowsJoinsMultipleStates(t *testing.T) {
 	rows := formatRows([]gitx.Worktree{
 		{Branch: "old", Path: "/gone", Locked: true, Prunable: true},
