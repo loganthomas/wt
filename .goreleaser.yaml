@@ -60,5 +60,6 @@ homebrew_casks:
         # Unsigned binary: strip the quarantine bit until notarization (post-1.0).
         install: |
           if OS.mac?
-            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/wt"]
+            system_command "/usr/bin/xattr",
+              args: ["-dr", "com.apple.quarantine", "#{staged_path}/wt"]
           end
