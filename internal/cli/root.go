@@ -53,6 +53,7 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
 		return usageError{err}
 	})
+	root.AddCommand(newLsCmd())
 	return root
 }
 
