@@ -6,11 +6,24 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
 )
+
+const (
+	exitErr   = 1
+	exitUsage = 2
+)
+
+// exitCoder is the single seam mapping errors to process exit codes.
+// Later phases add codes 3 (precondition failed) and 4 (not a wt repo)
+// by returning errors that implement it — Main never grows special cases.
+type exitCoder interface {
+	ExitCode() int
+}
 
 // BuildInfo identifies the binary.
 // The zero value reads as a development build;
@@ -22,10 +35,17 @@ type BuildInfo struct {
 }
 
 func (b BuildInfo) String() string {
-	if b.Version == "" {
-		b.Version = "dev"
+	return fmt.Sprintf("%s (commit %s, built %s)",
+		orDefault(b.Version, "dev"),
+		orDefault(b.Commit, "none"),
+		orDefault(b.Date, "unknown"))
+}
+
+func orDefault(s, fallback string) string {
+	if s == "" {
+		return fallback
 	}
-	return fmt.Sprintf("%s (commit %s, built %s)", b.Version, b.Commit, b.Date)
+	return s
 }
 
 // Main runs the wt CLI and returns its process exit code.
@@ -33,12 +53,17 @@ func Main(info BuildInfo) int {
 	root := newRootCmd(info)
 	if err := root.Execute(); err != nil {
 		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
-		if isUsageError(err) {
-			return 2
-		}
-		return 1
+		return exitCodeFor(err)
 	}
 	return 0
+}
+
+func exitCodeFor(err error) int {
+	var coded exitCoder
+	if errors.As(err, &coded) {
+		return coded.ExitCode()
+	}
+	return exitErr
 }
 
 func newRootCmd(info BuildInfo) *cobra.Command {
@@ -46,24 +71,49 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 		Use:     "wt",
 		Short:   "A thin, elegant wrapper around git worktree",
 		Version: info.String(),
+		Args:    rootArgs,
+		RunE:    runRoot,
 		// Errors are reported once by Main, with wt's exit-code mapping.
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
-		return usageError{err}
-	})
+	root.SetFlagErrorFunc(wrapFlagError)
 	root.AddCommand(newLsCmd())
 	return root
 }
 
-// usageError marks errors that must exit 2 per the machine-output contract.
+// rootArgs replaces cobra's default unknown-command error,
+// which is not classified as a usage error.
+func rootArgs(cmd *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		return usageError{fmt.Errorf("unknown command %q for %q", args[0], cmd.CommandPath())}
+	}
+	return nil
+}
+
+// runRoot handles bare `wt`: help for now, the fuzzy picker in Phase 3.
+func runRoot(cmd *cobra.Command, _ []string) error {
+	return cmd.Help()
+}
+
+func wrapFlagError(_ *cobra.Command, err error) error {
+	return usageError{err}
+}
+
+// usageError marks errors that exit 2 per D13's machine-output contract.
 type usageError struct{ err error }
 
 func (u usageError) Error() string { return u.err.Error() }
 func (u usageError) Unwrap() error { return u.err }
+func (u usageError) ExitCode() int { return exitUsage }
 
-func isUsageError(err error) bool {
-	_, ok := err.(usageError)
-	return ok
+// usageArgs wraps a cobra positional-args validator
+// so its failures carry the usage exit code.
+func usageArgs(validate cobra.PositionalArgs) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if err := validate(cmd, args); err != nil {
+			return usageError{err}
+		}
+		return nil
+	}
 }
