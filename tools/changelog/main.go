@@ -52,11 +52,20 @@ type fragment struct {
 	typ  string
 }
 
+const usage = `usage: changelog <command>
+
+  new [-pr N] [-type T] [message]   create a fragment; prompts for missing values
+  pending                           print the staged release-notes section
+  batch <version>                   fold fragments into CHANGELOG.md and delete them
+  extract <version>                 print one version's section from CHANGELOG.md
+`
+
 func main() {
-	cmd, args := "pending", os.Args[1:]
-	if len(args) > 0 {
-		cmd, args = args[0], args[1:]
+	if len(os.Args) < 2 || os.Args[1] == "help" || os.Args[1] == "-h" || os.Args[1] == "--help" {
+		fmt.Fprint(os.Stderr, usage)
+		return
 	}
+	cmd, args := os.Args[1], os.Args[2:]
 	var err error
 	switch cmd {
 	case "new":
@@ -68,7 +77,7 @@ func main() {
 	case "extract":
 		err = runExtract(args)
 	default:
-		err = fmt.Errorf("unknown command %q (want new, pending, batch, or extract)", cmd)
+		err = fmt.Errorf("unknown command %q (run 'changelog help')", cmd)
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "changelog: %v\n", err)
