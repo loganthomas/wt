@@ -15,13 +15,11 @@ func newLsCmd() *cobra.Command {
 		Use:   "ls",
 		Short: "List worktrees",
 		Args:  usageArgs(cobra.NoArgs),
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runLs(cmd)
-		},
+		RunE:  runLs,
 	}
 }
 
-func runLs(cmd *cobra.Command) error {
+func runLs(cmd *cobra.Command, _ []string) error {
 	trees, err := gitx.New("").Worktrees(cmd.Context())
 	if err != nil {
 		return err
