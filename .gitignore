@@ -61,6 +61,3 @@ Temporary Items
 ### wt ###
 # goreleaser output
 dist/
-
-# local brainstorming fodder, never committed
-worktree-tools-scrubbed/
