@@ -1,7 +1,7 @@
 name: test
 
-# pull_request covers every PR (phase branches → dev, dev → main);
-# push runs only on main so a dev→main PR doesn't double-run the matrix.
+# pull_request covers every PR (phase branches into dev, dev into main);
+# push runs only on main so a dev-to-main PR doesn't double-run the matrix.
 on:
   push:
     branches: [main]

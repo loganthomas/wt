@@ -21,7 +21,7 @@ const (
 
 // exitCoder is the single seam mapping errors to process exit codes.
 // Later phases add codes 3 (precondition failed) and 4 (not a wt repo)
-// by returning errors that implement it — Main never grows special cases.
+// by returning errors that implement it; Main never grows special cases.
 type exitCoder interface {
 	ExitCode() int
 }

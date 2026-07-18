@@ -61,7 +61,7 @@ body:
       required: false
 
 # TODO(phase-6): once `wt doctor` ships, replace this command with
-# `wt doctor --json` — it captures all of the below and more.
+# `wt doctor --json`, which captures all of the below and more.
   - type: textarea
     id: environment
     attributes:
