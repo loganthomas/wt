@@ -20,16 +20,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          # The checkout is the synthetic merge commit, so HEAD^1 is the
+          # base tip and depth 2 suffices for the whole PR diff.
+          fetch-depth: 2
       - name: require a news fragment
         run: |
-          base="origin/${{ github.base_ref }}"
           # Only known types count; a mistyped fragment (e.g. .feature.md)
           # would never be collected, so it must not satisfy the gate.
           specs=('.changes/*.enh.md' '.changes/*.bug.md' '.changes/*.dep.md'
                  '.changes/*.doc.md' '.changes/*.maint.md')
-          added=$(git diff --diff-filter=A --name-only "$base...HEAD" -- "${specs[@]}")
-          deleted=$(git diff --diff-filter=D --name-only "$base...HEAD" -- "${specs[@]}")
+          added=$(git diff --diff-filter=A --name-only HEAD^1 HEAD -- "${specs[@]}")
+          deleted=$(git diff --diff-filter=D --name-only HEAD^1 HEAD -- "${specs[@]}")
           if [ -n "$added" ] || [ -n "$deleted" ]; then
             printf 'news fragments in this PR:\n%s%s\n' "$added" "$deleted"
             exit 0
