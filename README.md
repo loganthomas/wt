@@ -1,12 +1,13 @@
 # wt
 
-A thin, elegant Go wrapper around `git worktree`.
+`wt` — short for **worktree** — is a thin, elegant Go wrapper
+around `git worktree`.
 Create, list, jump to, and safely remove worktrees with sane paths —
 and, for monorepos where cold worktrees are unusable,
 an opt-in pool of pre-warmed, reusable slots.
 
 > **Status: pre-1.0, under active development.**
-> **v1 targets macOS + zsh only.**
+> **v1 targets macOS + zsh only**, with git ≥ 2.38.
 > The design doesn't preclude Linux/bash/fish; v1 simply doesn't go there.
 
 ## Install
