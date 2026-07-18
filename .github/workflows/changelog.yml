@@ -24,8 +24,12 @@ jobs:
       - name: require a news fragment
         run: |
           base="origin/${{ github.base_ref }}"
-          added=$(git diff --diff-filter=A --name-only "$base...HEAD" -- '.changes/*.*.md')
-          deleted=$(git diff --diff-filter=D --name-only "$base...HEAD" -- '.changes/*.*.md')
+          # Only known types count; a mistyped fragment (e.g. .feature.md)
+          # would never be collected, so it must not satisfy the gate.
+          specs=('.changes/*.enh.md' '.changes/*.bug.md' '.changes/*.dep.md'
+                 '.changes/*.doc.md' '.changes/*.maint.md')
+          added=$(git diff --diff-filter=A --name-only "$base...HEAD" -- "${specs[@]}")
+          deleted=$(git diff --diff-filter=D --name-only "$base...HEAD" -- "${specs[@]}")
           if [ -n "$added" ] || [ -n "$deleted" ]; then
             printf 'news fragments in this PR:\n%s%s\n' "$added" "$deleted"
             exit 0
