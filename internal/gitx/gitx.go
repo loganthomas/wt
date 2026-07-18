@@ -19,6 +19,7 @@ type Git struct {
 	dir string
 }
 
+// New returns a Git that runs commands from dir.
 func New(dir string) *Git {
 	return &Git{dir: dir}
 }
