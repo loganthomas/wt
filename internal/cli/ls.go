@@ -46,14 +46,12 @@ func formatRows(trees []gitx.Worktree) string {
 	const gap = 2
 	var out strings.Builder
 	for _, row := range rows {
-		out.WriteString(row[0])
-		out.WriteString(strings.Repeat(" ", gap+branchWidth-utf8.RuneCountInString(row[0])))
-		out.WriteString(row[1])
-		if row[2] != "" {
-			out.WriteString(strings.Repeat(" ", gap+pathWidth-utf8.RuneCountInString(row[1])))
-			out.WriteString(row[2])
+		// fmt pads %s to a minimum rune count, matching the width math above.
+		if row[2] == "" {
+			fmt.Fprintf(&out, "%-*s%s\n", branchWidth+gap, row[0], row[1])
+		} else {
+			fmt.Fprintf(&out, "%-*s%-*s%s\n", branchWidth+gap, row[0], pathWidth+gap, row[1], row[2])
 		}
-		out.WriteByte('\n')
 	}
 	return out.String()
 }
