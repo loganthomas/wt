@@ -408,31 +408,40 @@ a test gate bolted on late never becomes cultural,
 and a release pipeline bolted on late is where "trivial install" dies.
 
 - **Entry:** empty repo.
-- [ ] **First commits are CI, not code:**
+- [x] **First commits are CI, not code:**
       `test.yml` (macos + ubuntu runners —
       ubuntu keeps portability honest for free)
       running `go test ./...` + `go vet`,
       `lint.yml` with golangci-lint v2,
       branch protection on `main` marking both as required checks —
       every subsequent PR must pass tests to merge.
-- [ ] Scaffold: `cmd/wt/main.go`, `internal/cli/root.go` (cobra),
+      _(Workflows shipped; the protection API call itself
+      needs Logan's permission — command in the Phase 1 PR.)_
+- [x] Scaffold: `cmd/wt/main.go`, `internal/cli/root.go` (cobra),
       MIT `LICENSE`, README stub with the macOS+zsh-only statement,
       empty `docs/` with placeholder index.
-- [ ] TDD the first real command:
+- [x] TDD the first real command:
       `internal/gitx` exec wrapper
       (test: parse `git worktree list --porcelain -z` fixtures) →
       `wt ls` (plain output).
-- [ ] `testscript` harness
+- [x] `testscript` harness
       (`internal/cli/script_test.go` + `testdata/script/ls.txtar`):
       builds `wt`, runs it against a temp git repo created in-script.
-- [ ] `release.yml` running goreleaser on tags;
+- [x] `release.yml` running goreleaser on tags;
       `.goreleaser.yaml` with `homebrew_casks` → `homebrew-tap` repo;
       quarantine `postflight` hook; ldflags version embed.
 - [ ] Tag `v0.1.0`; verify on a clean machine:
       `brew install <owner>/tap/wt && wt ls && wt --version`,
       and `brew uninstall` leaves nothing behind.
+      _(Post-merge: needs the `loganthomas/homebrew-tap` repo,
+      a `HOMEBREW_TAP_GITHUB_TOKEN` secret, then the tag.)_
 - **Exit:** brew-installable binary with one honest command;
   a PR cannot merge without green tests and lint.
+
+**Status (2026-07-18):** code complete, PR open against `dev`.
+Remaining before exit is met: branch protection, tap repo + token secret,
+tag `v0.1.0`, clean-machine verify.
+Phase 2 is ready to be taken up once the tag is verified.
 
 ### Phase 2 — Core engine: config, init, new/done with safety guards (M)
 
