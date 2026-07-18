@@ -24,6 +24,15 @@ func makeFragmentsDir(t *testing.T, root string) string {
 	return dir
 }
 
+func readChangelog(t *testing.T, root string) string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(root, changelogFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
+}
+
 func TestBatchGroupsTypesAndConsumesFragments(t *testing.T) {
 	root := t.TempDir()
 	frags := makeFragmentsDir(t, root)
@@ -35,16 +44,13 @@ func TestBatchGroupsTypesAndConsumesFragments(t *testing.T) {
 		t.Fatalf("batchChangelog() error: %v", err)
 	}
 
-	raw, err := os.ReadFile(filepath.Join(root, changelogFile))
-	if err != nil {
-		t.Fatal(err)
-	}
+	got := readChangelog(t, root)
 	want := "# Changelog\n\n" +
 		"## v0.1.0-alpha.1 - 2026-07-18\n\n" +
 		"### Enhancements\n\n- `wt ls` lists every worktree. (#1)\n\n" +
 		"### Fixes\n\n- `wt ls` no longer panics on bare repos. (#2)\n"
-	if string(raw) != want {
-		t.Errorf("CHANGELOG.md = %q, want %q", raw, want)
+	if got != want {
+		t.Errorf("CHANGELOG.md = %q, want %q", got, want)
 	}
 
 	entries, err := os.ReadDir(frags)
@@ -65,11 +71,7 @@ func TestFragmentsSortByPRNumberWithinAType(t *testing.T) {
 	if err := batchChangelog(root, "v0.1.0-alpha.1", "2026-07-18"); err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile(filepath.Join(root, changelogFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(raw)
+	text := readChangelog(t, root)
 	two, ten := strings.Index(text, "PR two. (#2)"), strings.Index(text, "PR ten. (#10)")
 	if two == -1 || ten == -1 || two > ten {
 		t.Errorf("expected PR 2 before PR 10:\n%s", text)
@@ -103,11 +105,7 @@ func TestBatchPrependsAboveOlderSections(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	raw, err := os.ReadFile(filepath.Join(root, changelogFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	text := string(raw)
+	text := readChangelog(t, root)
 	newer := strings.Index(text, "## v0.1.0-alpha.2")
 	older := strings.Index(text, "## v0.1.0-alpha.1")
 	if newer == -1 || older == -1 || newer > older {
@@ -130,12 +128,9 @@ func TestBatchWithoutFragmentsWritesPlaceholder(t *testing.T) {
 	if err := batchChangelog(root, "v0.1.0-alpha.1", "2026-07-18"); err != nil {
 		t.Fatalf("batchChangelog() error: %v", err)
 	}
-	raw, err := os.ReadFile(filepath.Join(root, changelogFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(string(raw), "No notable changes.") {
-		t.Errorf("CHANGELOG.md = %q, want a no-notable-changes placeholder", raw)
+	got := readChangelog(t, root)
+	if !strings.Contains(got, "No notable changes.") {
+		t.Errorf("CHANGELOG.md = %q, want a no-notable-changes placeholder", got)
 	}
 }
 
