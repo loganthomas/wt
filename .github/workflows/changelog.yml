@@ -32,7 +32,9 @@ jobs:
           added=$(git diff --diff-filter=A --name-only HEAD^1 HEAD -- "${specs[@]}")
           deleted=$(git diff --diff-filter=D --name-only HEAD^1 HEAD -- "${specs[@]}")
           if [ -n "$added" ] || [ -n "$deleted" ]; then
-            printf 'news fragments in this PR:\n%s%s\n' "$added" "$deleted"
+            echo "news fragments in this PR:"
+            if [ -n "$added" ]; then echo "$added"; fi
+            if [ -n "$deleted" ]; then echo "$deleted"; fi
             exit 0
           fi
           echo "::error::This PR adds no news fragment under .changes/."
