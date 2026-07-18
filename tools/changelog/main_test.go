@@ -14,12 +14,18 @@ func writeTestFragment(t *testing.T, dir, name, content string) {
 	}
 }
 
-func TestBatchGroupsTypesAndConsumesFragments(t *testing.T) {
-	root := t.TempDir()
-	frags := filepath.Join(root, fragmentsDir)
-	if err := os.MkdirAll(frags, 0o755); err != nil {
+func makeFragmentsDir(t *testing.T, root string) string {
+	t.Helper()
+	dir := filepath.Join(root, fragmentsDir)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	return dir
+}
+
+func TestBatchGroupsTypesAndConsumesFragments(t *testing.T) {
+	root := t.TempDir()
+	frags := makeFragmentsDir(t, root)
 	writeTestFragment(t, frags, "2.bug.md", "`wt ls` no longer panics on bare repos. (#2)")
 	writeTestFragment(t, frags, "1.enh.md", "`wt ls` lists every worktree. (#1)")
 	writeTestFragment(t, frags, "README.md", "see CONTRIBUTING.md")
@@ -51,10 +57,7 @@ func TestBatchGroupsTypesAndConsumesFragments(t *testing.T) {
 
 func TestBatchPrependsAboveOlderSections(t *testing.T) {
 	root := t.TempDir()
-	frags := filepath.Join(root, fragmentsDir)
-	if err := os.MkdirAll(frags, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	frags := makeFragmentsDir(t, root)
 	writeTestFragment(t, frags, "3.doc.md", "Recipes page added. (#3)")
 	if err := batchChangelog(root, "v0.1.0-alpha.1", "2026-07-18"); err != nil {
 		t.Fatal(err)
@@ -102,10 +105,7 @@ func TestBatchWithoutFragmentsWritesPlaceholder(t *testing.T) {
 
 func TestExtractReturnsOnlyTheRequestedSection(t *testing.T) {
 	root := t.TempDir()
-	frags := filepath.Join(root, fragmentsDir)
-	if err := os.MkdirAll(frags, 0o755); err != nil {
-		t.Fatal(err)
-	}
+	frags := makeFragmentsDir(t, root)
 	writeTestFragment(t, frags, "5.enh.md", "First. (#5)")
 	if err := batchChangelog(root, "v0.1.0-alpha.1", "2026-07-18"); err != nil {
 		t.Fatal(err)
@@ -162,5 +162,8 @@ func TestWriteFragmentValidatesAndRefusesDuplicates(t *testing.T) {
 	}
 	if _, err := writeFragment(dir, 9, "enh", "   "); err == nil {
 		t.Error("writeFragment() accepted a blank message")
+	}
+	if _, err := writeFragment(dir, 10, "enh", "Line one.\nLine two."); err == nil {
+		t.Error("writeFragment() accepted a multi-line message")
 	}
 }

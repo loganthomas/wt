@@ -252,6 +252,11 @@ func writeFragment(dir string, pr int, typ, message string) (string, error) {
 	if message == "" {
 		return "", errors.New("a fragment message is required")
 	}
+	// A multi-line message would break the one-bullet-per-fragment
+	// rendering, and an embedded "## " line would truncate extract.
+	if strings.ContainsAny(message, "\r\n") {
+		return "", errors.New("a fragment message must be a single line")
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}
