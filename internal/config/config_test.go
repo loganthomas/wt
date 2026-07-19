@@ -85,7 +85,7 @@ size = 6
 			global: `[defaults.pool]
 size = 4
 `,
-			wantErr: "per-repo",
+			wantErr: "per repository",
 		},
 		{
 			name:    "unknown repo key reports file and position",

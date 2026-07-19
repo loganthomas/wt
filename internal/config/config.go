@@ -83,7 +83,8 @@ func Load(globalPath, repoPath string) (Config, error) {
 	}
 	if global.Defaults.Pool != nil {
 		return Config{}, fmt.Errorf(
-			"%s: pool mode is per-repo (D3); move [pool] into the repo's wt.toml", globalPath)
+			"%s: pool mode is chosen per repository — move [pool] into the repo's wt.toml (wt init)",
+			globalPath)
 	}
 	merge(&cfg, global.Defaults)
 	if global.UI.Color != "" {
