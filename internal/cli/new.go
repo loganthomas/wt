@@ -101,8 +101,7 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 // exist on this machine.
 func copyFiles(srcRoot, dstRoot string, names []string, chatter io.Writer) error {
 	for _, name := range names {
-		src := filepath.Join(srcRoot, name)
-		data, err := os.ReadFile(src)
+		err := copyFile(filepath.Join(srcRoot, name), filepath.Join(dstRoot, name))
 		if errors.Is(err, fs.ErrNotExist) {
 			fmt.Fprintf(chatter, "copy: %s not found in the main checkout, skipped\n", name)
 			continue
@@ -110,22 +109,33 @@ func copyFiles(srcRoot, dstRoot string, names []string, chatter io.Writer) error
 		if err != nil {
 			return fmt.Errorf("copy %s: %w", name, err)
 		}
-		info, err := os.Stat(src)
-		if err != nil {
-			return fmt.Errorf("copy %s: %w", name, err)
-		}
-		dst := filepath.Join(dstRoot, name)
-		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-			return err
-		}
-		// Original permissions carried over: copy sources are
-		// often secrets (.env) deliberately locked down.
-		if err := os.WriteFile(dst, data, info.Mode().Perm()); err != nil {
-			return err
-		}
 		fmt.Fprintf(chatter, "copy: %s\n", name)
 	}
 	return nil
+}
+
+// copyFile copies one file, creating parent directories and
+// carrying the source permissions over — copy sources are often
+// secrets (.env) deliberately locked down.
+func copyFile(src, dst string) error {
+	f, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	// Read-only handle: a close failure can't lose data.
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	data, err := io.ReadAll(f)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(dst, data, info.Mode().Perm())
 }
 
 // runHook runs a user hook command inside dir through sh.
