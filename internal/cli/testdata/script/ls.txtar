@@ -1,0 +1,26 @@
+# wt ls lists every worktree: branch, path, state.
+# Data goes to stdout only; nothing may leak to stderr (D13).
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main repo
+cd repo
+exec git commit -q --allow-empty -m 'initial'
+exec git worktree add -q ../trees/login -b feature/login
+
+exec wt ls
+stdout 'main\s+.*[/\\]repo$'
+stdout 'feature/login\s+.*[/\\]login$'
+! stderr .
+
+# a detached worktree is labeled, not blank
+exec git worktree add -q --detach ../trees/scratch
+exec wt ls
+stdout '\(detached\)\s+.*[/\\]scratch'
+
+# outside any repository: git's own error lands on stderr, exit is non-zero
+mkdir $WORK/elsewhere
+cd $WORK/elsewhere
+! exec wt ls
+stderr 'not a git repository'
+! stdout .
