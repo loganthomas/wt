@@ -21,15 +21,22 @@ func openRepo(ctx context.Context) (*wtRepo, error) {
 	if err != nil {
 		return nil, err
 	}
-	globalPath, err := config.GlobalPath()
-	if err != nil {
-		return nil, err
-	}
-	cfg, err := config.Load(globalPath, r.ConfigPath())
+	cfg, err := loadMerged(r)
 	if err != nil {
 		return nil, err
 	}
 	return &wtRepo{repo: r, cfg: cfg}, nil
+}
+
+// loadMerged is the one place the config layers come together for
+// an already-found repo; every command that needs config goes
+// through it so they can never disagree on the effective values.
+func loadMerged(r *repo.Repo) (config.Config, error) {
+	globalPath, err := config.GlobalPath()
+	if err != nil {
+		return config.Config{}, err
+	}
+	return config.Load(globalPath, r.ConfigPath())
 }
 
 // treesDir is the resolved container for this repo's managed trees.

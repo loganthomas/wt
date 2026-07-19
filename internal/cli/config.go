@@ -93,11 +93,7 @@ func runConfigEdit(cmd *cobra.Command) error {
 
 	// Validate right away: a typo surfaces now, at the terminal
 	// where it can be fixed, not on some later command.
-	globalPath, err := config.GlobalPath()
-	if err != nil {
-		return err
-	}
-	if _, err := config.Load(globalPath, path); err != nil {
+	if _, err := loadMerged(r); err != nil {
 		return fmt.Errorf("saved, but the config does not load: %w", err)
 	}
 	return nil

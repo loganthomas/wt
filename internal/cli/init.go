@@ -56,13 +56,9 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 			"wt is already set up here (%s) — edit it with `wt config --edit`", r.ConfigPath())
 	}
 
-	globalPath, err := config.GlobalPath()
-	if err != nil {
-		return err
-	}
 	// Global defaults (and the built-ins behind them) seed the
 	// form, so flags only need to state what differs.
-	seed, err := config.Load(globalPath, r.ConfigPath())
+	seed, err := loadMerged(r)
 	if err != nil {
 		return err
 	}
