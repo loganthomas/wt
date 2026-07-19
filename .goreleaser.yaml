@@ -1,0 +1,59 @@
+version: 2
+
+project_name: wt
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - main: ./cmd/wt
+    binary: wt
+    env:
+      - CGO_ENABLED=0
+    # v1 is macOS-only (see README); Linux targets arrive in Phase 9.
+    goos: [darwin]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .ShortCommit }}
+      - -X main.date={{ .Date }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - formats: [tar.gz]
+    files: [LICENSE, README.md]
+
+checksum:
+  name_template: checksums.txt
+
+release:
+  # Phase-exit alpha tags publish as GitHub prereleases (PLAN.md D8).
+  prerelease: auto
+
+changelog:
+  # Release notes come from news fragments folded into CHANGELOG.md;
+  # release.yml passes them via --release-notes (see CONTRIBUTING.md).
+  disable: true
+
+homebrew_casks:
+  - name: wt
+    # Alphas cut a prerelease but stay out of the tap;
+    # the cask first publishes at the real v0.1.0 (PLAN.md D8).
+    skip_upload: auto
+    repository:
+      owner: loganthomas
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: https://github.com/loganthomas/wt
+    description: Thin, elegant wrapper around git worktree
+    hooks:
+      post:
+        # Unsigned binary: strip the quarantine bit until notarization (post-1.0).
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr",
+              args: ["-dr", "com.apple.quarantine", "#{staged_path}/wt"]
+          end

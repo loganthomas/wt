@@ -1,0 +1,57 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  # A tag can point at a commit main never tested;
+  # re-run the gate so a broken binary cannot ship.
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # same legs as test.yml: macOS is the v1 target
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - run: go build ./...
+      - run: go vet ./...
+      - run: go test -race ./...
+
+  goreleaser:
+    needs: test
+    # Only this job publishes; the test gate runs tagged code read-only.
+    permissions:
+      contents: write
+    # Pure-Go cross-compile (CGO_ENABLED=0): ubuntu builds the darwin
+    # binaries byte-identically, without macOS runner queues.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      # Fails if the tag was never batched into CHANGELOG.md,
+      # so a release can't ship without its notes (CONTRIBUTING.md).
+      - name: build release notes from the changelog
+        run: go run ./tools/changelog extract "$GITHUB_REF_NAME" > /tmp/release-notes.md
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean --release-notes /tmp/release-notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Fine-grained PAT with contents:write on loganthomas/homebrew-tap;
+          # the default GITHUB_TOKEN cannot push to another repository.
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}

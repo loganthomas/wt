@@ -1,0 +1,69 @@
+name: Feature Request
+description: Suggest a new feature or improvement
+title: "[FEAT]: "
+labels: ["enhancement"]
+assignees:
+  - loganthomas
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Thanks for suggesting a feature!
+
+        Before filing, please search
+        [existing issues](https://github.com/loganthomas/wt/issues?q=is%3Aissue)
+        in case it's already planned —
+        [PLAN.md](https://github.com/loganthomas/wt/blob/main/PLAN.md)
+        lists what's coming in later phases.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Need
+      description: What problem does this solve? What workflow is painful today?
+      placeholder: >
+        I'm always frustrated when I finish a branch and have to remember
+        which worktree it lived in before I can clean it up...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: >
+        What would you like wt to do? A sketch of the CLI experience
+        helps more than prose.
+      placeholder: |
+        wt done --merged
+        # removes every tree whose branch is already merged into the base,
+        # printing each removal, with -n for a dry run
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Workarounds you use today, or other shapes this feature could take.
+      placeholder: >
+        Today I run `git branch --merged` manually and cross-reference
+        `wt ls`, but that misses...
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Anything else — links, prior art in other tools, screenshots.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Final checks
+      options:
+        - label: I searched existing issues and PLAN.md and this is not already planned
+          required: true

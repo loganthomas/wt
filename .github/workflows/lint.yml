@@ -1,0 +1,31 @@
+name: lint
+
+# pull_request covers every PR (phase branches into dev, dev into main);
+# push runs only on main so a dev-to-main PR doesn't double-run the job.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  # Superseded PR pushes are safe to cancel; main runs are not,
+  # since every main commit needs a completed verdict.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          # Pinned so the required check can't shift under a merge;
+          # bump deliberately alongside .golangci.yml.
+          version: v2.12.2

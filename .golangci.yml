@@ -1,0 +1,24 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
+
+linters:
+  enable:
+    - misspell
+    - unconvert
+    - errname
+    - lll
+  settings:
+    errcheck:
+      # Print-to-stream errors are conventionally ignored in CLIs;
+      # code that must honor write failures checks them explicitly,
+      # as runLs does for its stdout rows.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+    lll:
+      line-length: 100

@@ -1,0 +1,44 @@
+name: changelog
+
+# Every PR into dev must stage at least one news fragment;
+# a release-batch PR passes by consuming them instead.
+# See CONTRIBUTING.md.
+on:
+  pull_request:
+    branches: [dev]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  fragment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The checkout is the synthetic merge commit, so HEAD^1 is the
+          # base tip and depth 2 suffices for the whole PR diff.
+          fetch-depth: 2
+      - name: require a news fragment
+        run: |
+          # Only known types count; a mistyped fragment (e.g. .feature.md)
+          # would never be collected, so it must not satisfy the gate.
+          specs=('.changes/*.enh.md' '.changes/*.bug.md' '.changes/*.dep.md'
+                 '.changes/*.doc.md' '.changes/*.maint.md')
+          added=$(git diff --diff-filter=A --name-only HEAD^1 HEAD -- "${specs[@]}")
+          deleted=$(git diff --diff-filter=D --name-only HEAD^1 HEAD -- "${specs[@]}")
+          if [ -n "$added" ] || [ -n "$deleted" ]; then
+            echo "news fragments in this PR:"
+            if [ -n "$added" ]; then echo "$added"; fi
+            if [ -n "$deleted" ]; then echo "$deleted"; fi
+            exit 0
+          fi
+          echo "::error::This PR adds no news fragment under .changes/."
+          echo "Create one with (types: enh, bug, dep, doc, maint):"
+          echo '  go run ./tools/changelog new -pr <PR> -type <type> "<one sentence>"'
+          echo "See CONTRIBUTING.md for details."
+          exit 1
