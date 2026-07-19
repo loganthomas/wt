@@ -81,9 +81,11 @@ func runConfigEdit(cmd *cobra.Command) error {
 	editor := cmp.Or(os.Getenv("VISUAL"), os.Getenv("EDITOR"), "vi")
 	// Run through the shell so multi-word editors ("code --wait")
 	// keep working; the path rides as $1 to dodge quoting games.
+	// The editor owns the whole terminal for the session,
+	// stdout included; there is no wt data output to protect here.
 	edit := exec.CommandContext(ctx, "sh", "-c", editor+` "$1"`, "sh", path)
 	edit.Stdin = os.Stdin
-	edit.Stdout = os.Stderr
+	edit.Stdout = os.Stdout
 	edit.Stderr = os.Stderr
 	if err := edit.Run(); err != nil {
 		return fmt.Errorf("editor %q: %w", editor, err)
