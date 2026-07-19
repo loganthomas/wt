@@ -34,13 +34,20 @@ go install github.com/loganthomas/wt/cmd/wt@latest
 
 ## Commands
 
-| Command        | One-liner                            |
-| -------------- | ------------------------------------ |
-| `wt ls`        | List worktrees: branch, path, state. |
-| `wt --version` | Version, commit, build date.         |
+| Command                          | One-liner                                                                     |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| `wt init`                        | Set up wt for a repo (prompts, or `--yes` + flags); writes `.git/wt.toml`.    |
+| `wt new <branch> [--base <ref>]` | Create a worktree + branch off the base; prints the tree path on stdout.      |
+| `wt ls`                          | List worktrees: branch, path, state.                                          |
+| `wt done [name] [--keep-branch]` | Finish a tree: safety checks, remove it, delete its branch. Alias: `wt rm`.   |
+| `wt path [name]`                 | Print a tree's absolute path (plumbing).                                      |
+| `wt config [--edit]`             | Show active config paths and merged values; `--edit` opens `$EDITOR`.         |
+| `wt --version`                   | Version, commit, build date.                                                  |
 
-The full surface (`init`, `new`, `go`, `done`, `sync`, pool mode, …)
+The full surface (`go`, `sync`, `clean`, pool mode, …)
 lands phase by phase; see [PLAN.md](PLAN.md).
+Configuration reference: [docs/configuration.md](docs/configuration.md).
+Scripting and agent contract: [docs/agents.md](docs/agents.md).
 
 ## Docs
 
