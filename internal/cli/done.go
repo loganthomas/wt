@@ -128,23 +128,33 @@ func pristineCopies(
 		if tracked[filepath.ToSlash(name)] {
 			continue
 		}
-		treeData, err := os.ReadFile(filepath.Join(treeRoot, name))
-		if errors.Is(err, fs.ErrNotExist) {
+		treeData, ok, err := readCopy(treeRoot, name)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
 			continue
 		}
+		srcData, ok, err := readCopy(srcRoot, name)
 		if err != nil {
-			return nil, fmt.Errorf("copy %s: %w", name, err)
+			return nil, err
 		}
-		srcData, err := os.ReadFile(filepath.Join(srcRoot, name))
-		if errors.Is(err, fs.ErrNotExist) {
-			continue
-		}
-		if err != nil {
-			return nil, fmt.Errorf("copy %s: %w", name, err)
-		}
-		if bytes.Equal(treeData, srcData) {
+		if ok && bytes.Equal(treeData, srcData) {
 			out = append(out, filepath.ToSlash(name))
 		}
 	}
 	return out, nil
+}
+
+// readCopy reads a copy-list file under root;
+// ok is false when the file does not exist there.
+func readCopy(root, name string) (data []byte, ok bool, err error) {
+	data, err = os.ReadFile(filepath.Join(root, name))
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("copy %s: %w", name, err)
+	}
+	return data, true, nil
 }
