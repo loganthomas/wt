@@ -118,17 +118,11 @@ func copyFiles(srcRoot, dstRoot string, names []string, chatter io.Writer) error
 // carrying the source permissions over — copy sources are often
 // secrets (.env) deliberately locked down.
 func copyFile(src, dst string) error {
-	f, err := os.Open(src)
+	info, err := os.Stat(src)
 	if err != nil {
 		return err
 	}
-	// Read-only handle: a close failure can't lose data.
-	defer func() { _ = f.Close() }()
-	info, err := f.Stat()
-	if err != nil {
-		return err
-	}
-	data, err := io.ReadAll(f)
+	data, err := os.ReadFile(src)
 	if err != nil {
 		return err
 	}
