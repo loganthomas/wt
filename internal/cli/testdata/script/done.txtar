@@ -6,7 +6,8 @@
 exec git init -q -b main acme
 cd acme
 exec git commit -q --allow-empty -m 'initial'
-exec wt init --yes
+exec wt init --yes --copy .env
+cp $WORK/env-fixture .env
 exec wt new feature/login
 
 # the main checkout is structurally unremovable
@@ -24,6 +25,13 @@ rm scratch.txt
 exec git commit -q --allow-empty -m 'work'
 exitcode 3 wt done
 stderr 'neither pushed nor merged'
+
+# a copied file wt itself planted must not block removal (it is
+# untracked by design), but one the user edited still does
+cp $WORK/env-edited .env
+exitcode 3 wt done --keep-branch
+rm .env
+cp $WORK/env-fixture .env
 
 # --keep-branch removes the tree but preserves the branch
 exec wt done --keep-branch
@@ -55,3 +63,7 @@ stderr 'no tree matches'
 
 -- scratch.txt --
 wip
+-- env-fixture --
+SECRET=hunter2
+-- env-edited --
+SECRET=changed

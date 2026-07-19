@@ -1,7 +1,12 @@
 package cli
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -46,7 +51,13 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 	// Guards before anything destructive (R2). The unpushed check
 	// runs only when the branch is about to be deleted: with
 	// --keep-branch every commit stays reachable through it.
-	if err := guard.CheckDirty(ctx, target.Path); err != nil {
+	// Pristine copies of the configured copy files are wt's own
+	// plantings and don't count as dirt; an edited one still does.
+	pristine, err := pristineCopies(w.repo.Root, target.Path, w.cfg.Copy)
+	if err != nil {
+		return err
+	}
+	if err := guard.CheckDirty(ctx, target.Path, pristine...); err != nil {
 		return err
 	}
 	if target.Detached {
@@ -61,6 +72,13 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 		}
 	}
 
+	// The pristine copies go first: git itself refuses to remove
+	// a tree holding untracked files, and these are wt's to clean.
+	for _, name := range pristine {
+		if err := os.Remove(filepath.Join(target.Path, name)); err != nil {
+			return err
+		}
+	}
 	if err := g.WorktreeRemove(ctx, target.Path); err != nil {
 		return err
 	}
@@ -75,4 +93,30 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 		fmt.Fprintf(chatter, "kept branch %s\n", target.Branch)
 	}
 	return nil
+}
+
+// pristineCopies returns the configured copy files whose content in
+// the tree still matches the main checkout byte for byte.
+// Only those may be swept aside on removal; a missing or edited
+// copy is the user's data and stays under the dirty guard.
+// Paths come back slash-separated to match git's status output.
+func pristineCopies(srcRoot, treeRoot string, names []string) ([]string, error) {
+	var out []string
+	for _, name := range names {
+		treeData, err := os.ReadFile(filepath.Join(treeRoot, name))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		srcData, err := os.ReadFile(filepath.Join(srcRoot, name))
+		if err != nil {
+			continue
+		}
+		if bytes.Equal(treeData, srcData) {
+			out = append(out, filepath.ToSlash(name))
+		}
+	}
+	return out, nil
 }

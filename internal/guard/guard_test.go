@@ -42,6 +42,22 @@ func TestCheckDirty(t *testing.T) {
 	}
 }
 
+func TestCheckDirtyTolerated(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, filepath.Join(gittest.TempDir(t), "acme"))
+	gittest.WriteFile(t, dir, ".env", "SECRET=1")
+
+	if err := CheckDirty(t.Context(), dir, ".env"); err != nil {
+		t.Errorf("CheckDirty(tolerate .env) = %v, want nil", err)
+	}
+	assertViolation(t, CheckDirty(t.Context(), dir), true, "uncommitted")
+
+	// Tolerance covers only untracked files: the same name staged
+	// is real work in flight.
+	gittest.Run(t, dir, "add", "-f", ".env")
+	assertViolation(t, CheckDirty(t.Context(), dir, ".env"), true, "uncommitted")
+}
+
 func TestCheckUnpushed(t *testing.T) {
 	gittest.Scrub(t)
 

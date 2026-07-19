@@ -7,6 +7,7 @@ package guard
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/loganthomas/wt/internal/gitx"
 )
@@ -30,12 +31,18 @@ func (v *Error) ExitCode() int { return 3 }
 // CheckDirty reports an Error when the tree has uncommitted
 // changes — staged, unstaged, or untracked. All three would be
 // destroyed by a worktree remove.
-func CheckDirty(ctx context.Context, tree string) error {
-	dirty, err := gitx.New(tree).IsDirty(ctx)
+// Untracked files named in tolerateUntracked are ignored:
+// wt plants its configured copy files in every tree,
+// and files it planted must not block leaving.
+func CheckDirty(ctx context.Context, tree string, tolerateUntracked ...string) error {
+	entries, err := gitx.New(tree).Status(ctx)
 	if err != nil {
 		return err
 	}
-	if dirty {
+	for _, e := range entries {
+		if e.Code == "??" && slices.Contains(tolerateUntracked, e.Path) {
+			continue
+		}
 		return &Error{
 			Tree:   tree,
 			Reason: "the tree has uncommitted changes",
