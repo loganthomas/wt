@@ -30,9 +30,9 @@ type Config struct {
 
 // Hooks are the user commands run around tree creation and refresh.
 type Hooks struct {
-	Setup            string   `toml:"setup"`
-	Refresh          string   `toml:"refresh"`
-	RefreshIfChanged []string `toml:"refresh_if_changed"`
+	Setup            string   `toml:"setup,omitempty"`
+	Refresh          string   `toml:"refresh,omitempty"`
+	RefreshIfChanged []string `toml:"refresh_if_changed,omitempty"`
 }
 
 // Pool configures the pre-warmed slot pool for monorepos.
@@ -142,7 +142,9 @@ func validate(cfg Config) error {
 	if err := validateTreeLocal("hooks.refresh_if_changed", cfg.Hooks.RefreshIfChanged); err != nil {
 		return err
 	}
-	if !slices.Contains(uiColors, cfg.UI.Color) {
+	// Empty means unset: Save sees pre-merge configs whose UI
+	// section (global-only) is legitimately absent.
+	if cfg.UI.Color != "" && !slices.Contains(uiColors, cfg.UI.Color) {
 		return fmt.Errorf("ui.color must be one of auto, always, never; got %q", cfg.UI.Color)
 	}
 	return nil

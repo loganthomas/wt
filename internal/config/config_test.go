@@ -166,6 +166,71 @@ func writeOptional(t *testing.T, dir, name, content string) string {
 	return path
 }
 
+func TestSave(t *testing.T) {
+	t.Run("writes only what is set and round-trips", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "wt.toml")
+		in := Config{
+			Base:     "green",
+			TreesDir: "../acme.trees",
+			Copy:     []string{".env"},
+			Pool:     &Pool{Size: 6},
+		}
+		if err := Save(path, in); err != nil {
+			t.Fatal(err)
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(raw), "[hooks]") {
+			t.Errorf("Save() wrote an empty [hooks] table:\n%s", raw)
+		}
+		got, err := Load(filepath.Join(t.TempDir(), "absent"), path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		in.UI = UI{Color: "auto"}
+		if diff := cmp.Diff(in, got); diff != "" {
+			t.Errorf("round-trip mismatch (-saved +loaded):\n%s", diff)
+		}
+	})
+	t.Run("refuses invalid config", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "wt.toml")
+		err := Save(path, Config{Pool: &Pool{Size: -1}})
+		if err == nil || !strings.Contains(err.Error(), "pool.size") {
+			t.Errorf("Save(bad pool) error = %v, want pool.size complaint", err)
+		}
+		if _, statErr := os.Stat(path); statErr == nil {
+			t.Error("Save(bad pool) still wrote the file")
+		}
+	})
+}
+
+func TestRender(t *testing.T) {
+	got, err := Render(Config{
+		Base:     "main",
+		TreesDir: "/abs/acme.trees",
+		Hooks:    Hooks{Setup: "make bootstrap"},
+		UI:       UI{Color: "auto"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `base = 'main'
+trees_dir = '/abs/acme.trees'
+copy = []
+
+[hooks]
+setup = 'make bootstrap'
+
+[ui]
+color = 'auto'
+`
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Render() mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestGlobalPath(t *testing.T) {
 	t.Run("respects XDG_CONFIG_HOME", func(t *testing.T) {
 		t.Setenv("XDG_CONFIG_HOME", "/xdg/config")

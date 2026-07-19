@@ -1,0 +1,56 @@
+# wt init writes .git/wt.toml; wt config shows paths and merged values.
+# Contract (D13): config data on stdout, chatter on stderr, exit codes exact.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main repo
+cd repo
+exec git commit -q --allow-empty -m 'initial'
+
+# non-interactive without --yes is a usage error: exit 2, hint on stderr
+exitcode 2 wt init
+stderr 'wt init --yes'
+
+# --yes takes the defaults; nothing goes to stdout
+exec wt init --yes
+! stdout .
+stderr 'wt\.toml'
+exists .git/wt.toml
+grep 'base = .main.' .git/wt.toml
+grep 'trees_dir = ' .git/wt.toml
+! grep 'pool' .git/wt.toml
+
+# a second init must not clobber the config: exit 3 with the way forward
+exitcode 3 wt init --yes
+stderr 'wt config --edit'
+
+# wt config: paths as TOML comments + merged values, all on stdout
+exec wt config
+stdout '^# repo:'
+stdout '^# global:'
+stdout 'base = .main.'
+stdout 'color = .auto.'
+! stderr .
+
+# value flags override the defaults; pool table lands only when asked
+cd $WORK
+exec git init -q -b main mono
+cd mono
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes --base trunk --trees-dir ../mono-trees --pool-size 4 --copy .env,.envrc
+grep 'base = .trunk.' .git/wt.toml
+grep 'trees_dir = .\.\./mono-trees.' .git/wt.toml
+grep 'size = 4' .git/wt.toml
+grep '\.envrc' .git/wt.toml
+
+# --edit opens $EDITOR on the repo config and validates the result
+env EDITOR=true
+exec wt config --edit
+
+# a broken config is reported with file, line, and column
+cp $WORK/broken.toml .git/wt.toml
+exitcode 1 wt config
+stderr 'wt\.toml:1:'
+
+-- broken.toml --
+base = 123
