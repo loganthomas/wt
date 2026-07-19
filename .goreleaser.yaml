@@ -33,10 +33,10 @@ release:
   # Phase-exit alpha tags publish as GitHub prereleases (PLAN.md D8).
   prerelease: auto
 
-changelog:
-  # Release notes come from news fragments folded into CHANGELOG.md;
-  # release.yml passes them via --release-notes (see CONTRIBUTING.md).
-  disable: true
+# Release notes come from news fragments folded into CHANGELOG.md;
+# release.yml passes them via --release-notes. goreleaser loads that
+# file inside its changelog stage, so the changelog must stay enabled:
+# disabling it publishes an empty release body (learned on alpha.1).
 
 homebrew_casks:
   - name: wt
