@@ -34,6 +34,27 @@ func (g *Git) Worktrees(ctx context.Context) ([]Worktree, error) {
 	return ParseWorktrees(out)
 }
 
+// CommonDir returns the absolute path of the repository's shared
+// .git directory; linked worktrees resolve to the main one.
+func (g *Git) CommonDir(ctx context.Context) (string, error) {
+	return g.runLine(ctx, "rev-parse", "--path-format=absolute", "--git-common-dir")
+}
+
+// TopLevel returns the absolute root of the worktree containing
+// g's directory.
+func (g *Git) TopLevel(ctx context.Context) (string, error) {
+	return g.runLine(ctx, "rev-parse", "--show-toplevel")
+}
+
+// runLine runs git and returns its single-line output, trimmed.
+func (g *Git) runLine(ctx context.Context, args ...string) (string, error) {
+	out, err := g.run(ctx, args...)
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 func (g *Git) run(ctx context.Context, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = g.dir
