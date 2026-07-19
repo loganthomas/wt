@@ -15,7 +15,7 @@ func newLsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "ls",
 		Short: "List worktrees",
-		Args:  usageArgs(cobra.NoArgs),
+		Args:  cobra.NoArgs,
 		RunE:  runLs,
 	}
 }

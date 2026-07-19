@@ -19,7 +19,7 @@ func newConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Show the active config paths and merged values",
-		Args:  usageArgs(cobra.NoArgs),
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if edit {
 				return runConfigEdit(cmd)

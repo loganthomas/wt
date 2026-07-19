@@ -13,7 +13,7 @@ func newPathCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "path [name]",
 		Short: "Print a tree's absolute path (plumbing)",
-		Args:  usageArgs(cobra.MaximumNArgs(1)),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runPath(cmd, nameArg(args))
 		},

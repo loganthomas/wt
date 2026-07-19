@@ -31,7 +31,7 @@ func newInitCmd() *cobra.Command {
 		Short: "Set up wt for this repository",
 		Long: "Set up wt for this repository: asks a few questions\n" +
 			"(or takes flags with --yes) and writes .git/wt.toml.",
-		Args: usageArgs(cobra.NoArgs),
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runInit(cmd, opts)
 		},

@@ -22,7 +22,7 @@ func newNewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "new <branch>",
 		Short: "Create a worktree on a new branch off the base",
-		Args:  usageArgs(cobra.ExactArgs(1)),
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runNew(cmd, args[0], base)
 		},

@@ -21,7 +21,7 @@ func newDoneCmd() *cobra.Command {
 		Use:     "done [name]",
 		Aliases: []string{"rm"},
 		Short:   "Finish a tree: safety checks, then remove it and its branch",
-		Args:    usageArgs(cobra.MaximumNArgs(1)),
+		Args:    cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDone(cmd, nameArg(args), keepBranch)
 		},

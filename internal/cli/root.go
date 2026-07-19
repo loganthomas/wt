@@ -67,9 +67,8 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 		Use:     "wt",
 		Short:   "A thin, elegant wrapper around git worktree",
 		Version: info.String(),
-		// Wrapped so cobra's unknown-command error exits 2, not 1.
-		Args: usageArgs(cobra.NoArgs),
-		RunE: runRoot,
+		Args:    cobra.NoArgs,
+		RunE:    runRoot,
 		// Errors are reported once by Main, with wt's exit-code mapping.
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -83,6 +82,15 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 		newPathCmd(),
 		newConfigCmd(),
 	)
+	// Argument validators are wrapped centrally so bad arguments
+	// exit 2 (D13) on every command, present and future — the
+	// contract is structural, not a per-command ritual.
+	root.Args = usageArgs(root.Args)
+	for _, cmd := range root.Commands() {
+		if cmd.Args != nil {
+			cmd.Args = usageArgs(cmd.Args)
+		}
+	}
 	return root
 }
 
