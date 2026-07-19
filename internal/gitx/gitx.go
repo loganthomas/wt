@@ -36,10 +36,14 @@ func (g *Git) Worktrees(ctx context.Context) ([]Worktree, error) {
 	return ParseWorktrees(out)
 }
 
-// CommonDir returns the absolute path of the repository's shared
-// .git directory; linked worktrees resolve to the main one.
-func (g *Git) CommonDir(ctx context.Context) (string, error) {
-	return g.runLine(ctx, "rev-parse", "--path-format=absolute", "--git-common-dir")
+// RevParse runs git rev-parse with the given flags and returns
+// one output line per flag that prints something.
+func (g *Git) RevParse(ctx context.Context, flags ...string) ([]string, error) {
+	out, err := g.runLine(ctx, append([]string{"rev-parse"}, flags...)...)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(out, "\n"), nil
 }
 
 // TopLevel returns the absolute root of the worktree containing

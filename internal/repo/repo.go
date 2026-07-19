@@ -27,7 +27,9 @@ type Repo struct {
 
 // Find resolves the repository containing dir.
 func Find(ctx context.Context, dir string) (*Repo, error) {
-	common, err := gitx.New(dir).CommonDir(ctx)
+	g := gitx.New(dir)
+	lines, err := g.RevParse(ctx, "--path-format=absolute", "--git-common-dir",
+		"--is-bare-repository")
 	if err != nil {
 		var gitErr *gitx.Error
 		if errors.As(err, &gitErr) && strings.Contains(gitErr.Stderr, "not a git repository") {
@@ -35,11 +37,32 @@ func Find(ctx context.Context, dir string) (*Repo, error) {
 		}
 		return nil, err
 	}
-	if filepath.Base(common) != ".git" {
+	if len(lines) != 2 {
+		return nil, fmt.Errorf("unexpected git rev-parse output: %q", lines)
+	}
+	common, bare := lines[0], lines[1] == "true"
+	if bare {
 		return nil, fmt.Errorf(
 			"%s is a bare repository; wt needs a main checkout to anchor config and trees", common)
 	}
-	return &Repo{CommonDir: common, Root: filepath.Dir(common)}, nil
+	if filepath.Base(common) == ".git" {
+		return &Repo{CommonDir: common, Root: filepath.Dir(common)}, nil
+	}
+	// A common dir not named .git means an indirected layout —
+	// a submodule (.git/modules/<name>) or --separate-git-dir.
+	// The parent-dir rule doesn't hold there, and git itself only
+	// knows the checkout from inside it: when this worktree IS the
+	// main one (its git dir is the common dir), its top level is
+	// the root being looked for.
+	lines, err = g.RevParse(ctx, "--path-format=absolute", "--git-dir", "--show-toplevel")
+	if err != nil {
+		return nil, err
+	}
+	if len(lines) == 2 && lines[0] == common {
+		return &Repo{CommonDir: common, Root: lines[1]}, nil
+	}
+	return nil, fmt.Errorf(
+		"cannot locate the main checkout for %s — run wt from the main worktree", common)
 }
 
 // Slug names this repo's state directory: <basename>-<hash8>.

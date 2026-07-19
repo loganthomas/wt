@@ -58,6 +58,40 @@ func TestFind(t *testing.T) {
 		}
 	})
 
+	t.Run("submodule checkout resolves to its own repo", func(t *testing.T) {
+		super := gittest.Repo(t, filepath.Join(work, "super"))
+		gittest.Repo(t, filepath.Join(work, "sub"))
+		gittest.Run(t, super, "-c", "protocol.file.allow=always",
+			"submodule", "add", "-q", "../sub", "lib")
+		r, err := Find(t.Context(), filepath.Join(super, "lib"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if want := filepath.Join(super, ".git", "modules", "lib"); r.CommonDir != want {
+			t.Errorf("CommonDir = %q, want %q", r.CommonDir, want)
+		}
+		if want := filepath.Join(super, "lib"); r.Root != want {
+			t.Errorf("Root = %q, want %q (the submodule checkout)", r.Root, want)
+		}
+	})
+
+	t.Run("separate-git-dir checkout resolves its main worktree", func(t *testing.T) {
+		gitDir := filepath.Join(work, "app.git")
+		app := filepath.Join(work, "app")
+		gittest.Run(t, work, "init", "-q", "-b", "main", "--separate-git-dir", gitDir, app)
+		gittest.Run(t, app, "commit", "-q", "--allow-empty", "-m", "initial")
+		r, err := Find(t.Context(), app)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r.CommonDir != gitDir {
+			t.Errorf("CommonDir = %q, want %q", r.CommonDir, gitDir)
+		}
+		if r.Root != app {
+			t.Errorf("Root = %q, want %q (the main checkout)", r.Root, app)
+		}
+	})
+
 	t.Run("bare repository is refused", func(t *testing.T) {
 		bare := filepath.Join(work, "bare.git")
 		if err := os.MkdirAll(bare, 0o755); err != nil {
