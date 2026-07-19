@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -44,6 +45,32 @@ func (g *Git) CommonDir(ctx context.Context) (string, error) {
 // g's directory.
 func (g *Git) TopLevel(ctx context.Context) (string, error) {
 	return g.runLine(ctx, "rev-parse", "--show-toplevel")
+}
+
+// IsDirty reports whether the worktree at g's directory has any
+// staged, unstaged, or untracked changes.
+func (g *Git) IsDirty(ctx context.Context) (bool, error) {
+	out, err := g.run(ctx, "status", "--porcelain")
+	if err != nil {
+		return false, err
+	}
+	return len(out) > 0, nil
+}
+
+// CommitCount counts the commits selected by a rev-list spec,
+// e.g. ("HEAD", "--not", "--remotes").
+func (g *Git) CommitCount(ctx context.Context, spec ...string) (int, error) {
+	out, err := g.runLine(ctx, append([]string{"rev-list", "--count"}, spec...)...)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.Atoi(out)
+}
+
+// HasCommit reports whether ref resolves to a commit.
+func (g *Git) HasCommit(ctx context.Context, ref string) bool {
+	_, err := g.run(ctx, "rev-parse", "--verify", "--quiet", ref+"^{commit}")
+	return err == nil
 }
 
 // runLine runs git and returns its single-line output, trimmed.
