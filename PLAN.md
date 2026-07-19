@@ -448,7 +448,7 @@ and a release pipeline bolted on late is where "trivial install" dies.
 - [x] `release.yml` running goreleaser on tags;
       `.goreleaser.yaml` with `homebrew_casks` → `homebrew-tap` repo;
       quarantine `postflight` hook; ldflags version embed.
-- [ ] Tag `v0.1.0-alpha.1`; verify:
+- [x] Tag `v0.1.0-alpha.1`; verify:
       the GitHub prerelease exists with darwin archives
       and notes drawn from the batched news fragments,
       the archive binary runs (`wt ls`,
@@ -464,33 +464,42 @@ and a release pipeline bolted on late is where "trivial install" dies.
 - **Exit:** a proven release pipeline and one honest command;
   a PR cannot merge without green tests and lint.
 
-**Status (2026-07-18):** code complete, CI green, PR open against `dev`;
+**Status (2026-07-18): complete.**
+`v0.1.0-alpha.1` tagged and released;
 branch protection live on `main` and `dev`.
-Remaining before exit is met: tap repo + token secret,
-tag `v0.1.0-alpha.1`, verify the prerelease and local cask.
-Phase 2 is ready to be taken up once the tag is verified.
 
 ### Phase 2 — Core engine: config, init, new/done with safety guards (M)
 
 - **Entry:** Phase 1 shipped.
-- [ ] `internal/config`: load/merge/validate;
+- [x] `internal/config`: load/merge/validate;
       table-driven tests including error positions.
-- [ ] Repo identity: common-git-dir resolution, state-dir slug+hash
+- [x] Repo identity: common-git-dir resolution, state-dir slug+hash
       (`internal/repo`).
-- [ ] **Safety guards before any destructive command exists** (`internal/guard`):
+- [x] **Safety guards before any destructive command exists** (`internal/guard`):
       dirty-tree, unpushed-commit, orphan-commit checks —
       unit-tested against fixture repos in every reachable state.
-- [ ] `wt init` (interactive form via huh v2, plus `--yes` and value flags
+- [x] `wt init` (interactive form via huh v2, plus `--yes` and value flags
       for scriptability); `wt config [--edit]`.
-- [ ] `wt new` (branch create, sanitization, collision error,
+- [x] `wt new` (branch create, sanitization, collision error,
       `copy` list, `hooks.setup`);
       `wt done`/`rm` (guards → `git worktree remove` →
       branch delete unless `--keep-branch`);
       `wt path`.
-- [ ] Exit-code + stdout/stderr contract enforced by a shared
+- [x] Exit-code + stdout/stderr contract enforced by a shared
       testscript assertion helper.
 - **Exit:** full default-mode lifecycle usable day-to-day from the raw binary
   (no cd yet). Tag `v0.1.0-alpha.2`.
+
+**Status (2026-07-18):** code complete, PR open against `dev`.
+Notable additions beyond the checklist:
+`wt done` sweeps wt-planted `copy` files when their content still
+matches the main checkout (an edited copy still trips the guard),
+and the orphan check uses `--not --branches --tags --remotes`
+because modern git's `--all` includes HEAD itself.
+Remaining before exit is met: merge, batch fragments,
+tag `v0.1.0-alpha.2`.
+Phase 3 (shell integration & navigation) is ready to be taken up
+once the tag is cut.
 
 ### Phase 3 — Shell integration & navigation (M)
 
