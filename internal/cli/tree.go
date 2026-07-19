@@ -26,10 +26,16 @@ func resolveTree(ctx context.Context, trees []gitx.Worktree, name string) (gitx.
 		}
 		return gitx.Worktree{}, fmt.Errorf("git does not list the current tree %s", top)
 	}
+	// Branch matches win over directory names: when one tree's
+	// directory happens to carry another tree's branch name,
+	// the user almost certainly means the branch.
 	for _, t := range trees {
-		byBranch := t.Branch != "" &&
-			(t.Branch == name || repo.SanitizeBranch(t.Branch) == name)
-		if byBranch || filepath.Base(t.Path) == name {
+		if t.Branch != "" && (t.Branch == name || repo.SanitizeBranch(t.Branch) == name) {
+			return t, nil
+		}
+	}
+	for _, t := range trees {
+		if filepath.Base(t.Path) == name {
 			return t, nil
 		}
 	}
