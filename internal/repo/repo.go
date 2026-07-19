@@ -94,13 +94,20 @@ func (r *Repo) StateDir() (string, error) {
 	return filepath.Join(base, "wt", "repos", r.Slug()), nil
 }
 
+// DefaultTreesDir is the built-in trees container in its relative
+// spelling — the sibling `../<repo>.trees` — the form `wt init`
+// writes into a fresh config.
+func (r *Repo) DefaultTreesDir() string {
+	return "../" + filepath.Base(r.Root) + ".trees"
+}
+
 // TreesDir resolves the container directory that holds all
 // wt-managed trees. An empty configured value means the default
-// sibling `../<repo>.trees`; a relative value is anchored at the
-// main checkout so it means the same thing from any worktree.
+// sibling; a relative value is anchored at the main checkout so
+// it means the same thing from any worktree.
 func (r *Repo) TreesDir(configured string) string {
 	if configured == "" {
-		return r.Root + ".trees"
+		configured = r.DefaultTreesDir()
 	}
 	if filepath.IsAbs(configured) {
 		return filepath.Clean(configured)

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -63,7 +62,7 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 		return err
 	}
 	opts.base = cmp.Or(opts.base, seed.Base)
-	opts.treesDir = cmp.Or(opts.treesDir, seed.TreesDir, "../"+filepath.Base(r.Root)+".trees")
+	opts.treesDir = cmp.Or(opts.treesDir, seed.TreesDir, r.DefaultTreesDir())
 	if opts.copyList == nil {
 		opts.copyList = seed.Copy
 	}
