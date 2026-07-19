@@ -3,10 +3,8 @@ package cli
 import (
 	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -92,44 +90,6 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	// the Phase 3 shim will cd here.
 	fmt.Fprintln(cmd.OutOrStdout(), dest)
 	return nil
-}
-
-// copyFiles ports the configured untracked files from the main
-// checkout into the fresh tree. Copies, never symlinks: symlinked
-// configs break tools that resolve paths through them (D5).
-// A missing source is a note, not an error — .env may simply not
-// exist on this machine.
-func copyFiles(srcRoot, dstRoot string, names []string, chatter io.Writer) error {
-	for _, name := range names {
-		err := copyFile(filepath.Join(srcRoot, name), filepath.Join(dstRoot, name))
-		if errors.Is(err, fs.ErrNotExist) {
-			fmt.Fprintf(chatter, "copy: %s not found in the main checkout, skipped\n", name)
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("copy %s: %w", name, err)
-		}
-		fmt.Fprintf(chatter, "copy: %s\n", name)
-	}
-	return nil
-}
-
-// copyFile copies one file, creating parent directories and
-// carrying the source permissions over — copy sources are often
-// secrets (.env) deliberately locked down.
-func copyFile(src, dst string) error {
-	info, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(dst, data, info.Mode().Perm())
 }
 
 // runHook runs a user hook command inside dir through sh.

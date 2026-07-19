@@ -1,11 +1,7 @@
 package cli
 
 import (
-	"bytes"
-	"context"
-	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -105,56 +101,4 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 		fmt.Fprintf(chatter, "kept branch %s\n", target.Branch)
 	}
 	return nil
-}
-
-// pristineCopies returns the configured copy files wt may sweep
-// aside on removal: untracked in the tree, and still matching the
-// main checkout byte for byte. A tracked file belongs to git even
-// if copy-listed, and a missing or edited copy is the user's data —
-// both stay out of the sweep.
-// Paths come back slash-separated to match git's status output.
-func pristineCopies(
-	ctx context.Context, srcRoot, treeRoot string, names []string,
-) ([]string, error) {
-	if len(names) == 0 {
-		return nil, nil
-	}
-	tracked, err := gitx.New(treeRoot).Tracked(ctx, names...)
-	if err != nil {
-		return nil, err
-	}
-	var out []string
-	for _, name := range names {
-		if tracked[filepath.ToSlash(name)] {
-			continue
-		}
-		treeData, ok, err := readCopy(treeRoot, name)
-		if err != nil {
-			return nil, err
-		}
-		if !ok {
-			continue
-		}
-		srcData, ok, err := readCopy(srcRoot, name)
-		if err != nil {
-			return nil, err
-		}
-		if ok && bytes.Equal(treeData, srcData) {
-			out = append(out, filepath.ToSlash(name))
-		}
-	}
-	return out, nil
-}
-
-// readCopy reads a copy-list file under root;
-// ok is false when the file does not exist there.
-func readCopy(root, name string) (data []byte, ok bool, err error) {
-	data, err = os.ReadFile(filepath.Join(root, name))
-	if errors.Is(err, fs.ErrNotExist) {
-		return nil, false, nil
-	}
-	if err != nil {
-		return nil, false, fmt.Errorf("copy %s: %w", name, err)
-	}
-	return data, true, nil
 }
