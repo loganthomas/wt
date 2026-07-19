@@ -18,9 +18,9 @@ exec git worktree add -q --detach ../trees/scratch
 exec wt ls
 stdout '\(detached\)\s+.*[/\\]scratch'
 
-# outside any repository: git's own error lands on stderr, exit is non-zero
+# outside any repository: exit 4 (D13), explanation on stderr only
 mkdir $WORK/elsewhere
 cd $WORK/elsewhere
-! exec wt ls
-stderr 'not a git repository'
+exitcode 4 wt ls
+stderr 'not inside a git repository'
 ! stdout .

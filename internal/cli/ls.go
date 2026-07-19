@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/loganthomas/wt/internal/gitx"
+	"github.com/loganthomas/wt/internal/repo"
 )
 
 func newLsCmd() *cobra.Command {
@@ -20,6 +21,11 @@ func newLsCmd() *cobra.Command {
 }
 
 func runLs(cmd *cobra.Command, _ []string) error {
+	// Resolved for error classification: outside a repository the
+	// contract demands exit 4, which git's own error can't carry.
+	if _, err := repo.Find(cmd.Context(), ""); err != nil {
+		return err
+	}
 	trees, err := gitx.New("").Worktrees(cmd.Context())
 	if err != nil {
 		return err

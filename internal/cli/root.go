@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	exitErr   = 1
-	exitUsage = 2
+	exitErr          = 1
+	exitUsage        = 2
+	exitPrecondition = 3
 )
 
 // exitCoder is the single seam mapping errors to process exit codes.
@@ -74,7 +75,11 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 		SilenceErrors: true,
 	}
 	root.SetFlagErrorFunc(wrapFlagError)
-	root.AddCommand(newLsCmd())
+	root.AddCommand(
+		newInitCmd(),
+		newLsCmd(),
+		newConfigCmd(),
+	)
 	return root
 }
 
@@ -93,6 +98,18 @@ type usageError struct{ err error }
 func (u usageError) Error() string { return u.err.Error() }
 func (u usageError) Unwrap() error { return u.err }
 func (u usageError) ExitCode() int { return exitUsage }
+
+// preconditionError reports a blocked-but-recoverable state
+// (exit 3 per D13): the command was understood but the repo
+// isn't in a state where it can run.
+type preconditionError struct{ msg string }
+
+func (e preconditionError) Error() string { return e.msg }
+func (e preconditionError) ExitCode() int { return exitPrecondition }
+
+func preconditionf(format string, args ...any) error {
+	return preconditionError{fmt.Sprintf(format, args...)}
+}
 
 // usageArgs wraps a cobra positional-args validator
 // so its failures carry the usage exit code.
