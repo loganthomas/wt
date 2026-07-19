@@ -40,6 +40,9 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	g := gitx.New(w.repo.Root)
 	base := cmp.Or(baseFlag, w.cfg.Base)
 
+	if !g.ValidBranchName(ctx, branch) {
+		return usageError{fmt.Errorf("%q is not a valid branch name", branch)}
+	}
 	if g.HasCommit(ctx, "refs/heads/"+branch) {
 		trees, err := g.Worktrees(ctx)
 		if err != nil {
@@ -105,11 +108,11 @@ func copyFiles(srcRoot, dstRoot string, names []string, chatter io.Writer) error
 			continue
 		}
 		if err != nil {
-			return err
+			return fmt.Errorf("copy %s: %w", name, err)
 		}
 		info, err := os.Stat(src)
 		if err != nil {
-			return err
+			return fmt.Errorf("copy %s: %w", name, err)
 		}
 		dst := filepath.Join(dstRoot, name)
 		if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {

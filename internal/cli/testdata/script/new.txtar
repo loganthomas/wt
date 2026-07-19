@@ -36,6 +36,10 @@ exitcode 3 wt new feature-login
 stderr 'feature-login'
 ! stdout .
 
+# an invalid branch name is a usage error, caught up front
+exitcode 2 wt new 'bad..name'
+stderr 'not a valid branch name'
+
 # an unresolvable base is caught before git creates anything
 exitcode 3 wt new doomed --base no-such-ref
 stderr 'no-such-ref'
