@@ -33,7 +33,7 @@ func Find(ctx context.Context, dir string) (*Repo, error) {
 	if err != nil {
 		var gitErr *gitx.Error
 		if errors.As(err, &gitErr) && strings.Contains(gitErr.Stderr, "not a git repository") {
-			return nil, &NotARepoError{Dir: dir}
+			return nil, &NotARepoError{Dir: describeDir(dir)}
 		}
 		return nil, err
 	}
@@ -106,6 +106,19 @@ func (r *Repo) TreesDir(configured string) string {
 		return filepath.Clean(configured)
 	}
 	return filepath.Join(r.Root, configured)
+}
+
+// describeDir names the searched directory for error messages,
+// resolving the empty "current directory" convention to a real
+// path so the user sees where the search actually happened.
+func describeDir(dir string) string {
+	if dir != "" {
+		return dir
+	}
+	if wd, err := os.Getwd(); err == nil {
+		return wd
+	}
+	return "the current directory"
 }
 
 // NotARepoError reports a directory outside any git repository.

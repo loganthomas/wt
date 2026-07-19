@@ -117,6 +117,24 @@ func TestFind(t *testing.T) {
 		if got := notRepo.ExitCode(); got != 4 {
 			t.Errorf("ExitCode() = %d, want 4 (D13: not a wt repo)", got)
 		}
+		if !strings.Contains(err.Error(), outside) {
+			t.Errorf("error %q should name the searched directory %q", err, outside)
+		}
+	})
+
+	t.Run("outside any repository with the default dir", func(t *testing.T) {
+		outside := filepath.Join(work, "elsewhere-cwd")
+		if err := os.MkdirAll(outside, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		t.Chdir(outside)
+		// Every command calls Find(ctx, "") meaning the working
+		// directory; the error must still name a real path,
+		// never render as " is not inside a git repository".
+		_, err := Find(t.Context(), "")
+		if err == nil || !strings.Contains(err.Error(), outside) {
+			t.Errorf("Find(\"\") error = %v, want it to name %q", err, outside)
+		}
 	})
 }
 
