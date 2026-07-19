@@ -77,7 +77,10 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 	root.SetFlagErrorFunc(wrapFlagError)
 	root.AddCommand(
 		newInitCmd(),
+		newNewCmd(),
 		newLsCmd(),
+		newDoneCmd(),
+		newPathCmd(),
 		newConfigCmd(),
 	)
 	return root

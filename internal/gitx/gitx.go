@@ -47,6 +47,27 @@ func (g *Git) TopLevel(ctx context.Context) (string, error) {
 	return g.runLine(ctx, "rev-parse", "--show-toplevel")
 }
 
+// WorktreeAdd creates a worktree at path on new branch off base.
+func (g *Git) WorktreeAdd(ctx context.Context, path, branch, base string) error {
+	_, err := g.run(ctx, "worktree", "add", "--quiet", path, "-b", branch, base)
+	return err
+}
+
+// WorktreeRemove removes the worktree at path.
+// Callers are responsible for the safety guards; git itself still
+// refuses trees it considers dirty or locked.
+func (g *Git) WorktreeRemove(ctx context.Context, path string) error {
+	_, err := g.run(ctx, "worktree", "remove", path)
+	return err
+}
+
+// DeleteBranch deletes a local branch even if unmerged;
+// callers run the unpushed-commit guard first.
+func (g *Git) DeleteBranch(ctx context.Context, branch string) error {
+	_, err := g.run(ctx, "branch", "-q", "-D", branch)
+	return err
+}
+
 // IsDirty reports whether the worktree at g's directory has any
 // staged, unstaged, or untracked changes.
 func (g *Git) IsDirty(ctx context.Context) (bool, error) {

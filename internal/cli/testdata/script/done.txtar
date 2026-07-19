@@ -1,0 +1,57 @@
+# wt done finishes a tree: guards first, then remove + branch delete.
+# Guards exit 3 (precondition failed); --keep-branch skips deletion.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+exec wt new feature/login
+
+# the main checkout is structurally unremovable
+exitcode 3 wt done
+stderr 'main checkout'
+
+# a dirty tree is refused with the way forward
+cd ../acme.trees/feature-login
+cp $WORK/scratch.txt scratch.txt
+exitcode 3 wt done
+stderr 'uncommitted'
+rm scratch.txt
+
+# unpushed, unmerged work is refused
+exec git commit -q --allow-empty -m 'work'
+exitcode 3 wt done
+stderr 'neither pushed nor merged'
+
+# --keep-branch removes the tree but preserves the branch
+exec wt done --keep-branch
+cd $WORK/acme
+! exists ../acme.trees/feature-login
+exec git branch --list feature/login
+stdout 'feature/login'
+
+# merged work passes the guard; tree and branch both go
+exec wt new feature/two
+exec git -C ../acme.trees/feature-two commit -q --allow-empty -m 'work'
+exec git merge -q --ff-only feature/two
+exec wt done feature/two
+stderr 'removed .*feature-two'
+stderr 'deleted branch feature/two'
+! exists ../acme.trees/feature-two
+exec git branch --list feature/two
+! stdout .
+
+# wt rm is the same command
+exec wt new feature/three
+exec git merge -q --ff-only feature/three
+exec wt rm feature/three
+! exists ../acme.trees/feature-three
+
+# an unknown name is an honest error
+exitcode 1 wt done nope
+stderr 'no tree matches'
+
+-- scratch.txt --
+wip
