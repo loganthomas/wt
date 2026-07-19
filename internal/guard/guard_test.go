@@ -58,6 +58,19 @@ func TestCheckDirtyTolerated(t *testing.T) {
 	assertViolation(t, CheckDirty(t.Context(), dir, ".env"), true, "uncommitted")
 }
 
+func TestCheckDirtyToleratesNestedCopies(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, filepath.Join(gittest.TempDir(t), "acme"))
+	// git status collapses untracked directories to "config/" by
+	// default; the guard must still see the file inside it.
+	gittest.WriteFile(t, dir, "config/.env", "SECRET=1")
+
+	if err := CheckDirty(t.Context(), dir, "config/.env"); err != nil {
+		t.Errorf("CheckDirty(tolerate config/.env) = %v, want nil", err)
+	}
+	assertViolation(t, CheckDirty(t.Context(), dir), true, "uncommitted")
+}
+
 func TestCheckUnpushed(t *testing.T) {
 	gittest.Scrub(t)
 

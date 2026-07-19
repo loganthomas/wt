@@ -77,8 +77,11 @@ type StatusEntry struct {
 
 // Status lists the worktree's staged, unstaged, and untracked
 // changes; empty means clean.
+// -uall names every untracked file individually — the default
+// collapses untracked directories to "dir/", which would hide
+// files callers need to match by exact path.
 func (g *Git) Status(ctx context.Context) ([]StatusEntry, error) {
-	out, err := g.run(ctx, "status", "--porcelain", "-z")
+	out, err := g.run(ctx, "status", "--porcelain", "-z", "-uall")
 	if err != nil {
 		return nil, err
 	}
