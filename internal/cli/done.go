@@ -48,6 +48,17 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 	if target.Path == w.repo.Root {
 		return preconditionf("%s is the main checkout — wt only removes trees it manages", target.Path)
 	}
+	// Checked before the guards and the copy sweep: git would
+	// refuse the removal anyway, but only after wt had already
+	// deleted the planted copy files.
+	if target.Locked {
+		reason := ""
+		if target.LockedReason != "" {
+			reason = fmt.Sprintf(" (%s)", target.LockedReason)
+		}
+		return preconditionf("%s is locked%s — `git worktree unlock %s` first",
+			target.Path, reason, target.Path)
+	}
 
 	// Guards before anything destructive (R2). The unpushed check
 	// runs only when the branch is about to be deleted: with

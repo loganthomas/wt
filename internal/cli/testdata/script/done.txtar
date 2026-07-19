@@ -66,6 +66,18 @@ exec git merge -q --ff-only feature/four
 exec wt done feature/four
 ! exists ../acme.trees/feature-four
 
+# a locked tree is refused before anything is touched:
+# the planted copy must survive the refusal
+exec wt new feature/five
+exec git worktree lock ../acme.trees/feature-five
+exitcode 3 wt done feature-five
+stderr 'locked'
+exists ../acme.trees/feature-five/.env
+exec git worktree unlock ../acme.trees/feature-five
+exec git merge -q --ff-only feature/five
+exec wt done feature-five
+! exists ../acme.trees/feature-five
+
 # an unknown name is an honest error
 exitcode 1 wt done nope
 stderr 'no tree matches'
