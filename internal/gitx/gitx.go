@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -115,6 +116,12 @@ func (g *Git) HasCommit(ctx context.Context, ref string) bool {
 	return err == nil
 }
 
+// ValidBranchName reports whether git accepts name for a branch.
+func (g *Git) ValidBranchName(ctx context.Context, name string) bool {
+	_, err := g.run(ctx, "check-ref-format", "--branch", name)
+	return err == nil
+}
+
 // runLine runs git and returns its single-line output, trimmed.
 func (g *Git) runLine(ctx context.Context, args ...string) (string, error) {
 	out, err := g.run(ctx, args...)
@@ -127,6 +134,10 @@ func (g *Git) runLine(ctx context.Context, args ...string) (string, error) {
 func (g *Git) run(ctx context.Context, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = g.dir
+	// Pinned to the C locale: callers classify git's stderr text
+	// (e.g. "not a git repository" → exit 4), and localized
+	// messages would silently break that mapping.
+	cmd.Env = append(os.Environ(), "LC_ALL=C")
 	out, err := cmd.Output()
 	if err != nil {
 		var exit *exec.ExitError
