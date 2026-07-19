@@ -88,16 +88,24 @@ func Scrub(t *testing.T) {
 	}
 }
 
-// Env is the scrubbed process environment plus a fixed git identity;
-// suitable for exec.Cmd.Env when a test runs git-adjacent binaries.
-func Env() []string {
-	env := []string{
+// BaseEnv is the isolation recipe every wt test environment
+// shares — no system config, a fixed identity — as KEY=VALUE
+// pairs. The testscript harness applies the same pairs so unit
+// tests and .txtar scripts can never drift apart.
+func BaseEnv() []string {
+	return []string{
 		"GIT_CONFIG_NOSYSTEM=1",
 		"GIT_AUTHOR_NAME=wt-test",
 		"GIT_AUTHOR_EMAIL=wt-test@example.invalid",
 		"GIT_COMMITTER_NAME=wt-test",
 		"GIT_COMMITTER_EMAIL=wt-test@example.invalid",
 	}
+}
+
+// Env is the scrubbed process environment plus BaseEnv;
+// suitable for exec.Cmd.Env when a test runs git-adjacent binaries.
+func Env() []string {
+	env := BaseEnv()
 	for _, kv := range os.Environ() {
 		if !strings.HasPrefix(kv, "GIT_") {
 			env = append(env, kv)

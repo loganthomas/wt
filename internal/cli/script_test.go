@@ -5,11 +5,13 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/rogpeppe/go-internal/testscript"
 
 	"github.com/loganthomas/wt/internal/cli"
+	"github.com/loganthomas/wt/internal/gittest"
 )
 
 func TestMain(m *testing.M) {
@@ -25,16 +27,14 @@ func TestScript(t *testing.T) {
 			"exitcode": cmdExitcode,
 		},
 		Setup: func(env *testscript.Env) error {
-			// Isolate git from the developer's real config and hooks
-			// so scripts behave identically everywhere, CI included.
-			// The ceiling keeps repo discovery inside the work dir even
-			// when the system temp dir sits under some git checkout.
+			// The shared isolation recipe, plus a ceiling that keeps
+			// repo discovery inside the work dir even when the system
+			// temp dir sits under some git checkout.
 			env.Setenv("GIT_CEILING_DIRECTORIES", env.WorkDir)
-			env.Setenv("GIT_CONFIG_NOSYSTEM", "1")
-			env.Setenv("GIT_AUTHOR_NAME", "wt-test")
-			env.Setenv("GIT_AUTHOR_EMAIL", "wt-test@example.invalid")
-			env.Setenv("GIT_COMMITTER_NAME", "wt-test")
-			env.Setenv("GIT_COMMITTER_EMAIL", "wt-test@example.invalid")
+			for _, kv := range gittest.BaseEnv() {
+				name, value, _ := strings.Cut(kv, "=")
+				env.Setenv(name, value)
+			}
 			return nil
 		},
 	})
