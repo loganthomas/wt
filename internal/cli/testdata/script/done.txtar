@@ -57,6 +57,15 @@ exec git merge -q --ff-only feature/three
 exec wt rm feature/three
 ! exists ../acme.trees/feature-three
 
+# a copy-listed file that is tracked belongs to git, not wt:
+# the pristine sweep must leave it alone so removal still works
+exec git add .env
+exec git commit -q -m 'track the env file'
+exec wt new feature/four
+exec git merge -q --ff-only feature/four
+exec wt done feature/four
+! exists ../acme.trees/feature-four
+
 # an unknown name is an honest error
 exitcode 1 wt done nope
 stderr 'no tree matches'

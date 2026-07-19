@@ -103,6 +103,25 @@ func (g *Git) Status(ctx context.Context) ([]StatusEntry, error) {
 	return entries, nil
 }
 
+// Tracked reports which of the given paths (relative to g's
+// directory) are tracked in the index.
+func (g *Git) Tracked(ctx context.Context, paths ...string) (map[string]bool, error) {
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	out, err := g.run(ctx, append([]string{"ls-files", "-z", "--"}, paths...)...)
+	if err != nil {
+		return nil, err
+	}
+	tracked := make(map[string]bool)
+	for _, p := range strings.Split(string(out), "\x00") {
+		if p != "" {
+			tracked[p] = true
+		}
+	}
+	return tracked, nil
+}
+
 // CommitCount counts the commits selected by a rev-list spec,
 // e.g. ("HEAD", "--not", "--remotes").
 func (g *Git) CommitCount(ctx context.Context, spec ...string) (int, error) {
