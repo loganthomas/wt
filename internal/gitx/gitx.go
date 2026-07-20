@@ -180,6 +180,7 @@ var localRepoEnv = map[string]bool{
 // GIT_CONFIG_COUNT and are matched by prefix.
 func scrubbedEnv() []string {
 	environ := os.Environ()
+	// The spare slot is for run's LC_ALL=C append.
 	env := make([]string, 0, len(environ)+1)
 	for _, kv := range environ {
 		name, _, _ := strings.Cut(kv, "=")
