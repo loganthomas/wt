@@ -7,7 +7,11 @@
 # target path on stdout, and this wrapper performs the cd the
 # binary cannot. Every other command passes through untouched, so
 # scripts that call `wt` under the wrapper see identical behavior.
-wt() {
+# A pre-existing `wt` alias would expand inside this very eval and
+# abort it wholesale; clear it, and use the `function` keyword,
+# whose name position is never alias-expanded.
+builtin unalias wt 2>/dev/null
+function wt {
   # emulate pins zsh semantics against exotic user setopts;
   # builtins dodge same-named user functions and aliases.
   emulate -L zsh
