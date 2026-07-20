@@ -12,6 +12,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"github.com/loganthomas/wt/internal/repo"
 )
 
 const (
@@ -110,9 +112,17 @@ func wrapUsageArgs(cmd *cobra.Command) {
 
 // runRoot handles bare `wt`: the most frequent intent is
 // "take me to a tree", so the picker is the default (D12).
-// Help stays one `wt -h` away.
+// Bare `wt` is also how newcomers poke at the tool, and it
+// replaced the old show-help default — so the not-a-repo error
+// alone would be a dead end; point at --help while keeping the
+// error (and its exit 4) intact.
 func runRoot(cmd *cobra.Command, _ []string) error {
-	return runJump(cmd, "")
+	err := runJump(cmd, "")
+	var notRepo *repo.NotARepoError
+	if errors.As(err, &notRepo) {
+		return fmt.Errorf("%w — `wt --help` shows usage", err)
+	}
+	return err
 }
 
 func wrapFlagError(_ *cobra.Command, err error) error {

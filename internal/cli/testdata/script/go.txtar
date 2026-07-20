@@ -51,9 +51,17 @@ stdout '^main\t.*[/\\]acme\t-$'
 stdout '^feature/login\t'
 ! stderr .
 
-# outside any repository the bare form still honors exit 4
+# outside any repository the bare form still honors exit 4,
+# and — since bare `wt` replaced the old help default — points
+# newcomers at --help
 mkdir $WORK/elsewhere
 cd $WORK/elsewhere
 exitcode 4 wt
 stderr 'not inside a git repository'
+stderr 'wt --help'
 ! stdout .
+
+# subcommands keep the plain message: the user already knows wt
+exitcode 4 wt go login
+stderr 'not inside a git repository'
+! stderr 'wt --help'
