@@ -25,15 +25,17 @@ import (
 func copyFiles(
 	ctx context.Context, srcRoot, dstRoot string, names []string, chatter io.Writer,
 ) error {
-	tracked, err := gitx.New(srcRoot).Tracked(ctx, names...)
+	tracked, err := gitx.New(dstRoot).Tracked(ctx, names...)
 	if err != nil {
 		return err
 	}
 	for _, name := range names {
 		// A tracked entry belongs to git and already arrives via
 		// the checkout; planting the main tree's working copy over
-		// it would start the fresh tree dirty. splitCopies skips
-		// tracked files on the sweep side for the same reason.
+		// it would start the fresh tree dirty. The fresh tree's
+		// index is the authority: it reflects the base actually
+		// checked out, which need not match the main checkout's.
+		// splitCopies skips tracked files for the same reason.
 		if tracked[name] {
 			fmt.Fprintf(chatter, "copy: %s is tracked, left to git\n", name)
 			continue

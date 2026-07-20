@@ -9,7 +9,7 @@ cd acme
 cp $WORK/committed.toml settings.toml
 exec git add settings.toml
 exec git commit -q -m 'add settings'
-exec wt init --yes --copy settings.toml
+exec wt init --yes --copy settings.toml,.env
 
 # dirty the tracked file in the main checkout only
 cp $WORK/dirty.toml settings.toml
@@ -22,8 +22,29 @@ cmp ../acme.trees/feature/settings.toml $WORK/committed.toml
 exec git -C ../acme.trees/feature status --porcelain
 ! stdout .
 
+# tracked-ness is judged in the fresh tree, not the main checkout:
+# a base that tracks the file wins even when main does not
+exec git switch -q -c release
+cp $WORK/base.env .env
+exec git add .env
+exec git commit -q -m 'track env on release'
+exec git switch -q main
+cp $WORK/local.env .env
+
+exec wt new feat2 --base release
+stderr '\.env is tracked, left to git'
+cmp ../acme.trees/feat2/.env $WORK/base.env
+exec git -C ../acme.trees/feat2 status --porcelain
+! stdout .
+
 -- committed.toml --
 mode = 'committed'
 
 -- dirty.toml --
 mode = 'dirty'
+
+-- base.env --
+SOURCE=release
+
+-- local.env --
+SOURCE=main
