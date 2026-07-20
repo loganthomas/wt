@@ -17,7 +17,7 @@ exec wt new feature/login
 # the edit is invisible to git, but wt still refuses to remove
 cp $WORK/env-edited ../acme.trees/feature-login/.env
 exitcode 3 wt done feature-login
-stderr 'edited'
+stderr 'no longer matches the main checkout'
 exists ../acme.trees/feature-login/.env
 
 # restored to match the main checkout, the sweep may take it

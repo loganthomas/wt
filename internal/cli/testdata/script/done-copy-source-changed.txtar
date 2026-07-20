@@ -1,0 +1,22 @@
+# The mismatch guard also fires when the main checkout side of a
+# planted copy changed or vanished: wt cannot prove the tree copy
+# is its own planting, so it refuses — with a message that blames
+# the mismatch, not a tree edit that never happened.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes --copy .env
+cp $WORK/env-fixture .env
+exec wt new feature
+
+# the source disappears from the main checkout after planting
+rm .env
+exitcode 3 wt done feature
+stderr 'no longer matches the main checkout'
+exists ../acme.trees/feature/.env
+
+-- env-fixture --
+SECRET=hunter2

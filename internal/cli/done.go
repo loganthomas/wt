@@ -78,7 +78,8 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 	// and `git worktree remove` deletes ignored files without asking.
 	if len(edited) > 0 {
 		return preconditionf(
-			"%s: the planted copy %s has been edited — back it up, or restore it to match the main checkout",
+			"%s: the planted copy %s no longer matches the main checkout — "+
+				"back it up, or make the two match first",
 			target.Path, edited[0])
 	}
 	if err := guard.CheckDirty(ctx, target.Path, pristine...); err != nil {
