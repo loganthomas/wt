@@ -89,7 +89,7 @@ func Scrub(t *testing.T) {
 }
 
 // BaseEnv is the isolation recipe every wt test environment
-// shares — no system config, a fixed identity — as KEY=VALUE
+// shares (no system config, a fixed identity) as KEY=VALUE
 // pairs. The testscript harness applies the same pairs so unit
 // tests and .txtar scripts can never drift apart.
 func BaseEnv() []string {

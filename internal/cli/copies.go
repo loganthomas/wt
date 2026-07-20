@@ -20,8 +20,8 @@ import (
 // copyFiles ports the configured untracked files from the main
 // checkout into the fresh tree. Copies, never symlinks: symlinked
 // configs break tools that resolve paths through them (D5).
-// A missing source is a note, not an error — .env may simply not
-// exist on this machine.
+// A missing source is a note, not an error: .env may simply
+// not exist on this machine.
 func copyFiles(srcRoot, dstRoot string, names []string, chatter io.Writer) error {
 	for _, name := range names {
 		err := copyFile(filepath.Join(srcRoot, name), filepath.Join(dstRoot, name))
@@ -38,7 +38,7 @@ func copyFiles(srcRoot, dstRoot string, names []string, chatter io.Writer) error
 }
 
 // copyFile copies one file, creating parent directories and
-// carrying the source permissions over — copy sources are often
+// carrying the source permissions over; copy sources are often
 // secrets (.env) deliberately locked down.
 func copyFile(src, dst string) error {
 	info, err := os.Stat(src)

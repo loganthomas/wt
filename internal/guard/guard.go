@@ -29,7 +29,7 @@ func (v *Error) Error() string {
 func (v *Error) ExitCode() int { return 3 }
 
 // CheckDirty reports an Error when the tree has uncommitted
-// changes — staged, unstaged, or untracked. All three would be
+// changes: staged, unstaged, or untracked. All three would be
 // destroyed by a worktree remove.
 // Untracked files named in tolerateUntracked are ignored:
 // wt plants its configured copy files in every tree,
@@ -78,7 +78,7 @@ func CheckUnpushed(ctx context.Context, tree, base string) error {
 }
 
 // CheckOrphans reports an Error when the tree's detached HEAD
-// carries commits no branch or tag can reach — the one state
+// carries commits no branch or tag can reach, the one state
 // where removing a tree silently discards work (R2).
 func CheckOrphans(ctx context.Context, tree string) error {
 	g := gitx.New(tree)

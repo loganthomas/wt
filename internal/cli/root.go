@@ -83,8 +83,8 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 		newConfigCmd(),
 	)
 	// Argument validators are wrapped centrally so bad arguments
-	// exit 2 (D13) on every command, present and future — the
-	// contract is structural, not a per-command ritual.
+	// exit 2 (D13) on every command, present and future:
+	// the contract is structural, not a per-command ritual.
 	root.Args = usageArgs(root.Args)
 	for _, cmd := range root.Commands() {
 		if cmd.Args != nil {

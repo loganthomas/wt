@@ -12,7 +12,7 @@ import (
 // resolveTree picks the worktree a command should act on.
 // An empty name means the tree containing the working directory;
 // otherwise a tree matches by branch name, sanitized branch name,
-// or directory basename — the three spellings a user might reach for.
+// or directory basename, the three spellings a user might reach for.
 func resolveTree(ctx context.Context, trees []gitx.Worktree, name string) (gitx.Worktree, error) {
 	if name == "" {
 		top, err := gitx.New("").TopLevel(ctx)

@@ -3,7 +3,7 @@
 // Two files feed one merged Config (see PLAN.md D4):
 // global defaults at ~/.config/wt/config.toml under [defaults],
 // and per-repo settings at <git-common-dir>/wt.toml.
-// Merge order is built-in → global → repo;
+// Merge order is built-in, then global, then repo;
 // scalars replace when set, lists replace whole.
 package config
 

@@ -1,6 +1,6 @@
 // Package repo resolves a repository's identity: its shared git dir,
 // its main checkout, and the wt paths derived from them
-// (per-repo config, state dir, trees container — see PLAN.md D4, D14).
+// (per-repo config, state dir, trees container; see PLAN.md D4, D14).
 package repo
 
 import (
@@ -48,7 +48,7 @@ func Find(ctx context.Context, dir string) (*Repo, error) {
 	if filepath.Base(common) == ".git" {
 		return &Repo{CommonDir: common, Root: filepath.Dir(common)}, nil
 	}
-	// A common dir not named .git means an indirected layout —
+	// A common dir not named .git means an indirected layout:
 	// a submodule (.git/modules/<name>) or --separate-git-dir.
 	// The parent-dir rule doesn't hold there, and git itself only
 	// knows the checkout from inside it: when this worktree IS the
@@ -95,7 +95,7 @@ func (r *Repo) StateDir() (string, error) {
 }
 
 // DefaultTreesDir is the built-in trees container in its relative
-// spelling — the sibling `../<repo>.trees` — the form `wt init`
+// spelling, the sibling `../<repo>.trees`; it is the form `wt init`
 // writes into a fresh config.
 func (r *Repo) DefaultTreesDir() string {
 	return "../" + filepath.Base(r.Root) + ".trees"

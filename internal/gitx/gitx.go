@@ -81,7 +81,7 @@ type StatusEntry struct {
 
 // Status lists the worktree's staged, unstaged, and untracked
 // changes; empty means clean.
-// -uall names every untracked file individually — the default
+// -uall names every untracked file individually; the default
 // collapses untracked directories to "dir/", which would hide
 // files callers need to match by exact path.
 func (g *Git) Status(ctx context.Context) ([]StatusEntry, error) {
@@ -161,7 +161,7 @@ func (g *Git) run(ctx context.Context, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = g.dir
 	// Pinned to the C locale: callers classify git's stderr text
-	// (e.g. "not a git repository" → exit 4), and localized
+	// (e.g. mapping "not a git repository" to exit 4), and localized
 	// messages would silently break that mapping.
 	cmd.Env = append(os.Environ(), "LC_ALL=C")
 	out, err := cmd.Output()

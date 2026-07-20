@@ -12,7 +12,7 @@ import (
 )
 
 // decodeFile strictly decodes one TOML file into v.
-// A missing file is not an error — both config layers are optional.
+// A missing file is not an error: both config layers are optional.
 // Decode failures carry file:line:column so the user can jump
 // straight to the offending key (the reason go-toml was chosen, D10).
 func decodeFile(path string, v any) error {
