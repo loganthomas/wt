@@ -90,13 +90,20 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 	// Argument validators are wrapped centrally so bad arguments
 	// exit 2 (D13) on every command, present and future:
 	// the contract is structural, not a per-command ritual.
-	root.Args = usageArgs(root.Args)
-	for _, cmd := range root.Commands() {
-		if cmd.Args != nil {
-			cmd.Args = usageArgs(cmd.Args)
-		}
-	}
+	wrapUsageArgs(root)
 	return root
+}
+
+// wrapUsageArgs walks the whole command tree, nested subcommands
+// included, so no future command escapes the exit-2 contract.
+// A nil validator is left alone: it is cobra's subcommand routing.
+func wrapUsageArgs(cmd *cobra.Command) {
+	if cmd.Args != nil {
+		cmd.Args = usageArgs(cmd.Args)
+	}
+	for _, sub := range cmd.Commands() {
+		wrapUsageArgs(sub)
+	}
 }
 
 // runRoot handles bare `wt`: help for now, the fuzzy picker in Phase 3.
