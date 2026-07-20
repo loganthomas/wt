@@ -1,8 +1,8 @@
 // Package cli wires the wt command tree.
 //
 // Contract (see PLAN.md D13): paths and porcelain data go to stdout,
-// human chatter goes to stderr,
-// and exit codes are 0 ok, 1 error, 2 usage.
+// human chatter goes to stderr, and exit codes are 0 ok, 1 error,
+// 2 usage, 3 precondition failed, 4 not a repo.
 package cli
 
 import (
@@ -22,8 +22,8 @@ const (
 )
 
 // exitCoder is the single seam mapping errors to process exit codes.
-// Later phases add codes 3 (precondition failed) and 4 (not a wt repo)
-// by returning errors that implement it; Main never grows special cases.
+// Codes 3 (precondition failed) and 4 (not a wt repo) arrive as
+// errors that implement it; Main never grows special cases.
 type exitCoder interface {
 	ExitCode() int
 }
