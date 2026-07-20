@@ -203,6 +203,19 @@ func TestSave(t *testing.T) {
 			t.Errorf("round-trip mismatch (-saved +loaded):\n%s", diff)
 		}
 	})
+	t.Run("persists canonical path spellings", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), "wt.toml")
+		if err := Save(path, Config{Copy: []string{"./.env"}}); err != nil {
+			t.Fatal(err)
+		}
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(raw), "'.env'") || strings.Contains(string(raw), "./.env") {
+			t.Errorf("Save() kept a denormalized copy entry:\n%s", raw)
+		}
+	})
 	t.Run("leaves no temp file behind", func(t *testing.T) {
 		dir := t.TempDir()
 		if err := Save(filepath.Join(dir, "wt.toml"), Config{Base: "main"}); err != nil {

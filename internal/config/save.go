@@ -32,7 +32,10 @@ type renderFile struct {
 
 // Save validates cfg and writes its repo-file keys to path.
 // The UI section is global-only and never written here.
+// Normalized like Load, so the file on disk always carries the
+// same canonical spellings a later load would produce.
 func Save(path string, cfg Config) error {
+	normalize(&cfg)
 	if err := validate(cfg); err != nil {
 		return err
 	}
