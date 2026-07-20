@@ -22,8 +22,25 @@ import (
 // configs break tools that resolve paths through them (D5).
 // A missing source is a note, not an error: .env may simply
 // not exist on this machine.
-func copyFiles(srcRoot, dstRoot string, names []string, chatter io.Writer) error {
+func copyFiles(
+	ctx context.Context, srcRoot, dstRoot string, names []string, chatter io.Writer,
+) error {
+	if len(names) == 0 {
+		return nil
+	}
+	tracked, err := gitx.New(srcRoot).Tracked(ctx, names...)
+	if err != nil {
+		return err
+	}
 	for _, name := range names {
+		// A tracked entry belongs to git and already arrives via
+		// the checkout; planting the main tree's working copy over
+		// it would start the fresh tree dirty. splitCopies skips
+		// tracked files on the sweep side for the same reason.
+		if tracked[name] {
+			fmt.Fprintf(chatter, "copy: %s is tracked, left to git\n", name)
+			continue
+		}
 		err := copyFile(filepath.Join(srcRoot, name), filepath.Join(dstRoot, name))
 		if errors.Is(err, fs.ErrNotExist) {
 			fmt.Fprintf(chatter, "copy: %s not found in the main checkout, skipped\n", name)

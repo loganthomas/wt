@@ -1,0 +1,29 @@
+# A tracked copy-list entry belongs to git: wt new must not plant
+# the main checkout's working copy over the fresh checkout,
+# which would start the new tree dirty through no fault of the user.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+cp $WORK/committed.toml settings.toml
+exec git add settings.toml
+exec git commit -q -m 'add settings'
+exec wt init --yes --copy settings.toml
+
+# dirty the tracked file in the main checkout only
+cp $WORK/dirty.toml settings.toml
+
+exec wt new feature
+stderr 'settings\.toml is tracked, left to git'
+
+# the fresh tree keeps the committed version and starts clean
+cmp ../acme.trees/feature/settings.toml $WORK/committed.toml
+exec git -C ../acme.trees/feature status --porcelain
+! stdout .
+
+-- committed.toml --
+mode = 'committed'
+
+-- dirty.toml --
+mode = 'dirty'
