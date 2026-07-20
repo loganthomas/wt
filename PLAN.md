@@ -108,7 +108,7 @@ _Verdict: DX advocate wanted an explicit switch for discoverability; overruled._
   Resolved via `git rev-parse --git-common-dir`
   so every linked worktree sees the same config.
   Discoverability mitigated by `wt config [--edit]`
-  (prints the path / opens it in `$EDITOR`).
+  (prints the path / opens it in `$VISUAL`/`$EDITOR`).
 - Global defaults: `~/.config/wt/config.toml` (XDG).
 - State (leases, timestamps, hashes):
   `~/.local/state/wt/repos/<slug>-<hash8>/`
@@ -365,7 +365,7 @@ merged-branch slots, and `wt clean -n` previews every action.
 | `wt doctor [--json]`             | Actionable diagnostics + update check. Exit 0 healthy / 3 issues found.                                          |
 | `wt pool resize <n>`             | Grow (provision + setup hook) or shrink (free slots only) the pool.                                              |
 | `wt pool ls`                     | Slot-centric view: free/claimed/by-whom/warm-since.                                                              |
-| `wt config [--edit]`             | Print the active config paths and merged values; `--edit` opens the repo config in `$EDITOR`.                    |
+| `wt config [--edit]`             | Print the active config paths and merged values; `--edit` opens the repo config in `$VISUAL`/`$EDITOR`.          |
 | `wt path [name]`                 | Plumbing: print a tree's path (or the current tree's root).                                                      |
 | `wt claim` / `wt release`        | Pool plumbing for scripts/agents: claim prints slot path on stdout.                                              |
 | `wt shell-init zsh [--prompt]`   | Emit shim function, completions, optional prompt hook, for `eval` in `.zshrc`.                                   |
@@ -448,7 +448,7 @@ and a release pipeline bolted on late is where "trivial install" dies.
 - [x] `release.yml` running goreleaser on tags;
       `.goreleaser.yaml` with `homebrew_casks` → `homebrew-tap` repo;
       quarantine `postflight` hook; ldflags version embed.
-- [ ] Tag `v0.1.0-alpha.1`; verify:
+- [x] Tag `v0.1.0-alpha.1`; verify:
       the GitHub prerelease exists with darwin archives
       and notes drawn from the batched news fragments,
       the archive binary runs (`wt ls`,
@@ -464,33 +464,52 @@ and a release pipeline bolted on late is where "trivial install" dies.
 - **Exit:** a proven release pipeline and one honest command;
   a PR cannot merge without green tests and lint.
 
-**Status (2026-07-18):** code complete, CI green, PR open against `dev`;
+**Status (2026-07-18): complete.**
+`v0.1.0-alpha.1` tagged and released;
 branch protection live on `main` and `dev`.
-Remaining before exit is met: tap repo + token secret,
-tag `v0.1.0-alpha.1`, verify the prerelease and local cask.
-Phase 2 is ready to be taken up once the tag is verified.
 
 ### Phase 2 — Core engine: config, init, new/done with safety guards (M)
 
 - **Entry:** Phase 1 shipped.
-- [ ] `internal/config`: load/merge/validate;
+- [x] `internal/config`: load/merge/validate;
       table-driven tests including error positions.
-- [ ] Repo identity: common-git-dir resolution, state-dir slug+hash
+- [x] Repo identity: common-git-dir resolution, state-dir slug+hash
       (`internal/repo`).
-- [ ] **Safety guards before any destructive command exists** (`internal/guard`):
+- [x] **Safety guards before any destructive command exists** (`internal/guard`):
       dirty-tree, unpushed-commit, orphan-commit checks —
       unit-tested against fixture repos in every reachable state.
-- [ ] `wt init` (interactive form via huh v2, plus `--yes` and value flags
+- [x] `wt init` (interactive form via huh v2, plus `--yes` and value flags
       for scriptability); `wt config [--edit]`.
-- [ ] `wt new` (branch create, sanitization, collision error,
+- [x] `wt new` (branch create, sanitization, collision error,
       `copy` list, `hooks.setup`);
       `wt done`/`rm` (guards → `git worktree remove` →
       branch delete unless `--keep-branch`);
       `wt path`.
-- [ ] Exit-code + stdout/stderr contract enforced by a shared
+- [x] Exit-code + stdout/stderr contract enforced by a shared
       testscript assertion helper.
 - **Exit:** full default-mode lifecycle usable day-to-day from the raw binary
   (no cd yet). Tag `v0.1.0-alpha.2`.
+
+**Status (2026-07-20):** code complete, PR open against `dev`.
+Notable additions beyond the checklist:
+`wt done` sweeps wt-planted `copy` files when their content still
+matches the main checkout (an edited copy still trips the guard),
+and the orphan check uses `--not --branches --tags --remotes`
+because modern git's `--all` includes HEAD itself.
+A pre-review hardening pass also landed:
+repo-local `GIT_*` variables are scrubbed from every git call
+and setup hook, so wt run from inside a git hook cannot be
+retargeted at the hook's repository;
+foreign process exit codes (git, hooks, editors) collapse to 1
+instead of leaking through the D13 contract;
+`wt.toml` writes are atomic;
+tracked copy-list entries are left to git on both the plant
+and sweep sides;
+and `wt done` points prunable trees at `git worktree prune`.
+Remaining before exit is met: merge, batch fragments,
+tag `v0.1.0-alpha.2`.
+Phase 3 (shell integration & navigation) is ready to be taken up
+once the tag is cut.
 
 ### Phase 3 — Shell integration & navigation (M)
 

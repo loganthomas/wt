@@ -1,8 +1,8 @@
 // Package cli wires the wt command tree.
 //
 // Contract (see PLAN.md D13): paths and porcelain data go to stdout,
-// human chatter goes to stderr,
-// and exit codes are 0 ok, 1 error, 2 usage.
+// human chatter goes to stderr, and exit codes are 0 ok, 1 error,
+// 2 usage, 3 precondition failed, 4 not a repo.
 package cli
 
 import (
@@ -15,15 +15,21 @@ import (
 )
 
 const (
-	exitErr   = 1
-	exitUsage = 2
+	exitErr          = 1
+	exitUsage        = 2
+	exitPrecondition = 3
 )
 
 // exitCoder is the single seam mapping errors to process exit codes.
-// Later phases add codes 3 (precondition failed) and 4 (not a wt repo)
-// by returning errors that implement it; Main never grows special cases.
+// Codes 3 (precondition failed) and 4 (not a wt repo) arrive as
+// errors that implement it; Main never grows special cases.
+// The wt-specific method name means only deliberate implementers
+// match: a plain ExitCode() would let foreign types in error
+// chains (exec.ExitError, via os.ProcessState) satisfy the seam
+// by accident and smuggle git, hook, and editor exit codes
+// through the contract.
 type exitCoder interface {
-	ExitCode() int
+	WtExitCode() int
 }
 
 // BuildInfo identifies the binary.
@@ -56,7 +62,7 @@ func Main(info BuildInfo) int {
 func exitCodeFor(err error) int {
 	var coded exitCoder
 	if errors.As(err, &coded) {
-		return coded.ExitCode()
+		return coded.WtExitCode()
 	}
 	return exitErr
 }
@@ -66,16 +72,38 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 		Use:     "wt",
 		Short:   "A thin, elegant wrapper around git worktree",
 		Version: info.String(),
-		// Wrapped so cobra's unknown-command error exits 2, not 1.
-		Args: usageArgs(cobra.NoArgs),
-		RunE: runRoot,
+		Args:    cobra.NoArgs,
+		RunE:    runRoot,
 		// Errors are reported once by Main, with wt's exit-code mapping.
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
 	root.SetFlagErrorFunc(wrapFlagError)
-	root.AddCommand(newLsCmd())
+	root.AddCommand(
+		newInitCmd(),
+		newNewCmd(),
+		newLsCmd(),
+		newDoneCmd(),
+		newPathCmd(),
+		newConfigCmd(),
+	)
+	// Argument validators are wrapped centrally so bad arguments
+	// exit 2 (D13) on every command, present and future:
+	// the contract is structural, not a per-command ritual.
+	wrapUsageArgs(root)
 	return root
+}
+
+// wrapUsageArgs walks the whole command tree, nested subcommands
+// included, so no future command escapes the exit-2 contract.
+// A nil validator is left alone: it is cobra's subcommand routing.
+func wrapUsageArgs(cmd *cobra.Command) {
+	if cmd.Args != nil {
+		cmd.Args = usageArgs(cmd.Args)
+	}
+	for _, sub := range cmd.Commands() {
+		wrapUsageArgs(sub)
+	}
 }
 
 // runRoot handles bare `wt`: help for now, the fuzzy picker in Phase 3.
@@ -90,9 +118,21 @@ func wrapFlagError(_ *cobra.Command, err error) error {
 // usageError marks errors that exit 2 per D13's machine-output contract.
 type usageError struct{ err error }
 
-func (u usageError) Error() string { return u.err.Error() }
-func (u usageError) Unwrap() error { return u.err }
-func (u usageError) ExitCode() int { return exitUsage }
+func (u usageError) Error() string   { return u.err.Error() }
+func (u usageError) Unwrap() error   { return u.err }
+func (u usageError) WtExitCode() int { return exitUsage }
+
+// preconditionError reports a blocked-but-recoverable state
+// (exit 3 per D13): the command was understood but the repo
+// isn't in a state where it can run.
+type preconditionError struct{ msg string }
+
+func (e preconditionError) Error() string   { return e.msg }
+func (e preconditionError) WtExitCode() int { return exitPrecondition }
+
+func preconditionf(format string, args ...any) error {
+	return preconditionError{fmt.Sprintf(format, args...)}
+}
 
 // usageArgs wraps a cobra positional-args validator
 // so its failures carry the usage exit code.

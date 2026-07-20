@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"testing"
 )
 
@@ -36,6 +37,19 @@ func TestUsageErrorsExitTwo(t *testing.T) {
 func TestPlainErrorsExitOne(t *testing.T) {
 	if got := exitCodeFor(errors.New("boom")); got != 1 {
 		t.Errorf("exitCodeFor(plain error) = %d, want 1", got)
+	}
+}
+
+func TestForeignExitCodesCollapseToOne(t *testing.T) {
+	cmd := exec.Command("sh", "-c", "exit 4")
+	err := cmd.Run()
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) {
+		t.Fatalf("Run() error = %v, want *exec.ExitError", err)
+	}
+	wrapped := fmt.Errorf("setup hook failed: %w", err)
+	if got := exitCodeFor(wrapped); got != 1 {
+		t.Errorf("exitCodeFor(hook exiting 4) = %d, want 1", got)
 	}
 }
 

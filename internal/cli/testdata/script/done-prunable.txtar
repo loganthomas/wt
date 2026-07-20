@@ -1,0 +1,17 @@
+# A tree whose directory was deleted by hand is prunable: the
+# guards cannot run inside it, so wt done must refuse with a
+# pointer to `git worktree prune`, not die on a raw chdir error.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+
+exec wt new feature
+rm ../acme.trees/feature
+
+exitcode 3 wt done feature
+stderr 'gone from disk'
+stderr 'git worktree prune'

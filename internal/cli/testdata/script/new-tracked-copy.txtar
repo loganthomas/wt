@@ -1,0 +1,50 @@
+# A tracked copy-list entry belongs to git: wt new must not plant
+# the main checkout's working copy over the fresh checkout,
+# which would start the new tree dirty through no fault of the user.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+cp $WORK/committed.toml settings.toml
+exec git add settings.toml
+exec git commit -q -m 'add settings'
+exec wt init --yes --copy settings.toml,.env
+
+# dirty the tracked file in the main checkout only
+cp $WORK/dirty.toml settings.toml
+
+exec wt new feature
+stderr 'settings\.toml is tracked, left to git'
+
+# the fresh tree keeps the committed version and starts clean
+cmp ../acme.trees/feature/settings.toml $WORK/committed.toml
+exec git -C ../acme.trees/feature status --porcelain
+! stdout .
+
+# tracked-ness is judged in the fresh tree, not the main checkout:
+# a base that tracks the file wins even when main does not
+exec git switch -q -c release
+cp $WORK/base.env .env
+exec git add .env
+exec git commit -q -m 'track env on release'
+exec git switch -q main
+cp $WORK/local.env .env
+
+exec wt new feat2 --base release
+stderr '\.env is tracked, left to git'
+cmp ../acme.trees/feat2/.env $WORK/base.env
+exec git -C ../acme.trees/feat2 status --porcelain
+! stdout .
+
+-- committed.toml --
+mode = 'committed'
+
+-- dirty.toml --
+mode = 'dirty'
+
+-- base.env --
+SOURCE=release
+
+-- local.env --
+SOURCE=main

@@ -1,0 +1,31 @@
+# wt path is plumbing: one absolute path on stdout, nothing else.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+exec wt new feature/login
+
+# bare wt path prints the current tree's root
+exec wt path
+stdout '[/\\]acme$'
+! stderr .
+
+# from inside a tree it prints that tree's root
+cd ../acme.trees/feature-login
+exec wt path
+stdout '[/\\]feature-login$'
+
+# a name resolves by branch, sanitized branch, or directory name
+cd $WORK/acme
+exec wt path feature/login
+stdout '[/\\]feature-login$'
+exec wt path feature-login
+stdout '[/\\]feature-login$'
+
+# unknown trees are an error on stderr, empty stdout
+exitcode 1 wt path nope
+stderr 'no tree matches'
+! stdout .
