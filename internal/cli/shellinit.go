@@ -3,17 +3,19 @@ package cli
 import (
 	_ "embed"
 	"fmt"
-	"text/template"
 
 	"github.com/spf13/cobra"
 )
 
-//go:embed shim.zsh.tmpl
-var shimSource string
+// The shim ships as plain zsh in two pieces — base and opt-in
+// prompt hook — so each file stays directly readable and
+// checkable as zsh; --prompt simply appends the second.
+//
+//go:embed shim.zsh
+var shimZsh string
 
-// shimTemplate is parsed once at startup; a broken template is a
-// build defect, so parsing panics rather than returning an error.
-var shimTemplate = template.Must(template.New("shim.zsh").Parse(shimSource))
+//go:embed shim_prompt.zsh
+var shimPromptZsh string
 
 func newShellInitCmd() *cobra.Command {
 	var prompt bool
@@ -37,5 +39,10 @@ func newShellInitCmd() *cobra.Command {
 // runShellInit writes the shim to stdout: the script itself is
 // the machine output here, consumed by eval in .zshrc (D11).
 func runShellInit(cmd *cobra.Command, prompt bool) error {
-	return shimTemplate.Execute(cmd.OutOrStdout(), struct{ Prompt bool }{prompt})
+	out := shimZsh
+	if prompt {
+		out += shimPromptZsh
+	}
+	_, err := fmt.Fprint(cmd.OutOrStdout(), out)
+	return err
 }
