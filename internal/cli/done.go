@@ -61,9 +61,17 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 	// --keep-branch every commit stays reachable through it.
 	// Pristine copies of the configured copy files are wt's own
 	// plantings and don't count as dirt; an edited one still does.
-	pristine, err := pristineCopies(ctx, w.repo.Root, target.Path, w.cfg.Copy)
+	pristine, edited, err := splitCopies(ctx, w.repo.Root, target.Path, w.cfg.Copy)
 	if err != nil {
 		return err
+	}
+	// Edited copies are refused here, not left to the dirty guard:
+	// copy files are routinely gitignored, invisible to git status,
+	// and `git worktree remove` deletes ignored files without asking.
+	if len(edited) > 0 {
+		return preconditionf(
+			"%s: the planted copy %s has been edited — back it up, or restore it to match the main checkout",
+			target.Path, edited[0])
 	}
 	if err := guard.CheckDirty(ctx, target.Path, pristine...); err != nil {
 		return err

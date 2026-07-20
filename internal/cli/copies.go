@@ -55,43 +55,44 @@ func copyFile(src, dst string) error {
 	return os.WriteFile(dst, data, info.Mode().Perm())
 }
 
-// pristineCopies returns the configured copy files wt may sweep
-// aside on removal: untracked in the tree, and still matching the
-// main checkout byte for byte. A tracked file belongs to git even
-// if copy-listed, and a missing or edited copy is the user's data —
-// both stay out of the sweep.
+// splitCopies partitions the configured copy files found untracked
+// in the tree: pristine ones still match the main checkout byte for
+// byte and are wt's own plantings, free to sweep on removal; edited
+// ones are the user's data and must block it. A tracked file belongs
+// to git even if copy-listed and lands in neither list.
 // Paths come back slash-separated to match git's status output.
-func pristineCopies(
+func splitCopies(
 	ctx context.Context, srcRoot, treeRoot string, names []string,
-) ([]string, error) {
+) (pristine, edited []string, err error) {
 	if len(names) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 	tracked, err := gitx.New(treeRoot).Tracked(ctx, names...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var out []string
 	for _, name := range names {
 		if tracked[filepath.ToSlash(name)] {
 			continue
 		}
 		treeData, ok, err := readCopy(treeRoot, name)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if !ok {
 			continue
 		}
 		srcData, ok, err := readCopy(srcRoot, name)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if ok && bytes.Equal(treeData, srcData) {
-			out = append(out, filepath.ToSlash(name))
+			pristine = append(pristine, filepath.ToSlash(name))
+		} else {
+			edited = append(edited, filepath.ToSlash(name))
 		}
 	}
-	return out, nil
+	return pristine, edited, nil
 }
 
 // readCopy reads a copy-list file under root;

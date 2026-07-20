@@ -1,0 +1,33 @@
+# An edited copy file must block wt done even when gitignored:
+# git status cannot see an ignored file, and git worktree remove
+# deletes ignored files without asking, so only wt's own guard
+# stands between the user's edits and silent loss.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+cp $WORK/gitignore-fixture .gitignore
+exec git add .gitignore
+exec git commit -q -m 'ignore env files'
+exec wt init --yes --copy .env
+cp $WORK/env-fixture .env
+exec wt new feature/login
+
+# the edit is invisible to git, but wt still refuses to remove
+cp $WORK/env-edited ../acme.trees/feature-login/.env
+exitcode 3 wt done feature-login
+stderr 'edited'
+exists ../acme.trees/feature-login/.env
+
+# restored to match the main checkout, the sweep may take it
+cp $WORK/env-fixture ../acme.trees/feature-login/.env
+exec wt done feature-login
+! exists ../acme.trees/feature-login
+
+-- gitignore-fixture --
+.env
+-- env-fixture --
+SECRET=hunter2
+-- env-edited --
+SECRET=changed
