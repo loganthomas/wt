@@ -92,12 +92,16 @@ func Scrub(t *testing.T) {
 }
 
 // BaseEnv is the isolation recipe every wt test environment
-// shares (no system config, a fixed identity) as KEY=VALUE
-// pairs. The testscript harness applies the same pairs so unit
-// tests and .txtar scripts can never drift apart.
+// shares (no system or user config, a fixed identity) as
+// KEY=VALUE pairs. The testscript harness applies the same pairs
+// so unit tests and .txtar scripts can never drift apart.
+// The user config must be blocked too: a developer's
+// commit.gpgsign would route every fixture commit through their
+// real gpg-agent and flake the suite when it hiccups.
 func BaseEnv() []string {
 	return []string{
 		"GIT_CONFIG_NOSYSTEM=1",
+		"GIT_CONFIG_GLOBAL=" + os.DevNull,
 		"GIT_AUTHOR_NAME=wt-test",
 		"GIT_AUTHOR_EMAIL=wt-test@example.invalid",
 		"GIT_COMMITTER_NAME=wt-test",
