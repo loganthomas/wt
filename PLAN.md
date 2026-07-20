@@ -108,7 +108,7 @@ _Verdict: DX advocate wanted an explicit switch for discoverability; overruled._
   Resolved via `git rev-parse --git-common-dir`
   so every linked worktree sees the same config.
   Discoverability mitigated by `wt config [--edit]`
-  (prints the path / opens it in `$EDITOR`).
+  (prints the path / opens it in `$VISUAL`/`$EDITOR`).
 - Global defaults: `~/.config/wt/config.toml` (XDG).
 - State (leases, timestamps, hashes):
   `~/.local/state/wt/repos/<slug>-<hash8>/`
@@ -365,7 +365,7 @@ merged-branch slots, and `wt clean -n` previews every action.
 | `wt doctor [--json]`             | Actionable diagnostics + update check. Exit 0 healthy / 3 issues found.                                          |
 | `wt pool resize <n>`             | Grow (provision + setup hook) or shrink (free slots only) the pool.                                              |
 | `wt pool ls`                     | Slot-centric view: free/claimed/by-whom/warm-since.                                                              |
-| `wt config [--edit]`             | Print the active config paths and merged values; `--edit` opens the repo config in `$EDITOR`.                    |
+| `wt config [--edit]`             | Print the active config paths and merged values; `--edit` opens the repo config in `$VISUAL`/`$EDITOR`.          |
 | `wt path [name]`                 | Plumbing: print a tree's path (or the current tree's root).                                                      |
 | `wt claim` / `wt release`        | Pool plumbing for scripts/agents: claim prints slot path on stdout.                                              |
 | `wt shell-init zsh [--prompt]`   | Emit shim function, completions, optional prompt hook, for `eval` in `.zshrc`.                                   |
@@ -490,12 +490,22 @@ branch protection live on `main` and `dev`.
 - **Exit:** full default-mode lifecycle usable day-to-day from the raw binary
   (no cd yet). Tag `v0.1.0-alpha.2`.
 
-**Status (2026-07-18):** code complete, PR open against `dev`.
+**Status (2026-07-20):** code complete, PR open against `dev`.
 Notable additions beyond the checklist:
 `wt done` sweeps wt-planted `copy` files when their content still
 matches the main checkout (an edited copy still trips the guard),
 and the orphan check uses `--not --branches --tags --remotes`
 because modern git's `--all` includes HEAD itself.
+A pre-review hardening pass also landed:
+repo-local `GIT_*` variables are scrubbed from every git call
+and setup hook, so wt run from inside a git hook cannot be
+retargeted at the hook's repository;
+foreign process exit codes (git, hooks, editors) collapse to 1
+instead of leaking through the D13 contract;
+`wt.toml` writes are atomic;
+tracked copy-list entries are left to git on both the plant
+and sweep sides;
+and `wt done` points prunable trees at `git worktree prune`.
 Remaining before exit is met: merge, batch fragments,
 tag `v0.1.0-alpha.2`.
 Phase 3 (shell integration & navigation) is ready to be taken up
