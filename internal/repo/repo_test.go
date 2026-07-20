@@ -114,8 +114,8 @@ func TestFind(t *testing.T) {
 		if !errors.As(err, &notRepo) {
 			t.Fatalf("Find() error = %v, want NotARepoError", err)
 		}
-		if got := notRepo.ExitCode(); got != 4 {
-			t.Errorf("ExitCode() = %d, want 4 (D13: not a wt repo)", got)
+		if got := notRepo.WtExitCode(); got != 4 {
+			t.Errorf("WtExitCode() = %d, want 4 (D13: not a wt repo)", got)
 		}
 		if !strings.Contains(err.Error(), outside) {
 			t.Errorf("error %q should name the searched directory %q", err, outside)

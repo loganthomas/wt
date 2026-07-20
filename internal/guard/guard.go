@@ -25,8 +25,9 @@ func (v *Error) Error() string {
 	return fmt.Sprintf("%s: %s — %s", v.Tree, v.Reason, v.Hint)
 }
 
-// ExitCode maps to D13's "precondition failed" contract code.
-func (v *Error) ExitCode() int { return 3 }
+// WtExitCode maps to D13's "precondition failed" contract code;
+// the wt-specific name is what the cli exit seam matches on.
+func (v *Error) WtExitCode() int { return 3 }
 
 // CheckDirty reports an Error when the tree has uncommitted
 // changes: staged, unstaged, or untracked. All three would be

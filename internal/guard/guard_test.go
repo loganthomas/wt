@@ -168,8 +168,8 @@ func TestCheckOrphans(t *testing.T) {
 
 func TestViolationExitCode(t *testing.T) {
 	v := &Error{Tree: "/t", Reason: "r", Hint: "h"}
-	if got := v.ExitCode(); got != 3 {
-		t.Errorf("ExitCode() = %d, want 3 (D13: precondition failed)", got)
+	if got := v.WtExitCode(); got != 3 {
+		t.Errorf("WtExitCode() = %d, want 3 (D13: precondition failed)", got)
 	}
 }
 

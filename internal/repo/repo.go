@@ -137,8 +137,9 @@ func (e *NotARepoError) Error() string {
 	return fmt.Sprintf("%s is not inside a git repository", e.Dir)
 }
 
-// ExitCode maps to D13's "not a wt repo" contract code.
-func (e *NotARepoError) ExitCode() int { return 4 }
+// WtExitCode maps to D13's "not a wt repo" contract code;
+// the wt-specific name is what the cli exit seam matches on.
+func (e *NotARepoError) WtExitCode() int { return 4 }
 
 // SanitizeBranch converts a branch name into its tree directory
 // name: slashes flatten to dashes so `feature/login` nests no

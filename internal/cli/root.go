@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 
 	"github.com/spf13/cobra"
 )
@@ -24,8 +23,13 @@ const (
 // exitCoder is the single seam mapping errors to process exit codes.
 // Codes 3 (precondition failed) and 4 (not a wt repo) arrive as
 // errors that implement it; Main never grows special cases.
+// The wt-specific method name means only deliberate implementers
+// match: a plain ExitCode() would let foreign types in error
+// chains (exec.ExitError, via os.ProcessState) satisfy the seam
+// by accident and smuggle git, hook, and editor exit codes
+// through the contract.
 type exitCoder interface {
-	ExitCode() int
+	WtExitCode() int
 }
 
 // BuildInfo identifies the binary.
@@ -58,13 +62,7 @@ func Main(info BuildInfo) int {
 func exitCodeFor(err error) int {
 	var coded exitCoder
 	if errors.As(err, &coded) {
-		// *exec.ExitError implements the interface by accident
-		// (via os.ProcessState), and honoring it would let git,
-		// hook, and editor exit codes masquerade as wt's own
-		// contract codes: a hook exiting 4 is not "not a repo".
-		if _, foreign := coded.(*exec.ExitError); !foreign {
-			return coded.ExitCode()
-		}
+		return coded.WtExitCode()
 	}
 	return exitErr
 }
@@ -113,17 +111,17 @@ func wrapFlagError(_ *cobra.Command, err error) error {
 // usageError marks errors that exit 2 per D13's machine-output contract.
 type usageError struct{ err error }
 
-func (u usageError) Error() string { return u.err.Error() }
-func (u usageError) Unwrap() error { return u.err }
-func (u usageError) ExitCode() int { return exitUsage }
+func (u usageError) Error() string   { return u.err.Error() }
+func (u usageError) Unwrap() error   { return u.err }
+func (u usageError) WtExitCode() int { return exitUsage }
 
 // preconditionError reports a blocked-but-recoverable state
 // (exit 3 per D13): the command was understood but the repo
 // isn't in a state where it can run.
 type preconditionError struct{ msg string }
 
-func (e preconditionError) Error() string { return e.msg }
-func (e preconditionError) ExitCode() int { return exitPrecondition }
+func (e preconditionError) Error() string   { return e.msg }
+func (e preconditionError) WtExitCode() int { return exitPrecondition }
 
 func preconditionf(format string, args ...any) error {
 	return preconditionError{fmt.Sprintf(format, args...)}
