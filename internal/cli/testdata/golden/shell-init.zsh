@@ -16,7 +16,10 @@ wt() {
     local out
     out="$(command wt "$@")" || return $?
     if [[ -n "$out" && -d "$out" ]]; then
-      builtin cd -- "$out"
+      builtin cd -- "$out" || return $?
+      # $(wt ...) runs this wrapper in a subshell where the cd is
+      # invisible; hand the path through so capture keeps working.
+      [[ -t 1 ]] || builtin print -r -- "$out"
     elif [[ -n "$out" ]]; then
       builtin print -r -- "$out"
     fi

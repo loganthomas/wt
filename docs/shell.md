@@ -39,6 +39,11 @@ cd-producing commands simply print the path instead:
 cd "$(wt go login)"
 ```
 
+Capture works with the shim installed too:
+`$(wt go login)` runs the wrapper in a subshell,
+so the wrapper hands the path through
+whenever stdout is not a terminal.
+
 ## Fuzzy matching rules
 
 `wt go <query>` matches against each tree's branch name,
