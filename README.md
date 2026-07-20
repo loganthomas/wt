@@ -41,7 +41,7 @@ go install github.com/loganthomas/wt/cmd/wt@latest
 | `wt ls`                          | List worktrees: branch, path, state.                                          |
 | `wt done [name] [--keep-branch]` | Finish a tree: safety checks, remove it, delete its branch. Alias: `wt rm`.   |
 | `wt path [name]`                 | Print a tree's absolute path (plumbing).                                      |
-| `wt config [--edit]`             | Show active config paths and merged values; `--edit` opens `$EDITOR`.         |
+| `wt config [--edit]`             | Show active config paths and merged values; `--edit` opens `$VISUAL`/`$EDITOR`. |
 | `wt --version`                   | Version, commit, build date.                                                  |
 
 The full surface (`go`, `sync`, `clean`, pool mode, …)

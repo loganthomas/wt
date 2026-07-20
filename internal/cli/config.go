@@ -27,7 +27,7 @@ func newConfigCmd() *cobra.Command {
 			return runConfig(cmd)
 		},
 	}
-	cmd.Flags().BoolVar(&edit, "edit", false, "open the repo config in $EDITOR")
+	cmd.Flags().BoolVar(&edit, "edit", false, "open the repo config in $VISUAL or $EDITOR")
 	return cmd
 }
 

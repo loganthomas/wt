@@ -13,7 +13,7 @@ defaults, most specific last:
 
 Scalars replace when set; lists replace as a whole.
 `wt config` prints both paths and the merged result;
-`wt config --edit` opens the repo file in `$EDITOR`
+`wt config --edit` opens the repo file in `$VISUAL` (or `$EDITOR`)
 and validates it on save.
 
 The repo config lives *inside* `.git` on purpose:
