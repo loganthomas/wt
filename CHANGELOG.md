@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.1.0-alpha.2 - 2026-07-20
+
+### Enhancements
+
+- `wt init`, `wt new`, `wt done`/`wt rm`, `wt path`, and `wt config` deliver the full default-mode worktree lifecycle, guarded by dirty/unpushed/orphan safety checks and exact exit codes. (#5)
+
+### Fixes
+
+- Alpha releases publish their notes instead of an empty body. (#4)
+- Repo-local `GIT_*` variables are scrubbed from every git call and setup hook, so wt run from inside a git hook acts on its own repository instead of the hook's.
+
+### Documentation
+
+- New docs pages cover the configuration reference and the machine-output contract for scripts and agents. (#5)
+
 ## v0.1.0-alpha.1 - 2026-07-19
 
 ### Enhancements
