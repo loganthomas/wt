@@ -41,11 +41,13 @@ function wt {
 # tab-complete wt pay no extra binary spawn at startup.
 if (( ${+functions[compdef]} )); then
   _wt_bootstrap() {
-    # cobra's generated script assumes stock zsh semantics, and
-    # the sticky emulation keeps _wt safe later even in shells
-    # running exotic setopts (ksh_arrays and friends); its final
-    # compdef rebinds wt straight to _wt for every later Tab.
-    builtin emulate zsh -c 'eval "$(command wt completion zsh)"'
+    # By the time a completion runs, compsys has already
+    # sanitized exotic setopts (ksh_arrays and friends), so a
+    # plain eval is safe here — and deliberately unwrapped:
+    # sticky emulation would leak into compsys internals and
+    # leave _describe unable to offer matches. The script's
+    # final compdef rebinds wt straight to _wt for later Tabs.
+    eval "$(command wt completion zsh)"
     builtin unfunction _wt_bootstrap
     _wt "$@"
   }
