@@ -113,9 +113,9 @@ func wrapUsageArgs(cmd *cobra.Command) {
 // runRoot handles bare `wt`: the most frequent intent is
 // "take me to a tree", so the picker is the default (D12).
 // Bare `wt` is also how newcomers poke at the tool, and it
-// replaced the old show-help default — so the not-a-repo error
+// replaced the old show-help default, so the not-a-repo error
 // alone would be a dead end; point at --help while keeping the
-// error (and its exit 4) intact.
+// error and its exit 4 intact.
 func runRoot(cmd *cobra.Command, _ []string) error {
 	err := runJump(cmd, "")
 	var notRepo *repo.NotARepoError

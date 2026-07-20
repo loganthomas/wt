@@ -47,7 +47,7 @@ func pickTree(ctx context.Context, cands []nav.Candidate) (nav.Candidate, error)
 }
 
 // preview renders one tree's pane: where it is, what state it's
-// in, and what it last did. Errors degrade to omission — a
+// in, and what it last did. Errors degrade to omission; a
 // broken tree should still be pickable, if only to jump in and
 // repair it.
 func preview(ctx context.Context, c nav.Candidate) string {

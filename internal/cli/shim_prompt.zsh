@@ -2,7 +2,7 @@
 # Prompt indicator (opt-in): WT_PROMPT carries the tree's name
 # while the cwd is inside a linked worktree, for use like
 #   PROMPT='...${WT_PROMPT:+ ⌂$WT_PROMPT}...'   (with setopt prompt_subst)
-# Pure zsh — a few stats and one builtin read, recomputed only on
+# Pure zsh: a few stats and one builtin read, recomputed only on
 # cd, never per prompt render (PLAN.md R14). Deliberately uncached:
 # trees come and go, and a cache would pin a dead answer for the
 # life of the shell.

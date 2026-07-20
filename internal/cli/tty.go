@@ -7,7 +7,7 @@ import (
 )
 
 // interactive reports whether wt may open a TUI.
-// Stdin and stderr are the probes — deliberately not stdout: the
+// Stdin and stderr are the probes, deliberately not stdout: the
 // shell shim captures stdout to implement the cd protocol, so a
 // TTY there can never be required, and the picker itself renders
 // on /dev/tty. Scripts and agents run with piped or redirected

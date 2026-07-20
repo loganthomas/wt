@@ -58,8 +58,8 @@ stdout '^main\t.*[/\\]acme\t-$'
 stdout '^feature/login\t'
 ! stderr .
 
-# outside any repository the bare form still honors exit 4,
-# and — since bare `wt` replaced the old help default — points
+# outside any repository the bare form still honors exit 4, and
+# since bare `wt` replaced the old help default it also points
 # newcomers at --help
 mkdir $WORK/elsewhere
 cd $WORK/elsewhere

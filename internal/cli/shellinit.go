@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// The shim ships as plain zsh in two pieces — base and opt-in
-// prompt hook — so each file stays directly readable and
+// The shim ships as plain zsh in two pieces, base and opt-in
+// prompt hook, so each file stays directly readable and
 // checkable as zsh; --prompt simply appends the second.
 //
 //go:embed shim.zsh

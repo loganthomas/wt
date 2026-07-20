@@ -34,7 +34,7 @@ func (c Candidate) Display() string {
 
 // names are the spellings a query is matched against:
 // the branch, its sanitized directory form, and the directory
-// basename — the same three the exact-name commands accept.
+// basename, the same three the exact-name commands accept.
 // Overlapping spellings are harmless: scoring takes the best
 // name, so a duplicate can never change the result.
 func (c Candidate) names() []string {
@@ -47,7 +47,7 @@ func (c Candidate) names() []string {
 
 // Resolve picks the candidate best matching query.
 // Exact spellings win outright, branch names before directory
-// names. Otherwise the best fuzzy score wins — but only when it
+// names. Otherwise the best fuzzy score wins, but only when it
 // strictly beats the runner-up: a tie never guesses, it returns
 // the ranked contenders (at most five) instead.
 // No match at all returns (nil, nil).
@@ -77,7 +77,7 @@ func Resolve(cands []Candidate, query string) (winner *Candidate, contenders []C
 // directory form) win over directory basenames: when one tree's
 // directory carries another tree's branch name, the user almost
 // certainly means the branch.
-// This is the single owner of wt's accepted-spellings rule —
+// This is the single owner of wt's accepted-spellings rule;
 // the exact-name commands resolve through it too, so they can
 // never drift from what `wt go` accepts.
 func ResolveExact(cands []Candidate, name string) *Candidate {
@@ -106,10 +106,10 @@ type scored struct {
 // scoring each candidate by the best of its names.
 // Ties keep input order, so the result is deterministic.
 //
-// Scores are match quality only: sahilm/fuzzy's −1-per-leftover-
-// byte length penalty is normalized away by adding the byte
-// length back. How well the query hits is what decides between
-// trees, never how long the rest of a name happens to be —
+// Scores are match quality only: sahilm/fuzzy penalizes one
+// point per leftover byte, and adding the byte length back
+// cancels that. How well the query hits is what decides between
+// trees, never how long the rest of a name happens to be;
 // otherwise "feature" would "decisively" pick feature/login over
 // feature/logout just because login is a letter shorter.
 func rank(cands []Candidate, query string) []scored {

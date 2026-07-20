@@ -40,8 +40,8 @@ func runLs(cmd *cobra.Command, porcelain bool) error {
 }
 
 // formatPorcelain renders the stable machine format:
-// one line per tree, three tab-separated fields —
-// branch label, path, comma-joined states.
+// one line per tree, three tab-separated fields
+// (branch label, path, comma-joined states).
 // An empty state becomes "-" so the field count never varies
 // and awk/cut consumers can rely on positions (D13).
 func formatPorcelain(trees []gitx.Worktree) string {

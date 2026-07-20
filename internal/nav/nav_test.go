@@ -105,7 +105,7 @@ func TestResolveLengthDifferenceAloneIsAmbiguous(t *testing.T) {
 }
 
 // The length normalization must count in the unit the matcher
-// penalizes — bytes — so multibyte names neither gain nor lose:
+// penalizes, bytes, so multibyte names neither gain nor lose:
 // this genuine tie must never become a decisive jump.
 func TestResolveTiesSurviveMultibyteNames(t *testing.T) {
 	cands := []Candidate{
