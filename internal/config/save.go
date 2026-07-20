@@ -1,9 +1,9 @@
 package config
 
 import (
-	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -36,6 +36,11 @@ type renderFile struct {
 // Normalized like Load, so the file on disk always carries the
 // same canonical spellings a later load would produce.
 func Save(path string, cfg Config) error {
+	// normalize rewrites list entries in place; cloning first
+	// keeps the caller's slices untouched, as the by-value
+	// signature promises.
+	cfg.Copy = slices.Clone(cfg.Copy)
+	cfg.Hooks.RefreshIfChanged = slices.Clone(cfg.Hooks.RefreshIfChanged)
 	normalize(&cfg)
 	if err := validate(cfg); err != nil {
 		return err
@@ -73,7 +78,7 @@ func writeAtomic(path string, raw []byte) (err error) {
 	}
 	// The rename must not clobber a mode the user chose; a fresh
 	// file gets the plain 0o644 (CreateTemp opens 0o600).
-	mode := fs.FileMode(0o644)
+	mode := os.FileMode(0o644)
 	if info, statErr := os.Stat(path); statErr == nil {
 		mode = info.Mode().Perm()
 	}
