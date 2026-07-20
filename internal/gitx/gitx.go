@@ -100,7 +100,9 @@ func (g *Git) Status(ctx context.Context) ([]StatusEntry, error) {
 		entries = append(entries, StatusEntry{Code: code, Path: path})
 		// Renames and copies carry the origin path as an extra
 		// NUL-terminated field; it is not a record of its own.
-		if code[0] == 'R' || code[0] == 'C' {
+		// Either column can hold the R/C: the index side ("R ")
+		// or the worktree side (" R", e.g. mv plus add -N).
+		if strings.ContainsAny(code, "RC") {
 			i++
 		}
 	}
