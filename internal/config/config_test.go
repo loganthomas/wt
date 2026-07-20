@@ -103,6 +103,15 @@ size = 4
 			wantErr: "wt.toml:1:",
 		},
 		{
+			name: "copy entries normalize to git's spelling",
+			repo: "copy = [\"./.env\", \"dir//local.txt\"]\n",
+			want: Config{
+				Base: "main",
+				Copy: []string{".env", "dir/local.txt"},
+				UI:   UI{Color: "auto"},
+			},
+		},
+		{
 			name:    "absolute copy path rejected",
 			repo:    "copy = [\"/etc/passwd\"]\n",
 			wantErr: "copy",

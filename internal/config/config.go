@@ -10,6 +10,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 )
@@ -96,11 +97,27 @@ func Load(globalPath, repoPath string) (Config, error) {
 		return Config{}, err
 	}
 	merge(&cfg, repo)
+	normalize(&cfg)
 
 	if err := validate(cfg); err != nil {
 		return Config{}, err
 	}
 	return cfg, nil
+}
+
+// normalize pins tree-local path lists to git's canonical spelling
+// (cleaned, slash-separated). Their entries are later compared as
+// exact strings against git's own output; a stray "./" would make
+// wt miss a tracked file or refuse its own pristine planting.
+func normalize(cfg *Config) {
+	normalizeTreeLocal(cfg.Copy)
+	normalizeTreeLocal(cfg.Hooks.RefreshIfChanged)
+}
+
+func normalizeTreeLocal(paths []string) {
+	for i, p := range paths {
+		paths[i] = path.Clean(filepath.ToSlash(p))
+	}
 }
 
 // merge overlays set values from layer onto cfg.
