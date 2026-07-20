@@ -10,7 +10,8 @@
 # A pre-existing `wt` alias would expand inside this very eval and
 # abort it wholesale; clear it, and use the `function` keyword,
 # whose name position is never alias-expanded.
-builtin unalias wt 2>/dev/null
+# The `|| :` keeps err_exit shells alive when no alias exists.
+builtin unalias wt 2>/dev/null || :
 function wt {
   # emulate pins zsh semantics against exotic user setopts;
   # builtins dodge same-named user functions and aliases.
