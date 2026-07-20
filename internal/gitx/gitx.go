@@ -148,6 +148,49 @@ func (g *Git) ValidBranchName(ctx context.Context, name string) bool {
 	return err == nil
 }
 
+// localRepoEnv mirrors `git rev-parse --local-env-vars`: the
+// variables git exports to hooks to pin its own repository.
+// When wt itself runs under a hook it inherits them, and left in
+// place they would silently retarget every command at the hook's
+// repo instead of cmd.Dir — guards included, so `wt done` could
+// pass its checks against the wrong tree and destroy work.
+var localRepoEnv = map[string]bool{
+	"GIT_ALTERNATE_OBJECT_DIRECTORIES": true,
+	"GIT_COMMON_DIR":                   true,
+	"GIT_CONFIG":                       true,
+	"GIT_CONFIG_COUNT":                 true,
+	"GIT_CONFIG_PARAMETERS":            true,
+	"GIT_DIR":                          true,
+	"GIT_GRAFT_FILE":                   true,
+	"GIT_IMPLICIT_WORK_TREE":           true,
+	"GIT_INDEX_FILE":                   true,
+	"GIT_INTERNAL_SUPER_PREFIX":        true,
+	"GIT_NO_REPLACE_OBJECTS":           true,
+	"GIT_OBJECT_DIRECTORY":             true,
+	"GIT_PREFIX":                       true,
+	"GIT_REPLACE_REF_BASE":             true,
+	"GIT_SHALLOW_FILE":                 true,
+	"GIT_WORK_TREE":                    true,
+}
+
+// scrubbedEnv is the process environment minus the repo-local
+// git variables. The GIT_CONFIG_KEY_n/VALUE_n pairs travel with
+// GIT_CONFIG_COUNT and are matched by prefix.
+func scrubbedEnv() []string {
+	environ := os.Environ()
+	env := make([]string, 0, len(environ)+1)
+	for _, kv := range environ {
+		name, _, _ := strings.Cut(kv, "=")
+		if localRepoEnv[name] ||
+			strings.HasPrefix(name, "GIT_CONFIG_KEY_") ||
+			strings.HasPrefix(name, "GIT_CONFIG_VALUE_") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	return env
+}
+
 // runLine runs git and returns its single-line output, trimmed.
 func (g *Git) runLine(ctx context.Context, args ...string) (string, error) {
 	out, err := g.run(ctx, args...)
@@ -163,7 +206,7 @@ func (g *Git) run(ctx context.Context, args ...string) ([]byte, error) {
 	// Pinned to the C locale: callers classify git's stderr text
 	// (e.g. mapping "not a git repository" to exit 4), and localized
 	// messages would silently break that mapping.
-	cmd.Env = append(os.Environ(), "LC_ALL=C")
+	cmd.Env = append(scrubbedEnv(), "LC_ALL=C")
 	out, err := cmd.Output()
 	if err != nil {
 		var exit *exec.ExitError
