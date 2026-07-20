@@ -18,6 +18,14 @@ exec git worktree add -q --detach ../trees/scratch
 exec wt ls
 stdout '\(detached\)\s+.*[/\\]scratch'
 
+# --porcelain: stable tab-separated fields, '-' for an empty state,
+# so field count never varies for awk/cut consumers
+exec wt ls --porcelain
+stdout '^main\t.*[/\\]repo\t-$'
+stdout '^feature/login\t.*[/\\]login\t-$'
+stdout '^\(detached\)\t.*[/\\]scratch\t-$'
+! stderr .
+
 # outside any repository: exit 4 (D13), explanation on stderr only
 mkdir $WORK/elsewhere
 cd $WORK/elsewhere
