@@ -37,6 +37,20 @@ func TestFormatRowsPreservesPathTrailingSpace(t *testing.T) {
 	}
 }
 
+func TestFormatPorcelainEmitsFixedTabSeparatedFields(t *testing.T) {
+	got := formatPorcelain([]gitx.Worktree{
+		{Branch: "main", Path: "/repo", Locked: true, Prunable: true},
+		{Branch: "feature/login", Path: "/repo.trees/feature-login"},
+		{Detached: true, Path: "/repo.trees/scratch"},
+	})
+	want := "main\t/repo\tlocked,prunable\n" +
+		"feature/login\t/repo.trees/feature-login\t-\n" +
+		"(detached)\t/repo.trees/scratch\t-\n"
+	if got != want {
+		t.Errorf("formatPorcelain() = %q, want %q", got, want)
+	}
+}
+
 func TestFormatRowsJoinsMultipleStates(t *testing.T) {
 	rows := formatRows([]gitx.Worktree{
 		{Branch: "old", Path: "/gone", Locked: true, Prunable: true},

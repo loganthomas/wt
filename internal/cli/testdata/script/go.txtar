@@ -1,0 +1,74 @@
+# wt go resolves a fuzzy query to one tree path on stdout.
+# Without a TTY the bare forms fall back to the porcelain listing,
+# so scripts and agents never hang on a picker (D12, R15).
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+exec wt new feature/login
+exec wt new feature/logout
+
+# a decisive query prints the tree path, nothing else
+exec wt go login
+stdout '[/\\]feature-login$'
+! stderr .
+
+# exact spellings win outright: full branch and sanitized form
+exec wt go feature/login
+stdout '[/\\]feature-login$'
+exec wt go feature-logout
+stdout '[/\\]feature-logout$'
+
+# the main checkout is a jump target too
+exec wt go main
+stdout '[/\\]acme$'
+
+# an ambiguous query lists the contenders on stderr and exits 3
+exitcode 3 wt go feature
+stderr 'ambiguous'
+stderr 'feature/login'
+stderr 'feature/logout'
+! stdout .
+
+# no match: exit 1 with a hint, empty stdout
+exitcode 1 wt go zzz
+stderr 'no tree matches'
+! stdout .
+
+# an explicitly empty query is a usage error, never the bare form:
+# `cd "$(wt go "$Q")"` with Q unset must fail loudly, not exit 0
+# with a listing on stdout
+exitcode 2 wt go ''
+stderr 'empty query'
+! stdout .
+
+# bare `wt go` without a TTY prints the porcelain listing
+exec wt go
+stdout '^main\t.*[/\\]acme\t-$'
+stdout '^feature/login\t'
+stdout '^feature/logout\t'
+! stderr .
+
+# bare `wt` behaves identically
+exec wt
+stdout '^main\t.*[/\\]acme\t-$'
+stdout '^feature/login\t'
+! stderr .
+
+# outside any repository the bare form still honors exit 4, and
+# since bare `wt` replaced the old help default it also points
+# newcomers at --help
+mkdir $WORK/elsewhere
+cd $WORK/elsewhere
+exitcode 4 wt
+stderr 'not inside a git repository'
+stderr 'wt --help'
+! stdout .
+
+# subcommands keep the plain message: the user already knows wt
+exitcode 4 wt go login
+stderr 'not inside a git repository'
+! stderr 'wt --help'

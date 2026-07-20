@@ -73,7 +73,7 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	}
 
 	if !opts.yes {
-		if !stdinIsTerminal() {
+		if !isTerminal(os.Stdin) {
 			return usageError{errors.New(
 				"stdin is not a terminal; run `wt init --yes` with value flags instead")}
 		}
@@ -170,10 +170,4 @@ func splitList(s string) []string {
 		}
 	}
 	return out
-}
-
-// stdinIsTerminal reports whether prompts can be shown at all.
-func stdinIsTerminal() bool {
-	info, err := os.Stdin.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }

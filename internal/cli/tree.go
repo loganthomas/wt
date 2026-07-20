@@ -3,16 +3,15 @@ package cli
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 
 	"github.com/loganthomas/wt/internal/gitx"
-	"github.com/loganthomas/wt/internal/repo"
+	"github.com/loganthomas/wt/internal/nav"
 )
 
 // resolveTree picks the worktree a command should act on.
 // An empty name means the tree containing the working directory;
-// otherwise a tree matches by branch name, sanitized branch name,
-// or directory basename, the three spellings a user might reach for.
+// otherwise the accepted spellings are nav's exact tier, the
+// same rule `wt go` applies, so the two can never drift apart.
 func resolveTree(ctx context.Context, trees []gitx.Worktree, name string) (gitx.Worktree, error) {
 	if name == "" {
 		top, err := gitx.New("").TopLevel(ctx)
@@ -26,20 +25,27 @@ func resolveTree(ctx context.Context, trees []gitx.Worktree, name string) (gitx.
 		}
 		return gitx.Worktree{}, fmt.Errorf("git does not list the current tree %s", top)
 	}
-	// Branch matches win over directory names: when one tree's
-	// directory happens to carry another tree's branch name,
-	// the user almost certainly means the branch.
-	for _, t := range trees {
-		if t.Branch != "" && (t.Branch == name || repo.SanitizeBranch(t.Branch) == name) {
-			return t, nil
+	// Every tree is a candidate here, bare entries included:
+	// exact-name commands may need to name states a jump never
+	// targets.
+	cands := make([]nav.Candidate, len(trees))
+	for i, t := range trees {
+		cands[i] = nav.Candidate{Branch: t.Branch, Path: t.Path}
+	}
+	if winner := nav.ResolveExact(cands, name); winner != nil {
+		for _, t := range trees {
+			if t.Path == winner.Path {
+				return t, nil
+			}
 		}
 	}
-	for _, t := range trees {
-		if filepath.Base(t.Path) == name {
-			return t, nil
-		}
-	}
-	return gitx.Worktree{}, fmt.Errorf("no tree matches %q — `wt ls` shows what exists", name)
+	return gitx.Worktree{}, errNoTreeMatches(name)
+}
+
+// errNoTreeMatches is the one spelling of the miss error, shared
+// by exact resolution and fuzzy jumps.
+func errNoTreeMatches(name string) error {
+	return fmt.Errorf("no tree matches %q — `wt ls` shows what exists", name)
 }
 
 // nameArg unpacks the optional [name] positional argument.

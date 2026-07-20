@@ -1,0 +1,99 @@
+# The eval line is the product of Phase 3: a zsh that evals
+# `wt shell-init zsh` gets cd-on-select, pass-through for every
+# other command, and (opted in) the WT_PROMPT indicator.
+# The scripts live in files so their $variables reach zsh intact.
+
+[!exec:zsh] skip 'zsh not on PATH'
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+exec wt new feature/login
+cd $WORK
+
+# a decisive `wt go` becomes a cd in the calling shell
+exec zsh jump.zsh
+stdout '[/\\]feature-login$'
+! stderr .
+
+# non-cd commands pass through the wrapper untouched
+exec zsh passthrough.zsh
+stdout '^feature/login\t'
+
+# `wt new` lands the shell in the fresh tree
+exec zsh new.zsh
+stdout '[/\\]feature-pay$'
+
+# the prompt hook tracks entering and leaving a tree
+exec zsh prompt.zsh
+stdout '^in=feature-login$'
+stdout '^out=unset$'
+stdout '^gone=unset$'
+! stderr .
+
+# capture keeps working under the shim: $(wt ...) runs the wrapper
+# in a subshell where the cd is invisible, so the wrapper hands the
+# path through whenever stdout is not a terminal
+exec zsh capture.zsh
+stdout '^captured=.*[/\\]feature-login$'
+
+# bare `wt` through the wrapper re-emits the porcelain listing
+exec zsh bare.zsh
+stdout '^feature/login\t'
+stdout '^main\t'
+
+# failure exit codes survive the wrapper's capture-or-cd plumbing:
+# no match stays 1, ambiguity stays 3 (D13)
+exec zsh status.zsh
+stdout '^nomatch=1$'
+stdout '^ambiguous=3$'
+
+-- jump.zsh --
+eval "$(command wt shell-init zsh)"
+cd acme
+wt go login
+pwd
+
+-- passthrough.zsh --
+eval "$(command wt shell-init zsh)"
+cd acme
+wt ls --porcelain
+
+-- new.zsh --
+eval "$(command wt shell-init zsh)"
+cd acme
+wt new feature/pay 2>/dev/null
+pwd
+
+-- capture.zsh --
+eval "$(command wt shell-init zsh)"
+cd acme
+p="$(wt go login)"
+print -r -- "captured=$p"
+
+-- bare.zsh --
+eval "$(command wt shell-init zsh)"
+cd acme
+wt
+
+-- status.zsh --
+eval "$(command wt shell-init zsh)"
+cd acme
+wt go zzz 2>/dev/null
+print -r -- "nomatch=$?"
+wt go feature 2>/dev/null
+print -r -- "ambiguous=$?"
+
+-- prompt.zsh --
+eval "$(command wt shell-init zsh --prompt)"
+cd acme.trees/feature-login
+print -r -- "in=${WT_PROMPT-unset}"
+cd ../../acme
+print -r -- "out=${WT_PROMPT-unset}"
+# a revisited path must be re-inspected, never answered from a
+# cache: the tree may have died in between
+rm -f ../acme.trees/feature-login/.git
+cd ../acme.trees/feature-login
+print -r -- "gone=${WT_PROMPT-unset}"

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"fmt"
 	"strings"
 	"unicode/utf8"
@@ -11,21 +12,44 @@ import (
 )
 
 func newLsCmd() *cobra.Command {
-	return &cobra.Command{
+	var porcelain bool
+	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List worktrees",
 		Args:  cobra.NoArgs,
-		RunE:  runLs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runLs(cmd, porcelain)
+		},
 	}
+	cmd.Flags().BoolVar(&porcelain, "porcelain", false,
+		"stable tab-separated output for scripts")
+	return cmd
 }
 
-func runLs(cmd *cobra.Command, _ []string) error {
+func runLs(cmd *cobra.Command, porcelain bool) error {
 	trees, err := repoTrees(cmd.Context())
 	if err != nil {
 		return err
 	}
-	_, err = fmt.Fprint(cmd.OutOrStdout(), formatRows(trees))
+	format := formatRows
+	if porcelain {
+		format = formatPorcelain
+	}
+	_, err = fmt.Fprint(cmd.OutOrStdout(), format(trees))
 	return err
+}
+
+// formatPorcelain renders the stable machine format:
+// one line per tree, three tab-separated fields
+// (branch label, path, comma-joined states).
+// An empty state becomes "-" so the field count never varies
+// and awk/cut consumers can rely on positions (D13).
+func formatPorcelain(trees []gitx.Worktree) string {
+	var out strings.Builder
+	for _, t := range trees {
+		fmt.Fprintf(&out, "%s\t%s\t%s\n", branchLabel(t), t.Path, cmp.Or(stateLabel(t), "-"))
+	}
+	return out.String()
 }
 
 // formatRows renders one aligned row per worktree.

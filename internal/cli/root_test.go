@@ -16,6 +16,7 @@ func TestUsageErrorsExitTwo(t *testing.T) {
 		{"unknown flag", []string{"--definitely-not-a-flag"}},
 		{"unknown command", []string{"bogus"}},
 		{"unexpected argument", []string{"ls", "unexpected"}},
+		{"unsupported shell", []string{"shell-init", "bash"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

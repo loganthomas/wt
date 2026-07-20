@@ -38,13 +38,26 @@ then retry", never "wt is broken".
 | ----------- | --------------------------------------------- |
 | `wt new`    | The new tree's absolute path, one line.       |
 | `wt path`   | The resolved tree's absolute path, one line.  |
+| `wt go <q>` | The matched tree's absolute path, one line. Ambiguous: contenders on stderr, exit 3. No match: exit 1. |
 | `wt ls`     | One aligned row per tree.                     |
+| `wt ls --porcelain` | One tree per line, three tab-separated fields: branch label, absolute path, comma-joined states (`-` when none). The field count never varies. |
+| bare `wt`, bare `wt go` | Without a TTY on stdin and stderr: exactly the `--porcelain` listing, so agents never hang on the interactive picker. |
+| `wt shell-init zsh` | The zsh integration script itself (it is the machine output — meant for `eval`). |
 | `wt config` | Merged config as TOML; the two config file paths ride along as `#` comments, so the whole document stays parseable TOML. |
 | `wt init`   | Nothing (chatter on stderr). Non-interactive use requires `--yes` plus value flags; without a TTY, prompting is refused (exit 2) rather than hanging. |
 | `wt done`   | Nothing (chatter on stderr).                  |
 
 `--json` on `ls`/`status`/`doctor` and the pool plumbing
 (`wt claim` / `wt release`) land in later phases.
+
+A porcelain line looks like:
+
+```
+feature/login	/Users/you/acme.trees/feature-login	-
+main	/Users/you/acme	locked,prunable
+```
+
+Detached trees carry the literal branch label `(detached)`.
 
 ## Hooks
 
