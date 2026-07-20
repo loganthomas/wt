@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.1.0-alpha.3 - 2026-07-20
+
+### Enhancements
+
+- One `eval "$(wt shell-init zsh)"` line in `.zshrc` makes bare `wt` an interactive tree picker, `wt go` a fuzzy cd, and `wt new` land in the fresh tree — with zsh completions, an opt-in `WT_PROMPT` indicator, and a script-safe `wt ls --porcelain` fallback whenever no TTY is present. (#8)
+
+### Documentation
+
+- A shell-integration docs page covers the cd protocol, fuzzy-matching rules, completions, and the `WT_PROMPT`/starship prompt recipes. (#8)
+
+### Infrastructure
+
+- The ubuntu CI runner installs zsh, so the shell-integration smoke tests run on both platforms. (#8)
+
 ## v0.1.0-alpha.2 - 2026-07-20
 
 ### Enhancements
