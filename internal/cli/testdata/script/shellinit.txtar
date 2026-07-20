@@ -1,0 +1,57 @@
+# The eval line is the product of Phase 3: a zsh that evals
+# `wt shell-init zsh` gets cd-on-select, pass-through for every
+# other command, and (opted in) the WT_PROMPT indicator.
+# The scripts live in files so their $variables reach zsh intact.
+
+[!exec:zsh] skip 'zsh not on PATH'
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+exec wt new feature/login
+cd $WORK
+
+# a decisive `wt go` becomes a cd in the calling shell
+exec zsh jump.zsh
+stdout '[/\\]feature-login$'
+! stderr .
+
+# non-cd commands pass through the wrapper untouched
+exec zsh passthrough.zsh
+stdout '^feature/login\t'
+
+# `wt new` lands the shell in the fresh tree
+exec zsh new.zsh
+stdout '[/\\]feature-pay$'
+
+# the prompt hook tracks entering and leaving a tree
+exec zsh prompt.zsh
+stdout '^in=feature-login$'
+stdout '^out=unset$'
+! stderr .
+
+-- jump.zsh --
+eval "$(command wt shell-init zsh)"
+cd acme
+wt go login
+pwd
+
+-- passthrough.zsh --
+eval "$(command wt shell-init zsh)"
+cd acme
+wt ls --porcelain
+
+-- new.zsh --
+eval "$(command wt shell-init zsh)"
+cd acme
+wt new feature/pay 2>/dev/null
+pwd
+
+-- prompt.zsh --
+eval "$(command wt shell-init zsh --prompt)"
+cd acme.trees/feature-login
+print -r -- "in=${WT_PROMPT-unset}"
+cd ../../acme
+print -r -- "out=${WT_PROMPT-unset}"
