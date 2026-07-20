@@ -12,6 +12,13 @@ import (
 // TTY there can never be required, and the picker itself renders
 // on /dev/tty. Scripts and agents run with piped or redirected
 // streams and fall through to porcelain output instead (D12, R15).
+//
+// A dumb or unset TERM (emacs M-x shell, some CI PTYs) would pass
+// the TTY probes and then hard-fail the picker's terminfo lookup;
+// degrading to porcelain keeps the fallback graceful there too.
 func interactive() bool {
+	if t := os.Getenv("TERM"); t == "" || t == "dumb" {
+		return false
+	}
 	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd()))
 }
