@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/loganthomas/wt/internal/gitx"
-	"github.com/loganthomas/wt/internal/repo"
 )
 
 func newLsCmd() *cobra.Command {
@@ -21,14 +20,7 @@ func newLsCmd() *cobra.Command {
 }
 
 func runLs(cmd *cobra.Command, _ []string) error {
-	// Resolved first so that outside a repository the contract's
-	// exit 4 applies, and the listing anchors at the same root
-	// every other command uses.
-	r, err := repo.Find(cmd.Context(), "")
-	if err != nil {
-		return err
-	}
-	trees, err := gitx.New(r.Root).Worktrees(cmd.Context())
+	trees, err := repoTrees(cmd.Context())
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/loganthomas/wt/internal/config"
+	"github.com/loganthomas/wt/internal/gitx"
 	"github.com/loganthomas/wt/internal/repo"
 )
 
@@ -42,4 +43,18 @@ func loadMerged(r *repo.Repo) (config.Config, error) {
 // treesDir is the resolved container for this repo's managed trees.
 func (w *wtRepo) treesDir() string {
 	return w.repo.TreesDir(w.cfg.TreesDir)
+}
+
+// repoTrees resolves the repository and lists its worktrees,
+// deliberately without loading config: read-only commands like
+// ls and path must keep working even when wt.toml is broken.
+// Resolving the repo first keeps the contract's exit 4 for
+// non-repos, and anchors the listing at the same root every
+// other command uses.
+func repoTrees(ctx context.Context) ([]gitx.Worktree, error) {
+	r, err := repo.Find(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	return gitx.New(r.Root).Worktrees(ctx)
 }

@@ -4,9 +4,6 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-
-	"github.com/loganthomas/wt/internal/gitx"
-	"github.com/loganthomas/wt/internal/repo"
 )
 
 func newPathCmd() *cobra.Command {
@@ -22,11 +19,7 @@ func newPathCmd() *cobra.Command {
 
 func runPath(cmd *cobra.Command, name string) error {
 	ctx := cmd.Context()
-	r, err := repo.Find(ctx, "")
-	if err != nil {
-		return err
-	}
-	trees, err := gitx.New(r.Root).Worktrees(ctx)
+	trees, err := repoTrees(ctx)
 	if err != nil {
 		return err
 	}
