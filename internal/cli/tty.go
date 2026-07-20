@@ -20,5 +20,12 @@ func interactive() bool {
 	if t := os.Getenv("TERM"); t == "" || t == "dumb" {
 		return false
 	}
-	return term.IsTerminal(int(os.Stdin.Fd())) && term.IsTerminal(int(os.Stderr.Fd()))
+	return isTerminal(os.Stdin) && isTerminal(os.Stderr)
+}
+
+// isTerminal is the one TTY probe in the package. The ioctl asks
+// the fd itself; a stat-based ModeCharDevice check would call
+// /dev/null a terminal and happily prompt into it.
+func isTerminal(f *os.File) bool {
+	return term.IsTerminal(int(f.Fd()))
 }
