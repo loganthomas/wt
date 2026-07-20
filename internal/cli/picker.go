@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	fuzzyfinder "github.com/ktr0731/go-fuzzyfinder"
+	"github.com/ktr0731/go-fuzzyfinder"
 
 	"github.com/loganthomas/wt/internal/gitx"
 	"github.com/loganthomas/wt/internal/nav"
