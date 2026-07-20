@@ -44,6 +44,12 @@ exec zsh bare.zsh
 stdout '^feature/login\t'
 stdout '^main\t'
 
+# failure exit codes survive the wrapper's capture-or-cd plumbing:
+# no match stays 1, ambiguity stays 3 (D13)
+exec zsh status.zsh
+stdout '^nomatch=1$'
+stdout '^ambiguous=3$'
+
 -- jump.zsh --
 eval "$(command wt shell-init zsh)"
 cd acme
@@ -71,6 +77,14 @@ print -r -- "captured=$p"
 eval "$(command wt shell-init zsh)"
 cd acme
 wt
+
+-- status.zsh --
+eval "$(command wt shell-init zsh)"
+cd acme
+wt go zzz 2>/dev/null
+print -r -- "nomatch=$?"
+wt go feature 2>/dev/null
+print -r -- "ambiguous=$?"
 
 -- prompt.zsh --
 eval "$(command wt shell-init zsh --prompt)"
