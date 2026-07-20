@@ -5,6 +5,7 @@
 package nav
 
 import (
+	"cmp"
 	"path/filepath"
 	"slices"
 
@@ -86,10 +87,10 @@ type scored struct {
 // Ties keep input order, so the result is deterministic.
 //
 // Scores are match quality only: sahilm/fuzzy's −1-per-leftover-
-// rune length penalty is normalized away by adding len(name)
-// back. How well the query hits is what decides between trees,
-// never how long the rest of a name happens to be — otherwise
-// "feature" would "decisively" pick feature/login over
+// byte length penalty is normalized away by adding the byte
+// length back. How well the query hits is what decides between
+// trees, never how long the rest of a name happens to be —
+// otherwise "feature" would "decisively" pick feature/login over
 // feature/logout just because login is a letter shorter.
 func rank(cands []Candidate, query string) []scored {
 	var ranked []scored
@@ -104,6 +105,6 @@ func rank(cands []Candidate, query string) []scored {
 			ranked = append(ranked, scored{Candidate: c, score: best})
 		}
 	}
-	slices.SortStableFunc(ranked, func(a, b scored) int { return b.score - a.score })
+	slices.SortStableFunc(ranked, func(a, b scored) int { return cmp.Compare(b.score, a.score) })
 	return ranked
 }

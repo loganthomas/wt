@@ -104,6 +104,23 @@ func TestResolveLengthDifferenceAloneIsAmbiguous(t *testing.T) {
 	}
 }
 
+// The length normalization must count in the unit the matcher
+// penalizes — bytes — so multibyte names neither gain nor lose:
+// this genuine tie must never become a decisive jump.
+func TestResolveTiesSurviveMultibyteNames(t *testing.T) {
+	cands := []Candidate{
+		{Branch: "fix-é", Path: "/trees/fix-é"},   // 5 runes, 6 bytes
+		{Branch: "fix-ab", Path: "/trees/fix-ab"}, // 6 runes, 6 bytes
+	}
+	winner, contenders := Resolve(cands, "fix")
+	if winner != nil {
+		t.Fatalf("Resolve() winner = %v; want ambiguity", winner)
+	}
+	if len(contenders) != 2 {
+		t.Fatalf("Resolve() contenders = %v; want both fix-* trees", contenders)
+	}
+}
+
 func TestResolveAmbiguityCapsAtFiveContenders(t *testing.T) {
 	var cands []Candidate
 	for i := range 7 {
