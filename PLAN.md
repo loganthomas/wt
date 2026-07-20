@@ -490,7 +490,8 @@ branch protection live on `main` and `dev`.
 - **Exit:** full default-mode lifecycle usable day-to-day from the raw binary
   (no cd yet). Tag `v0.1.0-alpha.2`.
 
-**Status (2026-07-20):** code complete, PR open against `dev`.
+**Status (2026-07-20): complete.**
+Merged to `main`; `v0.1.0-alpha.2` tagged and released.
 Notable additions beyond the checklist:
 `wt done` sweeps wt-planted `copy` files when their content still
 matches the main checkout (an edited copy still trips the guard),
@@ -506,27 +507,45 @@ instead of leaking through the D13 contract;
 tracked copy-list entries are left to git on both the plant
 and sweep sides;
 and `wt done` points prunable trees at `git worktree prune`.
-Remaining before exit is met: merge, batch fragments,
-tag `v0.1.0-alpha.2`.
-Phase 3 (shell integration & navigation) is ready to be taken up
-once the tag is cut.
 
 ### Phase 3 — Shell integration & navigation (M)
 
-- [ ] `wt shell-init zsh`: `go:embed` shim template —
+- [x] `wt shell-init zsh`: `go:embed` shim template —
       `wt()` function, cd protocol, completions;
       golden-file test of the emitted script plus a zsh smoke test
       (`zsh -c 'eval "$(wt shell-init zsh)"; wt go x'`) under testscript.
-- [ ] `wt go <query>`: sahilm/fuzzy over branch names + slot tickets;
+- [x] `wt go <query>`: sahilm/fuzzy over branch names + slot tickets;
       ambiguous → top-5 disambiguation on stderr, exit 3.
-- [ ] Bare `wt` and bare `wt go`: go-fuzzyfinder picker with preview pane;
+- [x] Bare `wt` and bare `wt go`: go-fuzzyfinder picker with preview pane;
       **non-TTY fallback to porcelain list**
       (testscript covers the non-TTY path;
       the picker itself gets a manual test note).
-- [ ] Optional prompt segment: chpwd-cached `WT_PROMPT`,
+- [x] Optional prompt segment: chpwd-cached `WT_PROMPT`,
       `--prompt` flag on shell-init; starship recipe in docs.
 - **Exit:** the eval line in `.zshrc` gives cd-on-select, completions,
   optional prompt. Tag `v0.1.0-alpha.3`.
+
+**Status (2026-07-20):** code complete, PR open against `dev`.
+Two D12 refinements surfaced by implementation:
+the interactivity probe is **stdin + stderr**, never stdout —
+the shim captures stdout to implement the cd protocol,
+so a stdout check would make the picker unreachable
+(the picker renders on `/dev/tty`; the porcelain fallback for
+scripts and agents is unchanged) —
+and the porcelain fallback landed as an explicit
+`wt ls --porcelain` flag so scripts can ask for it by name.
+Fuzzy ranking normalizes away the matcher's name-length penalty:
+a jump is decided by match quality alone,
+so `feature` refuses to pick `feature/login` over `feature/logout`
+just because it is a letter shorter.
+The shim's cd set is bare `wt`, `wt go`, and `wt new`;
+`wt path` stays cd-free plumbing.
+Completions are bootstrapped via `eval "$(wt completion zsh)"`
+inside the shim rather than inlined,
+so they track the installed binary and golden files stay stable.
+Remaining before exit is met: merge, batch fragments,
+tag `v0.1.0-alpha.3`.
+Phase 4 (pool mode) is ready to be taken up once the tag is cut.
 
 ### Phase 4 — Pool mode (L)
 
