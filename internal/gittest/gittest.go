@@ -70,9 +70,12 @@ func WriteFile(t *testing.T, dir, name, content string) {
 
 // Scrub removes the caller's GIT_* variables from the test
 // process itself, restoring them when the test ends.
-// Tests that drive wt's production code (which inherits the
-// process environment) need this; fixtures run via Run are
-// already scrubbed by Env.
+// Production code scrubs the repo-local set (GIT_DIR and kin)
+// on its own; this guards the rest, which wt deliberately
+// honors but tests must not inherit from the developer's shell
+// or a hook (GIT_CONFIG_GLOBAL, GIT_CEILING_DIRECTORIES,
+// GIT_AUTHOR_*). Fixtures run via Run are already scrubbed
+// by Env.
 func Scrub(t *testing.T) {
 	t.Helper()
 	for _, kv := range os.Environ() {
