@@ -203,6 +203,19 @@ func TestSave(t *testing.T) {
 			t.Errorf("round-trip mismatch (-saved +loaded):\n%s", diff)
 		}
 	})
+	t.Run("leaves no temp file behind", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := Save(filepath.Join(dir, "wt.toml"), Config{Base: "main"}); err != nil {
+			t.Fatal(err)
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) != 1 || entries[0].Name() != "wt.toml" {
+			t.Errorf("Save() left extra files in %s: %v", dir, entries)
+		}
+	})
 	t.Run("refuses invalid config", func(t *testing.T) {
 		path := filepath.Join(t.TempDir(), "wt.toml")
 		err := Save(path, Config{Pool: &Pool{Size: -1}})

@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -46,7 +47,34 @@ func Save(path string, cfg Config) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, raw, 0o644)
+	return writeAtomic(path, raw)
+}
+
+// writeAtomic lands the bytes via temp file and rename, so a
+// crash mid-write can never leave a half-written wt.toml that
+// every later command would choke on.
+func writeAtomic(path string, raw []byte) (err error) {
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".tmp-*")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tmp.Close()
+			_ = os.Remove(tmp.Name())
+		}
+	}()
+	if _, err = tmp.Write(raw); err != nil {
+		return err
+	}
+	// CreateTemp opens 0o600; match what WriteFile used to leave.
+	if err = tmp.Chmod(0o644); err != nil {
+		return err
+	}
+	if err = tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 // Render returns the merged config as TOML for `wt config`.
