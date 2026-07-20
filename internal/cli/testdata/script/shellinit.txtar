@@ -30,6 +30,7 @@ stdout '[/\\]feature-pay$'
 exec zsh prompt.zsh
 stdout '^in=feature-login$'
 stdout '^out=unset$'
+stdout '^gone=unset$'
 ! stderr .
 
 # capture keeps working under the shim: $(wt ...) runs the wrapper
@@ -77,3 +78,8 @@ cd acme.trees/feature-login
 print -r -- "in=${WT_PROMPT-unset}"
 cd ../../acme
 print -r -- "out=${WT_PROMPT-unset}"
+# a revisited path must be re-inspected, never answered from a
+# cache: the tree may have died in between
+rm -f ../acme.trees/feature-login/.git
+cd ../acme.trees/feature-login
+print -r -- "gone=${WT_PROMPT-unset}"

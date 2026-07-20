@@ -95,8 +95,9 @@ eval "$(wt shell-init zsh --prompt)"
 
 A `chpwd` hook exports `WT_PROMPT` with the tree's directory name
 while the cwd is inside a linked worktree, and unsets it elsewhere.
-The hook is pure zsh — file stats, one `read`,
-and a per-directory cache; it never runs a subprocess,
+The hook is pure zsh — file stats and one `read`,
+recomputed only when the directory changes;
+it never runs a subprocess,
 so your prompt latency is untouched.
 
 Use it anywhere zsh expands prompts:
