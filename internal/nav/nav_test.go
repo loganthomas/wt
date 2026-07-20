@@ -90,6 +90,20 @@ func TestResolveTieIsAmbiguous(t *testing.T) {
 	}
 }
 
+// A name-length difference alone must never decide a jump:
+// `feature` says nothing about login vs logout, even though the
+// shorter name scores a length-penalty point higher in the raw
+// fuzzy ranking.
+func TestResolveLengthDifferenceAloneIsAmbiguous(t *testing.T) {
+	winner, contenders := Resolve(candidates(), "feature")
+	if winner != nil {
+		t.Fatalf("Resolve() winner = %v; want ambiguity", winner)
+	}
+	if len(contenders) != 2 {
+		t.Fatalf("Resolve() contenders = %v; want feature/login and feature/logout", contenders)
+	}
+}
+
 func TestResolveAmbiguityCapsAtFiveContenders(t *testing.T) {
 	var cands []Candidate
 	for i := range 7 {

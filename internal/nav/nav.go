@@ -84,13 +84,20 @@ type scored struct {
 // rank orders the fuzzily matching candidates best-first,
 // scoring each candidate by the best of its names.
 // Ties keep input order, so the result is deterministic.
+//
+// Scores are match quality only: sahilm/fuzzy's −1-per-leftover-
+// rune length penalty is normalized away by adding len(name)
+// back. How well the query hits is what decides between trees,
+// never how long the rest of a name happens to be — otherwise
+// "feature" would "decisively" pick feature/login over
+// feature/logout just because login is a letter shorter.
 func rank(cands []Candidate, query string) []scored {
 	var ranked []scored
 	for _, c := range cands {
 		best, matched := 0, false
 		for _, m := range fuzzy.Find(query, c.names()) {
-			if !matched || m.Score > best {
-				best, matched = m.Score, true
+			if quality := m.Score + len(m.Str); !matched || quality > best {
+				best, matched = quality, true
 			}
 		}
 		if matched {

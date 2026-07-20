@@ -83,6 +83,7 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 		newInitCmd(),
 		newNewCmd(),
 		newLsCmd(),
+		newGoCmd(),
 		newDoneCmd(),
 		newPathCmd(),
 		newConfigCmd(),
@@ -106,9 +107,11 @@ func wrapUsageArgs(cmd *cobra.Command) {
 	}
 }
 
-// runRoot handles bare `wt`: help for now, the fuzzy picker in Phase 3.
+// runRoot handles bare `wt`: the most frequent intent is
+// "take me to a tree", so the picker is the default (D12).
+// Help stays one `wt -h` away.
 func runRoot(cmd *cobra.Command, _ []string) error {
-	return cmd.Help()
+	return runJump(cmd, "")
 }
 
 func wrapFlagError(_ *cobra.Command, err error) error {
