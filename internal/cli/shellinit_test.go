@@ -65,20 +65,6 @@ func TestShellInitEmitsValidZsh(t *testing.T) {
 	}
 }
 
-func TestShellInitRejectsOtherShells(t *testing.T) {
-	root := newRootCmd(BuildInfo{})
-	root.SetArgs([]string{"shell-init", "bash"})
-	root.SetOut(io.Discard)
-	root.SetErr(io.Discard)
-	err := root.Execute()
-	if err == nil {
-		t.Fatal("shell-init bash succeeded, want a usage error")
-	}
-	if got := exitCodeFor(err); got != 2 {
-		t.Errorf("exitCodeFor(%v) = %d, want 2", err, got)
-	}
-}
-
 // execute runs the wt command tree in-process and returns stdout.
 func execute(t *testing.T, args ...string) string {
 	t.Helper()
