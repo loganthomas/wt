@@ -35,12 +35,14 @@ func (c Candidate) Display() string {
 // names are the spellings a query is matched against:
 // the branch, its sanitized directory form, and the directory
 // basename — the same three the exact-name commands accept.
+// Overlapping spellings are harmless: scoring takes the best
+// name, so a duplicate can never change the result.
 func (c Candidate) names() []string {
 	names := []string{filepath.Base(c.Path)}
 	if c.Branch != "" {
 		names = append(names, c.Branch, repo.SanitizeBranch(c.Branch))
 	}
-	return slices.Compact(slices.Sorted(slices.Values(names)))
+	return names
 }
 
 // Resolve picks the candidate best matching query.
