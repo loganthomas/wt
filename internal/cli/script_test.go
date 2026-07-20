@@ -44,7 +44,7 @@ func TestScript(t *testing.T) {
 //
 //	exitcode <want> <command> [args...]
 //
-// runs the command and fails unless its exit code is exactly want —
+// runs the command and fails unless its exit code is exactly want:
 // `! exec` can only distinguish zero from non-zero, which would let
 // a usage error (2) impersonate a precondition failure (3).
 // Stdout and stderr stay checkable with the regular stdout/stderr

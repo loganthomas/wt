@@ -154,7 +154,7 @@ func (g *Git) ValidBranchName(ctx context.Context, name string) bool {
 // variables git exports to hooks to pin its own repository.
 // When wt itself runs under a hook it inherits them, and left in
 // place they would silently retarget every command at the hook's
-// repo instead of cmd.Dir — guards included, so `wt done` could
+// repo instead of cmd.Dir, guards included, so `wt done` could
 // pass its checks against the wrong tree and destroy work.
 var localRepoEnv = map[string]bool{
 	"GIT_ALTERNATE_OBJECT_DIRECTORIES": true,

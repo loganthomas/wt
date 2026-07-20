@@ -8,7 +8,7 @@ import (
 
 func TestResolveTreeByName(t *testing.T) {
 	// The directory named "api" carries branch "hotfix", while the
-	// branch "api" lives in a differently-named directory —
+	// branch "api" lives in a differently-named directory:
 	// the collision resolveTree must get right.
 	trees := []gitx.Worktree{
 		{Path: "/w/acme", Branch: "main"},
