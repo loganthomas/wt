@@ -77,7 +77,7 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	fmt.Fprintf(chatter, "created %s (branch %s off %s)\n", dest, branch, base)
 
 	if err := copyFiles(w.repo.Root, dest, w.cfg.Copy, chatter); err != nil {
-		return err
+		return fmt.Errorf("%w — the tree remains at %s", err, dest)
 	}
 	if setup := w.cfg.Hooks.Setup; setup != "" {
 		fmt.Fprintf(chatter, "running setup hook: %s\n", setup)
