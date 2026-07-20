@@ -32,19 +32,32 @@ Fallback, no Homebrew required:
 go install github.com/loganthomas/wt/cmd/wt@latest
 ```
 
+Then wire up the shell integration —
+cd-on-select, completions, optional prompt indicator —
+with one line in `~/.zshrc`:
+
+```sh
+eval "$(wt shell-init zsh)"
+```
+
+Details in [docs/shell.md](docs/shell.md).
+
 ## Commands
 
 | Command                          | One-liner                                                                     |
 | -------------------------------- | ----------------------------------------------------------------------------- |
+| `wt`                             | Interactive fuzzy picker over trees → cd. Without a TTY: porcelain list.      |
 | `wt init`                        | Set up wt for a repo (prompts, or `--yes` + flags); writes `.git/wt.toml`.    |
-| `wt new <branch> [--base <ref>]` | Create a worktree + branch off the base; prints the tree path on stdout.      |
-| `wt ls`                          | List worktrees: branch, path, state.                                          |
+| `wt new <branch> [--base <ref>]` | Create a worktree + branch off the base, and cd there under the shim.         |
+| `wt ls [--porcelain]`            | List worktrees: branch, path, state.                                          |
+| `wt go [query]`                  | Fuzzy-jump: best match cds (with a query) or picker (without).                |
 | `wt done [name] [--keep-branch]` | Finish a tree: safety checks, remove it, delete its branch. Alias: `wt rm`.   |
 | `wt path [name]`                 | Print a tree's absolute path (plumbing).                                      |
 | `wt config [--edit]`             | Show active config paths and merged values; `--edit` opens `$VISUAL`/`$EDITOR`. |
+| `wt shell-init zsh [--prompt]`   | Emit the shim, completions, and optional prompt hook for eval in `.zshrc`.    |
 | `wt --version`                   | Version, commit, build date.                                                  |
 
-The full surface (`go`, `sync`, `clean`, pool mode, …)
+The full surface (`sync`, `clean`, pool mode, …)
 lands phase by phase; see [PLAN.md](PLAN.md).
 Configuration reference: [docs/configuration.md](docs/configuration.md).
 Scripting and agent contract: [docs/agents.md](docs/agents.md).

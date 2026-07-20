@@ -26,6 +26,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      # macOS ships zsh; ubuntu needs it installed so the
+      # shell-integration smoke tests run on both platforms
+      # instead of silently skipping on one.
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq zsh
       - uses: actions/setup-go@v5
         with:
           go-version: stable
