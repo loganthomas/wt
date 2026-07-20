@@ -25,9 +25,6 @@ import (
 func copyFiles(
 	ctx context.Context, srcRoot, dstRoot string, names []string, chatter io.Writer,
 ) error {
-	if len(names) == 0 {
-		return nil
-	}
 	tracked, err := gitx.New(srcRoot).Tracked(ctx, names...)
 	if err != nil {
 		return err
@@ -77,19 +74,17 @@ func copyFile(src, dst string) error {
 // byte and are wt's own plantings, free to sweep on removal; edited
 // ones are the user's data and must block it. A tracked file belongs
 // to git even if copy-listed and lands in neither list.
-// Paths come back slash-separated to match git's status output.
+// Names arrive canonical (cleaned, slash-separated) from config
+// load, so they compare exactly against git's output as they are.
 func splitCopies(
 	ctx context.Context, srcRoot, treeRoot string, names []string,
 ) (pristine, edited []string, err error) {
-	if len(names) == 0 {
-		return nil, nil, nil
-	}
 	tracked, err := gitx.New(treeRoot).Tracked(ctx, names...)
 	if err != nil {
 		return nil, nil, err
 	}
 	for _, name := range names {
-		if tracked[filepath.ToSlash(name)] {
+		if tracked[name] {
 			continue
 		}
 		treeData, ok, err := readCopy(treeRoot, name)
@@ -104,9 +99,9 @@ func splitCopies(
 			return nil, nil, err
 		}
 		if ok && bytes.Equal(treeData, srcData) {
-			pristine = append(pristine, filepath.ToSlash(name))
+			pristine = append(pristine, name)
 		} else {
-			edited = append(edited, filepath.ToSlash(name))
+			edited = append(edited, name)
 		}
 	}
 	return pristine, edited, nil
