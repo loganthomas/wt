@@ -1,0 +1,68 @@
+# wt new creates a worktree + branch off the base:
+# tree path on stdout (the cd protocol), chatter on stderr,
+# collisions are explicit errors (D14), copy list and setup hook run.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes --copy .env
+
+# the copy source exists only in the main checkout (untracked)
+cp $WORK/env-fixture .env
+
+exec wt new feature/login
+stdout '[/\\]acme\.trees[/\\]feature-login$'
+stderr 'created'
+exec wt ls
+stdout 'feature/login\s+.*[/\\]feature-login$'
+
+# the copy list ported the untracked file into the new tree
+cmp ../acme.trees/feature-login/.env .env
+
+# same branch again: exit 3, pointing at the existing tree (R4)
+exitcode 3 wt new feature/login
+stderr 'already checked out in .*[/\\]feature-login'
+! stdout .
+
+# an existing branch that is not checked out is still refused
+exec git branch spare
+exitcode 3 wt new spare
+stderr 'already exists'
+
+# sanitized-name collision: explicit error, never silent suffixing (D14)
+exitcode 3 wt new feature-login
+stderr 'feature-login'
+! stdout .
+
+# an invalid branch name is a usage error, caught up front
+exitcode 2 wt new 'bad..name'
+stderr 'not a valid branch name'
+
+# an unresolvable base is caught before git creates anything
+exitcode 3 wt new doomed --base no-such-ref
+stderr 'no-such-ref'
+
+# --base overrides the configured base
+exec git switch -q -c experiment
+exec git commit -q --allow-empty -m 'diverge'
+exec git switch -q main
+exec wt new hotfix --base experiment
+exec git -C ../acme.trees/hotfix log --format=%s -1
+stdout 'diverge'
+
+# hooks.setup runs once, inside the fresh tree
+cp $WORK/hooked.toml .git/wt.toml
+exec wt new hooked
+exists ../acme.trees/hooked/setup-ran
+
+-- env-fixture --
+SECRET=hunter2
+
+-- hooked.toml --
+base = 'main'
+trees_dir = '../acme.trees'
+
+[hooks]
+setup = 'touch setup-ran'
