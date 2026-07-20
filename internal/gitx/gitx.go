@@ -175,10 +175,12 @@ var localRepoEnv = map[string]bool{
 	"GIT_WORK_TREE":                    true,
 }
 
-// scrubbedEnv is the process environment minus the repo-local
+// ScrubbedEnv is the process environment minus the repo-local
 // git variables. The GIT_CONFIG_KEY_n/VALUE_n pairs travel with
 // GIT_CONFIG_COUNT and are matched by prefix.
-func scrubbedEnv() []string {
+// Exported for spawns of non-git programs that may call git
+// themselves (setup hooks): they need the same protection.
+func ScrubbedEnv() []string {
 	environ := os.Environ()
 	// The spare slot is for run's LC_ALL=C append.
 	env := make([]string, 0, len(environ)+1)
@@ -209,7 +211,7 @@ func (g *Git) run(ctx context.Context, args ...string) ([]byte, error) {
 	// Pinned to the C locale: callers classify git's stderr text
 	// (e.g. mapping "not a git repository" to exit 4), and localized
 	// messages would silently break that mapping.
-	cmd.Env = append(scrubbedEnv(), "LC_ALL=C")
+	cmd.Env = append(ScrubbedEnv(), "LC_ALL=C")
 	out, err := cmd.Output()
 	if err != nil {
 		var exit *exec.ExitError

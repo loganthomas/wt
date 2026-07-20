@@ -95,9 +95,12 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 // runHook runs a user hook command inside dir through sh.
 // Both hook streams land on wt's stderr: stdout stays reserved
 // for wt's own machine output (D13).
+// The scrubbed environment keeps a wrapping git hook's GIT_DIR
+// and kin from retargeting any git the hook itself runs.
 func runHook(ctx context.Context, dir, command string, chatter io.Writer) error {
 	hook := exec.CommandContext(ctx, "sh", "-c", command)
 	hook.Dir = dir
+	hook.Env = gitx.ScrubbedEnv()
 	hook.Stdout = chatter
 	hook.Stderr = chatter
 	return hook.Run()
