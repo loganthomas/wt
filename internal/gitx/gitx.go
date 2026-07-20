@@ -73,6 +73,23 @@ func (g *Git) DeleteBranch(ctx context.Context, branch string) error {
 	return err
 }
 
+// ShortStatus returns `git status -sb` as git prints it:
+// the branch line plus one line per change.
+// It exists for the picker's preview pane, so the text is for
+// human eyes and is never parsed.
+func (g *Git) ShortStatus(ctx context.Context) (string, error) {
+	out, err := g.run(ctx, "status", "-sb")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimRight(string(out), "\n"), nil
+}
+
+// LastCommit returns a one-line summary of the tree's HEAD.
+func (g *Git) LastCommit(ctx context.Context) (string, error) {
+	return g.runLine(ctx, "log", "-1", "--format=%h %s (%cr)")
+}
+
 // StatusEntry is one line of `git status --porcelain -z` output.
 type StatusEntry struct {
 	Code string // two-character XY status, e.g. "??", " M"

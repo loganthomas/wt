@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/loganthomas/wt/internal/gittest"
@@ -30,6 +31,35 @@ func TestStatusSkipsWorktreeRenameOrigin(t *testing.T) {
 	want := []StatusEntry{{Code: " R", Path: "b.txt"}}
 	if !slices.Equal(entries, want) {
 		t.Errorf("Status() = %v, want %v", entries, want)
+	}
+}
+
+func TestShortStatusReportsBranchAndChanges(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.WriteFile(t, dir, "a.txt", "hi\n")
+
+	out, err := New(dir).ShortStatus(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"## main", "?? a.txt"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("ShortStatus() = %q, want it to contain %q", out, want)
+		}
+	}
+}
+
+func TestLastCommitSummarizesHead(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+
+	out, err := New(dir).LastCommit(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "initial") || strings.Contains(out, "\n") {
+		t.Errorf("LastCommit() = %q, want a one-line summary of the initial commit", out)
 	}
 }
 
