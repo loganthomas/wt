@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/spf13/cobra"
 )
@@ -57,7 +58,13 @@ func Main(info BuildInfo) int {
 func exitCodeFor(err error) int {
 	var coded exitCoder
 	if errors.As(err, &coded) {
-		return coded.ExitCode()
+		// *exec.ExitError implements the interface by accident
+		// (via os.ProcessState), and honoring it would let git,
+		// hook, and editor exit codes masquerade as wt's own
+		// contract codes: a hook exiting 4 is not "not a repo".
+		if _, foreign := coded.(*exec.ExitError); !foreign {
+			return coded.ExitCode()
+		}
 	}
 	return exitErr
 }
