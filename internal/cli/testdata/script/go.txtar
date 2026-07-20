@@ -38,6 +38,13 @@ exitcode 1 wt go zzz
 stderr 'no tree matches'
 ! stdout .
 
+# an explicitly empty query is a usage error, never the bare form:
+# `cd "$(wt go "$Q")"` with Q unset must fail loudly, not exit 0
+# with a listing on stdout
+exitcode 2 wt go ''
+stderr 'empty query'
+! stdout .
+
 # bare `wt go` without a TTY prints the porcelain listing
 exec wt go
 stdout '^main\t.*[/\\]acme\t-$'

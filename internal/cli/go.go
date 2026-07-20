@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -15,6 +16,12 @@ func newGoCmd() *cobra.Command {
 		Short: "Fuzzy-jump to a tree",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// An explicitly empty query must not alias the bare
+			// form: `cd "$(wt go "$Q")"` with Q unset would get
+			// exit 0 and a listing instead of a loud failure.
+			if len(args) == 1 && args[0] == "" {
+				return usageError{errors.New("empty query — drop the argument for the picker")}
+			}
 			return runJump(cmd, nameArg(args))
 		},
 	}
