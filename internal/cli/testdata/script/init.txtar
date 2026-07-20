@@ -11,6 +11,11 @@ exec git commit -q --allow-empty -m 'initial'
 exitcode 2 wt init
 stderr 'wt init --yes'
 
+# a negative pool size is a typo, not "pool off"
+exitcode 2 wt init --yes --pool-size=-3
+stderr 'pool-size'
+! exists .git/wt.toml
+
 # --yes takes the defaults; nothing goes to stdout
 exec wt init --yes
 ! stdout .

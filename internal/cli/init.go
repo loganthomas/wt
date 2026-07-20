@@ -45,6 +45,11 @@ func newInitCmd() *cobra.Command {
 }
 
 func runInit(cmd *cobra.Command, opts initOptions) error {
+	// Rejected rather than folded into "pool off": a negative
+	// value is a typo, and 0 already spells "no pool" on purpose.
+	if opts.poolSize < 0 {
+		return usageError{fmt.Errorf("--pool-size cannot be negative, got %d", opts.poolSize)}
+	}
 	ctx := cmd.Context()
 	r, err := repo.Find(ctx, "")
 	if err != nil {
