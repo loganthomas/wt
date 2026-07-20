@@ -55,6 +55,14 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 		return preconditionf("%s is locked%s — `git worktree unlock %s` first",
 			target.Path, reason, target.Path)
 	}
+	// A prunable tree's directory is already gone, so the guards
+	// (which run inside it) cannot vouch for anything; hand the
+	// cleanup to git rather than fail on a raw chdir error.
+	if target.Prunable {
+		return preconditionf(
+			"%s is gone from disk — `git worktree prune` clears the stale registration",
+			target.Path)
+	}
 
 	// Guards before anything destructive (R2). The unpushed check
 	// runs only when the branch is about to be deleted: with
