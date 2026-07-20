@@ -357,7 +357,7 @@ merged-branch slots, and `wt clean -n` previews every action.
 | `wt`                             | Interactive fuzzy picker over trees → cd. Non-TTY: porcelain list.                                               |
 | `wt init`                        | Interactive setup: base branch, trees dir, pool y/n + size, prompt indicator, copy list; writes `.git/wt.toml`.  |
 | `wt new <branch> [--base <ref>]` | Default: create worktree + branch off base. Pool: claim a slot, reset, branch there. Prints tree path on stdout. |
-| `wt ls [--json]`                 | List trees: branch, path, age, ahead/behind base, dirty, slot/lease state.                                       |
+| `wt ls [--porcelain] [--json]`   | List trees: branch, path, age, ahead/behind base, dirty, slot/lease state.                                       |
 | `wt go [query]`                  | Fuzzy-jump: best match cd (with query) or picker (without).                                                      |
 | `wt done [name] [--keep-branch]` | Finish a tree: safety checks, then remove (default) or release+reset slot (pool). Alias: `wt rm`.                |
 | `wt sync [--all]`                | Fetch base, fast-forward it, re-park idle slots, report behind-counts. Never touches branches with user commits. |
@@ -531,8 +531,9 @@ Two D12 refinements surfaced by implementation:
 the interactivity probe is **stdin + stderr**, never stdout —
 the shim captures stdout to implement the cd protocol,
 so a stdout check would make the picker unreachable
-(the picker renders on `/dev/tty`; the porcelain fallback for
-scripts and agents is unchanged) —
+(the picker renders on `/dev/tty`;
+a dumb or unset `TERM` also counts as non-interactive;
+the porcelain fallback for scripts and agents is unchanged) —
 and the porcelain fallback landed as an explicit
 `wt ls --porcelain` flag so scripts can ask for it by name.
 Fuzzy ranking normalizes away the matcher's name-length penalty:
