@@ -51,7 +51,7 @@ func runJump(cmd *cobra.Command, query string) error {
 		}
 		return preconditionf("%q is ambiguous — narrow the query, or run bare `wt` to pick", query)
 	default:
-		return fmt.Errorf("no tree matches %q — `wt ls` shows what exists", query)
+		return errNoTreeMatches(query)
 	}
 }
 

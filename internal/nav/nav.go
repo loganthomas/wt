@@ -55,15 +55,8 @@ func Resolve(cands []Candidate, query string) (winner *Candidate, contenders []C
 	if query == "" {
 		return nil, nil
 	}
-	for i, c := range cands {
-		if c.Branch != "" && (c.Branch == query || repo.SanitizeBranch(c.Branch) == query) {
-			return &cands[i], nil
-		}
-	}
-	for i, c := range cands {
-		if filepath.Base(c.Path) == query {
-			return &cands[i], nil
-		}
+	if w := ResolveExact(cands, query); w != nil {
+		return w, nil
 	}
 	ranked := rank(cands, query)
 	switch {
@@ -77,6 +70,31 @@ func Resolve(cands []Candidate, query string) (winner *Candidate, contenders []C
 		}
 		return nil, contenders
 	}
+}
+
+// ResolveExact picks the candidate that name spells exactly, or
+// nil. Branch spellings (the branch itself or its sanitized
+// directory form) win over directory basenames: when one tree's
+// directory carries another tree's branch name, the user almost
+// certainly means the branch.
+// This is the single owner of wt's accepted-spellings rule —
+// the exact-name commands resolve through it too, so they can
+// never drift from what `wt go` accepts.
+func ResolveExact(cands []Candidate, name string) *Candidate {
+	if name == "" {
+		return nil
+	}
+	for i, c := range cands {
+		if c.Branch != "" && (c.Branch == name || repo.SanitizeBranch(c.Branch) == name) {
+			return &cands[i]
+		}
+	}
+	for i, c := range cands {
+		if filepath.Base(c.Path) == name {
+			return &cands[i]
+		}
+	}
+	return nil
 }
 
 type scored struct {

@@ -163,6 +163,14 @@ func TestResolveDeduplicatesNamesPerCandidate(t *testing.T) {
 	}
 }
 
+// ResolveExact never falls back to fuzzy spellings: the
+// exact-name commands built on it must miss loudly instead.
+func TestResolveExactRejectsFuzzySpellings(t *testing.T) {
+	if got := ResolveExact(candidates(), "login"); got != nil {
+		t.Fatalf("ResolveExact() = %v, want nil for a fuzzy-only spelling", got)
+	}
+}
+
 func TestDisplayPrefersBranch(t *testing.T) {
 	c := Candidate{Branch: "feature/login", Path: "/trees/feature-login"}
 	if got := c.Display(); got != "feature/login" {
