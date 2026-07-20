@@ -66,8 +66,11 @@ exec git merge -q --ff-only feature/four
 exec wt done feature/four
 ! exists ../acme.trees/feature-four
 
-# a locked tree is refused before anything is touched:
-# the planted copy must survive the refusal
+# a locked tree is refused before anything is touched: the planted
+# copy must survive the refusal, so it has to be untracked again --
+# a tracked one would survive regardless and prove nothing
+exec git rm -q --cached .env
+exec git commit -q -m 'untrack the env file'
 exec wt new feature/five
 exec git worktree lock ../acme.trees/feature-five
 exitcode 3 wt done feature-five
