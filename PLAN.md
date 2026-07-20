@@ -284,8 +284,9 @@ so `wt shell-init zsh` emits:
    (binary prints target path on stdout; function does the `cd`);
 2. cobra-generated zsh completions;
 3. an opt-in prompt hook: a zsh `chpwd` hook exporting `WT_PROMPT`
-   from a cached path check against known tree roots —
-   no git subprocess per prompt render —
+   from a live, builtins-only inspection of the tree's `.git` file —
+   no git subprocess and no cache to go stale,
+   recomputed only on cd, never per prompt render —
    plus a documented starship `custom`-segment alternative.
 
 The prompt indicator ships as **optional**
@@ -510,7 +511,7 @@ and `wt done` points prunable trees at `git worktree prune`.
 
 ### Phase 3 — Shell integration & navigation (M)
 
-- [x] `wt shell-init zsh`: `go:embed` shim template —
+- [x] `wt shell-init zsh`: `go:embed` shim script —
       `wt()` function, cd protocol, completions;
       golden-file test of the emitted script plus a zsh smoke test
       (`zsh -c 'eval "$(wt shell-init zsh)"; wt go x'`) under testscript.
@@ -520,7 +521,7 @@ and `wt done` points prunable trees at `git worktree prune`.
       **non-TTY fallback to porcelain list**
       (testscript covers the non-TTY path;
       the picker itself gets a manual test note).
-- [x] Optional prompt segment: chpwd-cached `WT_PROMPT`,
+- [x] Optional prompt segment: chpwd-refreshed `WT_PROMPT`,
       `--prompt` flag on shell-init; starship recipe in docs.
 - **Exit:** the eval line in `.zshrc` gives cd-on-select, completions,
   optional prompt. Tag `v0.1.0-alpha.3`.
@@ -692,7 +693,7 @@ stays short):
 | R11 | Shared object store: gc/repack while trees are in use                       | Docs note; `wt clean` never triggers gc; watch-item, not v1 machinery                                                    | 6     |
 | R12 | Locked worktrees (`git worktree lock`)                                      | `ls` shows the lock flag; `done` refuses locked trees with an explanation                                                | 6     |
 | R13 | Unsigned-binary quarantine on macOS                                         | Cask `postflight` xattr hook; notarization post-1.0                                                                      | 1     |
-| R14 | Prompt hook slows every prompt render                                       | chpwd caching, no git subprocess in the prompt path; feature optional                                                    | 3     |
+| R14 | Prompt hook slows every prompt render                                       | chpwd hook of zsh builtins only — no subprocess, recomputed on cd not per render; feature optional                        | 3     |
 | R15 | Picker hangs agents/scripts                                                 | Non-TTY → porcelain, enforced by testscript                                                                              | 3     |
 | R16 | IDE state (VS Code) doesn't follow trees                                    | Docs: `code $(wt path <name>)`; out of scope for v1                                                                      | 7     |
 | R17 | Dev-server port collisions across parallel trees                            | Docs pattern: derive port from slot number in `.envrc`; not wt machinery                                                 | 7     |
