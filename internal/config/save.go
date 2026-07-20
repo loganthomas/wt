@@ -1,6 +1,7 @@
 package config
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -70,8 +71,13 @@ func writeAtomic(path string, raw []byte) (err error) {
 	if _, err = tmp.Write(raw); err != nil {
 		return err
 	}
-	// CreateTemp opens 0o600; match what WriteFile used to leave.
-	if err = tmp.Chmod(0o644); err != nil {
+	// The rename must not clobber a mode the user chose; a fresh
+	// file gets the plain 0o644 (CreateTemp opens 0o600).
+	mode := fs.FileMode(0o644)
+	if info, statErr := os.Stat(path); statErr == nil {
+		mode = info.Mode().Perm()
+	}
+	if err = tmp.Chmod(mode); err != nil {
 		return err
 	}
 	if err = tmp.Close(); err != nil {
