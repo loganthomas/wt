@@ -37,6 +37,9 @@ function wt {
 # Completions come from the binary itself, so they can never go
 # stale; compdef only exists once compinit has run, and without it
 # there is nothing to register with.
-if (( $+functions[compdef] )); then
-  eval "$(command wt completion zsh)"
+if (( ${+functions[compdef]} )); then
+  # cobra's generated script assumes stock zsh semantics, and the
+  # sticky emulation keeps _wt safe later even in shells running
+  # exotic setopts (ksh_arrays and friends).
+  builtin emulate zsh -c 'eval "$(command wt completion zsh)"'
 fi
