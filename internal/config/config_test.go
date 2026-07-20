@@ -122,6 +122,11 @@ size = 4
 			wantErr: "copy",
 		},
 		{
+			name:    "copy entry naming the whole tree rejected",
+			repo:    "copy = [\".env\", \"\"]\n",
+			wantErr: "copy",
+		},
+		{
 			name: "ui color from global",
 			global: `[ui]
 color = "never"

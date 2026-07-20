@@ -171,11 +171,14 @@ func validate(cfg Config) error {
 // validateTreeLocal rejects paths that could reach outside a worktree.
 // Copy sources and hash inputs are meant to name files of the repo;
 // an absolute or ..-escaping entry would read (or overwrite) files
-// wt has no business touching.
+// wt has no business touching. "." slips past IsLocal but names
+// the whole tree, not a file: an easy typo ("copy = ['.env',]"
+// with a trailing comma) that would wedge new and done alike.
 func validateTreeLocal(key string, paths []string) error {
 	for _, p := range paths {
-		if !filepath.IsLocal(p) {
-			return fmt.Errorf("%s entry %q must stay inside the tree (relative, no ..)", key, p)
+		if p == "." || !filepath.IsLocal(p) {
+			return fmt.Errorf(
+				"%s entry %q must name a file inside the tree (relative, no ..)", key, p)
 		}
 	}
 	return nil
