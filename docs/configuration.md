@@ -53,8 +53,10 @@ size = 6
 Files planted by `copy` are untracked by design.
 `wt done` tolerates them as long as their content still matches the
 main checkout — wt planted them, wt sweeps them.
-Edit one in the tree and it counts as real work:
-the dirty guard blocks removal until you deal with it.
+A copy that no longer matches counts as real work:
+wt's own copy check refuses removal until you back it up or
+re-sync it, even when the file is gitignored and invisible
+to `git status`.
 
 ## Global file — `~/.config/wt/config.toml`
 
