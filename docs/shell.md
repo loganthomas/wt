@@ -80,9 +80,11 @@ is covered by the test suite.
 
 ## Completions
 
-The shim registers cobra-generated zsh completions by evaluating
-`wt completion zsh` at shell startup,
-so they always match the installed binary.
+The shim registers cobra-generated zsh completions lazily:
+the real completion script is loaded from the binary
+on the first `wt <Tab>`,
+so completions always match the installed binary
+and shell startup never pays for them.
 They activate only if `compinit` has run before the eval line.
 
 ## Prompt indicator
