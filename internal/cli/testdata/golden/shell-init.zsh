@@ -8,6 +8,9 @@
 # binary cannot. Every other command passes through untouched, so
 # scripts that call `wt` under the wrapper see identical behavior.
 wt() {
+  # emulate pins zsh semantics against exotic user setopts;
+  # builtins dodge same-named user functions and aliases.
+  emulate -L zsh
   case "${1-}" in
   ""|go|new)
     local out
@@ -15,7 +18,7 @@ wt() {
     if [[ -n "$out" && -d "$out" ]]; then
       builtin cd -- "$out"
     elif [[ -n "$out" ]]; then
-      print -r -- "$out"
+      builtin print -r -- "$out"
     fi
     ;;
   *)
