@@ -404,6 +404,16 @@ func (p *poolRepo) provisionSlot(
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
+	// A leftover directory from a previous incarnation of the repo
+	// (a re-clone next to a surviving trees dir) would make git's
+	// worktree add fail with a raw "already exists"; name the
+	// remedy instead, and keep the refusal at exit 3 so a claim
+	// skips past it to healthy slots.
+	if _, err := os.Stat(dest); err == nil {
+		return preconditionf(
+			"%s already exists but is not a registered worktree — "+
+				"remove the leftover directory, then rerun", dest)
+	}
 	// A previous incarnation's recorded state must not leak into
 	// this tree: a leftover refresh hash would satisfy the gate and
 	// skip the very warm-up a cold tree exists to get.
