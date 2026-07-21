@@ -8,39 +8,39 @@ exec git init -q -b main acme
 cd acme
 exec git commit -q --allow-empty -m 'initial'
 exec wt init --yes --pool-size 1
-stderr 'provisioned pool-1'
+stderr 'provisioned slot-1'
 
 exec wt pool resize 3
-stderr 'provisioned pool-2'
-stderr 'provisioned pool-3'
+stderr 'provisioned slot-2'
+stderr 'provisioned slot-3'
 grep 'size = 3' .git/wt.toml
 exec wt pool ls
-stdout 'pool-2\s+free'
-stdout 'pool-3\s+free'
+stdout 'slot-2\s+free'
+stdout 'slot-3\s+free'
 
 # a claimed slot blocks any shrink that would remove it
 exec wt claim feat-a
-stdout '[/\\]pool-1$'
+stdout '[/\\]slot-1$'
 exec wt new feat-b
-stdout '[/\\]pool-2$'
+stdout '[/\\]slot-2$'
 exitcode 3 wt pool resize 1
-stderr 'pool-2 is claimed'
+stderr 'slot-2 is claimed'
 grep 'size = 3' .git/wt.toml
 
 # free slots shrink away: trees, state, and config all follow
 exec wt done feat-b
 exec wt pool resize 1
-stderr 'removed pool-2'
-stderr 'removed pool-3'
-! exists ../acme.trees/pool-2
-! exists ../acme.trees/pool-3
+stderr 'removed slot-2'
+stderr 'removed slot-3'
+! exists ../acme.trees/slot-2
+! exists ../acme.trees/slot-3
 grep 'size = 1' .git/wt.toml
 exec wt pool ls
-stdout 'pool-1\s+claimed\s+feat-a'
-! stdout 'pool-2'
+stdout 'slot-1\s+claimed\s+feat-a'
+! stdout 'slot-2'
 
 # the surviving claim is untouched
-exec git -C ../acme.trees/pool-1 branch --show-current
+exec git -C ../acme.trees/slot-1 branch --show-current
 stdout '^feat-a$'
 
 # garbage sizes are usage errors

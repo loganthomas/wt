@@ -10,39 +10,39 @@ exec git init -q -b main acme
 cd acme
 exec git commit -q --allow-empty -m 'initial'
 exec wt init --yes --pool-size 1
-stderr 'provisioned pool-1'
+stderr 'provisioned slot-1'
 
 # plant the crash artifact: a lease dir with no record
-exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/pool-1"'
+exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/slot-1"'
 
 # the claim reclaims it instead of reporting the pool full
 exec wt claim feat-a
-stdout '[/\\]pool-1$'
+stdout '[/\\]slot-1$'
 exec wt release feat-a
 
 # wedge a slot that has no tree at all: the worktree vanishes out
 # of band and the lease record is torn
-exec git worktree remove --force ../acme.trees/pool-1
-exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/pool-1" && printf "not = [toml" > "$d/leases/pool-1/lease.toml"'
+exec git worktree remove --force ../acme.trees/slot-1
+exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/slot-1" && printf "not = [toml" > "$d/leases/slot-1/lease.toml"'
 exec wt pool ls
-stdout 'pool-1\s+claimed\s+\?\s+lease record unreadable'
+stdout 'slot-1\s+claimed\s+\?\s+lease record unreadable'
 
 # no claim can prove that record dead, so the pool is full
 exitcode 3 wt claim feat-b
 stderr 'no free slot'
 
 # the advertised escape hatch works without a tree to resolve
-exec wt release pool-1
-stderr 'released pool-1'
+exec wt release slot-1
+stderr 'released slot-1'
 
 # a free vacant slot has nothing to release
-exitcode 3 wt release pool-1
+exitcode 3 wt release slot-1
 stderr 'not claimed'
 
 # and the slot provisions again on the next claim
 exec wt claim feat-b
-stderr 'provisioned pool-1'
-stdout '[/\\]pool-1$'
+stderr 'provisioned slot-1'
+stdout '[/\\]slot-1$'
 exec wt release feat-b
 
 # a slot lost out of band must not inherit its predecessor's
@@ -51,19 +51,19 @@ cp $WORK/refresh.toml .git/wt.toml
 exec wt claim feat-c
 stderr 'running refresh hook'
 exec wt release feat-c
-exec git worktree remove --force ../acme.trees/pool-1
+exec git worktree remove --force ../acme.trees/slot-1
 exec wt claim feat-d
-stderr 'provisioned pool-1'
+stderr 'provisioned slot-1'
 stderr 'running refresh hook'
 
 # losing the state dir wipes leases and markers both; the claimed,
 # branch-attached slot must take the reset path (which says what
 # it discards and keeps the branch reachable), never the silent
 # force-remove reserved for dead detached provisions
-exec sh -c 'echo wip > ../acme.trees/pool-1/scratch.txt'
+exec sh -c 'echo wip > ../acme.trees/slot-1/scratch.txt'
 exec sh -c 'rm -rf "$(echo "$XDG_STATE_HOME"/wt/repos/*)"'
 exec wt claim feat-e
-stdout '[/\\]pool-1$'
+stdout '[/\\]slot-1$'
 stderr 'discarding'
 ! stderr 'reprovisioning'
 exec git branch --list feat-d
@@ -80,8 +80,8 @@ exec sh -c 'echo x > fail-now'
 exitcode 1 wt claim feat-g
 stderr 'refresh hook failed'
 exec wt pool ls
-stdout 'pool-1\s+free'
-exec git -C ../acme.trees/pool-1 status
+stdout 'slot-1\s+free'
+exec git -C ../acme.trees/slot-1 status
 stdout 'HEAD detached'
 
 # a dead session's nested git repository must not be silently
@@ -89,9 +89,9 @@ stdout 'HEAD detached'
 # .git, so the reset refuses and the claim skips the slot
 rm fail-now
 exec wt claim feat-h
-exec git -C ../acme.trees/pool-1 init -q scratchdep
-exec git -C ../acme.trees/pool-1/scratchdep commit -q --allow-empty -m 'nested'
-exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && rm -rf "$d/leases/pool-1"'
+exec git -C ../acme.trees/slot-1 init -q scratchdep
+exec git -C ../acme.trees/slot-1/scratchdep commit -q --allow-empty -m 'nested'
+exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && rm -rf "$d/leases/slot-1"'
 exitcode 3 wt claim feat-i
 stderr 'nested git repository'
 

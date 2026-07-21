@@ -79,7 +79,7 @@ func jumpInteractive(cmd *cobra.Command, trees []gitx.Worktree, cands []nav.Cand
 // Parked slots are dropped too: there is nothing to work on in
 // one, and landing there would race the next claim's reset.
 // Claimed slots carry their address for display
-// ("branch → pool-3", PLAN.md Phase 4).
+// ("branch → slot-3", PLAN.md Phase 4).
 func jumpCandidates(trees []gitx.Worktree, treesDir string) []nav.Candidate {
 	cands := make([]nav.Candidate, 0, len(trees))
 	for _, t := range trees {

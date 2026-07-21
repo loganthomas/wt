@@ -27,7 +27,7 @@ import (
 )
 
 // recordName is the record file inside a lease directory
-// (PLAN.md, State layout: leases/pool-3/lease.toml).
+// (PLAN.md, State layout: leases/slot-3/lease.toml).
 const recordName = "lease.toml"
 
 // Internal branch labels: wt's own operations hold slots under

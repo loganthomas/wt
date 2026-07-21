@@ -323,7 +323,7 @@ the opt-in Claude Code hook adapter is a post-1.0 phase (Phase 8).
 **Decision:** default container is the sibling directory **`../<repo>.trees/`** —
 default-mode trees at `../<repo>.trees/<sanitized-branch>`
 (`/` → `-`; collision → explicit error with suggestion, never silent suffixing),
-pool slots at `../<repo>.trees/pool-1…N`.
+pool slots at `../<repo>.trees/slot-1…N`.
 Configurable via `trees_dir`.
 Siblings keep trees discoverable and on the same volume.
 
@@ -398,7 +398,7 @@ Merge order: built-in → global → repo.
 
 ```
 last_fetch                     # RFC3339 timestamp of last base fetch
-leases/pool-3/lease.toml       # atomic-mkdir lease: pid, pid_start, branch, claimed_at
+leases/slot-3/lease.toml       # atomic-mkdir lease: pid, pid_start, branch, claimed_at
 trees/<name>/refresh_hash      # SHA-256 of refresh_if_changed files at last refresh
 trees/<name>/provisioned       # marker: the slot's provisioning completed
 trees/<name>/last_used         # idle heuristics and picker ranking
@@ -562,12 +562,12 @@ so they track the installed binary and golden files stay stable.
       refresh-hash gate → `hooks.refresh` if lockfiles changed → branch create.
       (The `git fetch` (if stale) step is Phase 5's opportunistic fetch.)
 - [x] Pattern guard: reset/release refuse any path not matching
-      `<trees_dir>/pool-N` — unit-tested with hostile inputs
+      `<trees_dir>/slot-N` — unit-tested with hostile inputs
       (main checkout, personal tree, symlinks).
 - [x] `wt new`/`done` dispatch on pool presence;
       `wt claim`/`release` plumbing; `wt pool ls`.
-- [x] Fuzzy matching over slots targets the _branch/ticket_, not `pool-3`
-      (picker shows `PROJ-123 → pool-3`).
+- [x] Fuzzy matching over slots targets the _branch/ticket_, not `slot-3`
+      (picker shows `PROJ-123 → slot-3`).
 - **Exit:** claim → work → release loop with crash-safe leases and
   warm-cache resets. Tag `v0.1.0-alpha.4`.
 

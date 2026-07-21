@@ -16,13 +16,13 @@ import (
 	"strconv"
 )
 
-// slotName is the one spelling of a slot: pool-N, N ≥ 1, no
+// slotName is the one spelling of a slot: slot-N, N ≥ 1, no
 // leading zeros: exactly the names wt itself mints, nothing more.
-var slotName = regexp.MustCompile(`^pool-([1-9][0-9]*)$`)
+var slotName = regexp.MustCompile(`^slot-([1-9][0-9]*)$`)
 
 // SlotName names the i-th pool slot (1-based).
 func SlotName(i int) string {
-	return fmt.Sprintf("pool-%d", i)
+	return fmt.Sprintf("slot-%d", i)
 }
 
 // Names lists every slot name of a pool of the given size.

@@ -16,10 +16,10 @@ cp $WORK/wt.toml .git/wt.toml
 
 # first claim provisions the slot: setup runs, hash is recorded
 exec wt claim feat-1
-stdout '[/\\]pool-1$'
-stderr 'provisioned pool-1'
+stdout '[/\\]slot-1$'
+stderr 'provisioned slot-1'
 stderr 'running setup hook'
-exists ../acme.trees/pool-1/setup-ran
+exists ../acme.trees/slot-1/setup-ran
 
 # unchanged lockfile: the next claim skips the refresh hook
 exec wt release feat-1
@@ -49,9 +49,9 @@ exec git add dep.lock .gitignore
 exec git commit -q -m 'lockfile'
 cp $WORK/lite.toml .git/wt.toml
 exec wt claim feat-1
-stderr 'provisioned pool-1'
+stderr 'provisioned slot-1'
 stderr 'running refresh hook'
-exists ../lite.trees/pool-1/refresh-ran
+exists ../lite.trees/slot-1/refresh-ran
 
 # and the hash was recorded: the next claim skips it
 exec wt release feat-1

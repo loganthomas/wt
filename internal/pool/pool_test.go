@@ -10,13 +10,13 @@ import (
 )
 
 func TestSlotName(t *testing.T) {
-	if got := pool.SlotName(3); got != "pool-3" {
-		t.Errorf("SlotName(3) = %q, want pool-3", got)
+	if got := pool.SlotName(3); got != "slot-3" {
+		t.Errorf("SlotName(3) = %q, want slot-3", got)
 	}
 }
 
 func TestNames(t *testing.T) {
-	want := []string{"pool-1", "pool-2", "pool-3"}
+	want := []string{"slot-1", "slot-2", "slot-3"}
 	if got := pool.Names(3); !slices.Equal(got, want) {
 		t.Errorf("Names(3) = %v, want %v", got, want)
 	}
@@ -27,18 +27,18 @@ func TestIsSlotName(t *testing.T) {
 		name string
 		ok   bool
 	}{
-		{"pool-1", true},
-		{"pool-12", true},
+		{"slot-1", true},
+		{"slot-12", true},
 		// Only names wt itself would mint count as slots:
 		// anything else must never be resettable (D14).
-		{"pool-0", false},
-		{"pool-03", false},
-		{"pool-", false},
-		{"pool-x", false},
-		{"pool-1x", false},
-		{"POOL-1", false},
-		{"my-pool-1", false},
-		{"pool-1-backup", false},
+		{"slot-0", false},
+		{"slot-03", false},
+		{"slot-", false},
+		{"slot-x", false},
+		{"slot-1x", false},
+		{"SLOT-1", false},
+		{"my-slot-1", false},
+		{"slot-1-backup", false},
 		{"feature-login", false},
 		{"", false},
 	}
@@ -55,10 +55,10 @@ func TestSlotIndex(t *testing.T) {
 		idx  int
 		ok   bool
 	}{
-		{"pool-1", 1, true},
-		{"pool-12", 12, true},
-		{"pool-0", 0, false},
-		{"pool-x", 0, false},
+		{"slot-1", 1, true},
+		{"slot-12", 12, true},
+		{"slot-0", 0, false},
+		{"slot-x", 0, false},
 		{"feature-login", 0, false},
 	}
 	for _, tt := range tests {
@@ -84,10 +84,10 @@ func TestSlotPath(t *testing.T) {
 	trees := filepath.Join(root, "acme.trees")
 	for _, dir := range []string{
 		main,
-		filepath.Join(trees, "pool-1"),
-		filepath.Join(trees, "pool-1", "pool-2"), // nested decoy
+		filepath.Join(trees, "slot-1"),
+		filepath.Join(trees, "slot-1", "slot-2"), // nested decoy
 		filepath.Join(trees, "feature-login"),    // personal tree
-		filepath.Join(root, "elsewhere", "pool-1"),
+		filepath.Join(root, "elsewhere", "slot-1"),
 	} {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			t.Fatal(err)
@@ -95,7 +95,7 @@ func TestSlotPath(t *testing.T) {
 	}
 	// A symlink inside the container pointing at the main checkout:
 	// the name matches, the target must not.
-	if err := os.Symlink(main, filepath.Join(trees, "pool-9")); err != nil {
+	if err := os.Symlink(main, filepath.Join(trees, "slot-9")); err != nil {
 		t.Fatal(err)
 	}
 
@@ -104,16 +104,16 @@ func TestSlotPath(t *testing.T) {
 		slot string
 		ok   bool
 	}{
-		{filepath.Join(trees, "pool-1"), "pool-1", true},
+		{filepath.Join(trees, "slot-1"), "slot-1", true},
 		{main, "", false},
 		{trees, "", false},
 		{filepath.Join(trees, "feature-login"), "", false},
-		{filepath.Join(trees, "pool-1", "pool-2"), "", false},
-		{filepath.Join(root, "elsewhere", "pool-1"), "", false},
-		{filepath.Join(trees, "pool-9"), "", false}, // symlink to main
-		{filepath.Join(trees, "no-such", "..", "pool-1"), "pool-1", true},
+		{filepath.Join(trees, "slot-1", "slot-2"), "", false},
+		{filepath.Join(root, "elsewhere", "slot-1"), "", false},
+		{filepath.Join(trees, "slot-9"), "", false}, // symlink to main
+		{filepath.Join(trees, "no-such", "..", "slot-1"), "slot-1", true},
 		{filepath.Join(trees, "does-not-exist"), "", false}, // fail closed
-		{filepath.Join(trees, "pool-999"), "", false},       // fail closed: absent
+		{filepath.Join(trees, "slot-999"), "", false},       // fail closed: absent
 	}
 	for _, tt := range tests {
 		slot, ok := pool.SlotPath(trees, tt.path)
@@ -129,8 +129,8 @@ func TestSlotPath(t *testing.T) {
 	if err := os.Symlink(trees, link); err != nil {
 		t.Fatal(err)
 	}
-	if slot, ok := pool.SlotPath(link, filepath.Join(trees, "pool-1")); !ok || slot != "pool-1" {
-		t.Errorf("SlotPath through symlinked container = %q, %v; want pool-1, true", slot, ok)
+	if slot, ok := pool.SlotPath(link, filepath.Join(trees, "slot-1")); !ok || slot != "slot-1" {
+		t.Errorf("SlotPath through symlinked container = %q, %v; want slot-1, true", slot, ok)
 	}
 }
 

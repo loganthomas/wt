@@ -19,50 +19,50 @@ func TestLeasesDir(t *testing.T) {
 func TestRefreshHashRoundTrip(t *testing.T) {
 	d := state.Dir(t.TempDir())
 
-	if got := d.RefreshHash("pool-1"); got != "" {
+	if got := d.RefreshHash("slot-1"); got != "" {
 		t.Errorf("RefreshHash on fresh state = %q, want empty", got)
 	}
-	if err := d.WriteRefreshHash("pool-1", "abc123"); err != nil {
+	if err := d.WriteRefreshHash("slot-1", "abc123"); err != nil {
 		t.Fatal(err)
 	}
-	if got := d.RefreshHash("pool-1"); got != "abc123" {
+	if got := d.RefreshHash("slot-1"); got != "abc123" {
 		t.Errorf("RefreshHash = %q, want %q", got, "abc123")
 	}
 
 	// The on-disk location is part of the documented state layout
 	// (PLAN.md, State layout): trees/<name>/refresh_hash.
-	onDisk := filepath.Join(string(d), "trees", "pool-1", "refresh_hash")
+	onDisk := filepath.Join(string(d), "trees", "slot-1", "refresh_hash")
 	if _, err := os.Stat(onDisk); err != nil {
 		t.Errorf("hash not at the documented layout path: %v", err)
 	}
 
-	if err := d.WriteRefreshHash("pool-1", "def456"); err != nil {
+	if err := d.WriteRefreshHash("slot-1", "def456"); err != nil {
 		t.Fatal(err)
 	}
-	if got := d.RefreshHash("pool-1"); got != "def456" {
+	if got := d.RefreshHash("slot-1"); got != "def456" {
 		t.Errorf("RefreshHash after overwrite = %q, want %q", got, "def456")
 	}
 }
 
 func TestRefreshHashIsolatesTrees(t *testing.T) {
 	d := state.Dir(t.TempDir())
-	if err := d.WriteRefreshHash("pool-1", "aaa"); err != nil {
+	if err := d.WriteRefreshHash("slot-1", "aaa"); err != nil {
 		t.Fatal(err)
 	}
-	if got := d.RefreshHash("pool-2"); got != "" {
-		t.Errorf("RefreshHash(pool-2) = %q, want empty", got)
+	if got := d.RefreshHash("slot-2"); got != "" {
+		t.Errorf("RefreshHash(slot-2) = %q, want empty", got)
 	}
 }
 
 func TestRemoveTree(t *testing.T) {
 	d := state.Dir(t.TempDir())
-	if err := d.WriteRefreshHash("pool-3", "aaa"); err != nil {
+	if err := d.WriteRefreshHash("slot-3", "aaa"); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.RemoveTree("pool-3"); err != nil {
+	if err := d.RemoveTree("slot-3"); err != nil {
 		t.Fatal(err)
 	}
-	if got := d.RefreshHash("pool-3"); got != "" {
+	if got := d.RefreshHash("slot-3"); got != "" {
 		t.Errorf("RefreshHash after RemoveTree = %q, want empty", got)
 	}
 	// Removing state that never existed is not an error:
@@ -74,22 +74,22 @@ func TestRemoveTree(t *testing.T) {
 
 func TestProvisionedMarker(t *testing.T) {
 	d := state.Dir(t.TempDir())
-	if d.Provisioned("pool-1") {
+	if d.Provisioned("slot-1") {
 		t.Error("Provisioned on fresh state = true, want false")
 	}
-	if err := d.MarkProvisioned("pool-1"); err != nil {
+	if err := d.MarkProvisioned("slot-1"); err != nil {
 		t.Fatal(err)
 	}
-	if !d.Provisioned("pool-1") {
+	if !d.Provisioned("slot-1") {
 		t.Error("Provisioned after MarkProvisioned = false, want true")
 	}
-	if d.Provisioned("pool-2") {
+	if d.Provisioned("slot-2") {
 		t.Error("marker leaked across trees")
 	}
-	if err := d.RemoveTree("pool-1"); err != nil {
+	if err := d.RemoveTree("slot-1"); err != nil {
 		t.Fatal(err)
 	}
-	if d.Provisioned("pool-1") {
+	if d.Provisioned("slot-1") {
 		t.Error("Provisioned survived RemoveTree")
 	}
 }

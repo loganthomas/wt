@@ -102,7 +102,7 @@ Two caches, two behaviors:
 - The **output base** (analysis cache, `bazel-out/`) is keyed by
   the tree's directory *path*, so it is per-tree by nature.
   Pool slots help in a quiet way: their paths are stable
-  (`../acme.trees/pool-3` forever), so a slot keeps the same
+  (`../acme.trees/slot-3` forever), so a slot keeps the same
   output base across claims and stays warm,
   where throwaway trees at branch-named paths start cold each time.
 
@@ -132,9 +132,9 @@ Derive the port from the slot number instead of hardcoding it —
 in a copied `.envrc`:
 
 ```sh
-# pool-3 → port 3003
-slot="${PWD##*pool-}"
-case "$PWD" in *pool-[0-9]*) export PORT=$((3000 + slot)) ;; esac
+# slot-3 → port 3003
+slot="${PWD##*slot-}"
+case "$PWD" in *slot-[0-9]*) export PORT=$((3000 + slot)) ;; esac
 ```
 
 wt has no port machinery on purpose; the pattern is one line.

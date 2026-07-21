@@ -94,7 +94,7 @@ func TestSlotLifecycleOperations(t *testing.T) {
 	gittest.Run(t, main, "add", ".gitignore")
 	gittest.Run(t, main, "commit", "-q", "-m", "ignore")
 
-	slot := filepath.Join(dir, "acme.trees", "pool-1")
+	slot := filepath.Join(dir, "acme.trees", "slot-1")
 	g := New(main)
 	if err := g.WorktreeAddDetach(t.Context(), slot, "main"); err != nil {
 		t.Fatal(err)

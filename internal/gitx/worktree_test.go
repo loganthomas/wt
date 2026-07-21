@@ -54,12 +54,12 @@ func TestParseWorktrees(t *testing.T) {
 		},
 		{
 			name: "detached head",
-			input: "worktree /repos/acme.trees/pool-1\x00" +
+			input: "worktree /repos/acme.trees/slot-1\x00" +
 				"HEAD cccc567890abcdef1234567890abcdef12345678\x00" +
 				"detached\x00" +
 				"\x00",
 			want: []Worktree{{
-				Path:     "/repos/acme.trees/pool-1",
+				Path:     "/repos/acme.trees/slot-1",
 				Head:     "cccc567890abcdef1234567890abcdef12345678",
 				Detached: true,
 			}},

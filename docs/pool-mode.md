@@ -5,7 +5,7 @@ a fresh checkout means a ten-minute install
 and a 750k-file `node_modules` before the first command runs.
 Instead of creating and destroying trees,
 `wt` keeps a fixed pool of pre-warmed slots —
-`pool-1 … pool-N` inside your trees directory —
+`slot-1 … slot-N` inside your trees directory —
 that are **claimed**, worked in, and **released** back, warm.
 
 Ordinary repos don't need any of this;
@@ -71,7 +71,7 @@ then the slot parks back on the base and the branch is deleted.
 The tree itself is never removed — warmth is the whole point.
 
 Personal trees still work in a pool repo:
-anything that isn't a `pool-N` slot follows the default lifecycle.
+anything that isn't a `slot-N` slot follows the default lifecycle.
 
 ## Plumbing: `wt claim` and `wt release`
 
@@ -112,9 +112,9 @@ the next claim reclaims it, loudly.
 Deadness is only provable on the host that claimed:
 a lease from another machine — or from before a hostname change —
 reads as unverifiable and is never reaped;
-`wt release pool-N` clears it.
+`wt release slot-N` clears it.
 `wt pool ls` shows stale leases as `stale`;
-a wedged slot can always be freed by hand with `wt release pool-N`.
+a wedged slot can always be freed by hand with `wt release slot-N`.
 A slot the guards refuse to reset — stranded commits, say —
 is skipped with a notice and the claim moves on to the next one.
 
@@ -123,10 +123,10 @@ is skipped with a notice and the claim moves on to the next one.
 Two guards make resets structurally safe (PLAN.md D14):
 
 - **Pattern guard** — only a path of the exact form
-  `<trees_dir>/pool-N` (symlinks resolved) can ever be reset,
+  `<trees_dir>/slot-N` (symlinks resolved) can ever be reset,
   released, or removed by pool machinery.
   The main checkout and personal trees don't match, ever —
-  which also means any `pool-N` name inside the trees dir
+  which also means any `slot-N` name inside the trees dir
   is pool property; don't hand-make worktrees there.
 - **Orphan guard** — no reset proceeds while a detached HEAD
   holds commits nothing else can reach;
