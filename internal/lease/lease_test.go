@@ -253,6 +253,26 @@ func TestCorruptRecordHeldConservatively(t *testing.T) {
 	}
 }
 
+// TestProcessStartIgnoresCallerTZ pins the false-stale trap:
+// ps renders lstart in local time, so without a fixed TZ the same
+// live process reads as a different one across sessions with
+// different timezones — and its lease would be stolen.
+func TestProcessStartIgnoresCallerTZ(t *testing.T) {
+	t.Setenv("TZ", "UTC")
+	utc, err := processStart(os.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TZ", "America/New_York")
+	ny, err := processStart(os.Getpid())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if utc != ny {
+		t.Errorf("processStart depends on caller TZ: %q (UTC) vs %q (New York)", utc, ny)
+	}
+}
+
 func TestProcessStart(t *testing.T) {
 	first, err := processStart(os.Getpid())
 	if err != nil {
