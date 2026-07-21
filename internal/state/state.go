@@ -21,12 +21,19 @@ func (d Dir) LeasesDir() string {
 	return filepath.Join(string(d), "leases")
 }
 
+// The per-tree files. Named once: this package's whole job is
+// keeping the on-disk layout in one place.
+const (
+	refreshHashFile = "refresh_hash"
+	provisionedFile = "provisioned"
+)
+
 // RefreshHash returns the hash recorded for tree name at its last
 // successful refresh, or "" when none has been recorded.
 // Any read failure reads as "no hash": the worst consequence is
 // one redundant refresh run, which is always safe.
 func (d Dir) RefreshHash(name string) string {
-	raw, err := os.ReadFile(d.refreshHashPath(name))
+	raw, err := os.ReadFile(d.treeFile(name, refreshHashFile))
 	if err != nil {
 		return ""
 	}
@@ -36,27 +43,19 @@ func (d Dir) RefreshHash(name string) string {
 // WriteRefreshHash records the refresh hash for tree name,
 // creating the tree's state directory as needed.
 func (d Dir) WriteRefreshHash(name, hash string) error {
-	path := d.refreshHashPath(name)
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(path, []byte(hash+"\n"), 0o644)
+	return d.writeTreeFile(name, refreshHashFile, []byte(hash+"\n"))
 }
 
 // MarkProvisioned records that tree name finished provisioning —
 // worktree, copies, setup hook, all of it. Written last, so its
 // absence on a registered slot proves the provision died midway.
 func (d Dir) MarkProvisioned(name string) error {
-	path := filepath.Join(d.treeDir(name), "provisioned")
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	return os.WriteFile(path, nil, 0o644)
+	return d.writeTreeFile(name, provisionedFile, nil)
 }
 
 // Provisioned reports whether tree name completed provisioning.
 func (d Dir) Provisioned(name string) bool {
-	_, err := os.Stat(filepath.Join(d.treeDir(name), "provisioned"))
+	_, err := os.Stat(d.treeFile(name, provisionedFile))
 	return err == nil
 }
 
@@ -66,10 +65,18 @@ func (d Dir) RemoveTree(name string) error {
 	return os.RemoveAll(d.treeDir(name))
 }
 
-func (d Dir) treeDir(name string) string {
-	return filepath.Join(string(d), "trees", name)
+func (d Dir) writeTreeFile(name, file string, data []byte) error {
+	path := d.treeFile(name, file)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0o644)
 }
 
-func (d Dir) refreshHashPath(name string) string {
-	return filepath.Join(d.treeDir(name), "refresh_hash")
+func (d Dir) treeFile(name, file string) string {
+	return filepath.Join(d.treeDir(name), file)
+}
+
+func (d Dir) treeDir(name string) string {
+	return filepath.Join(string(d), "trees", name)
 }
