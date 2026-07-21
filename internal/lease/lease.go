@@ -193,22 +193,24 @@ func (i *Info) same(o *Info) bool {
 		i.Hostname == o.Hostname && i.ClaimedAt.Equal(o.ClaimedAt)
 }
 
+// sessionPID is wt's parent as it was at startup — the shell,
+// script, or agent session doing the work. Captured before any
+// work runs: if that session later dies, Getppid would report the
+// reaper (init, or a PID-1 shell in a container) and the lease
+// would wrongly track a process that never claimed anything.
+// Recording the original parent means an orphaned claim's lease
+// reads stale the moment its session is gone — and a container
+// session that legitimately IS PID 1 stays live by its own
+// start time, instead of being mistaken for a reparented orphan.
+var sessionPID = os.Getppid()
+
 func writeRecord(dir, branch string) error {
 	host, err := os.Hostname()
 	if err != nil {
 		return err
 	}
-	pid := os.Getppid()
-	if pid == 1 {
-		// The invoking session died before this claim finished and
-		// the process was reparented to init/launchd — whose PID
-		// would read live until reboot. Recording wt's own PID
-		// makes the lease go stale the moment wt exits, so an
-		// orphaned claim self-expires instead of wedging the slot.
-		pid = os.Getpid()
-	}
 	info := &Info{
-		PID:       pid,
+		PID:       sessionPID,
 		Hostname:  host,
 		Branch:    branch,
 		ClaimedAt: time.Now().UTC(),
