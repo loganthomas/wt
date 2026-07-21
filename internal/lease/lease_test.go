@@ -82,20 +82,63 @@ func TestAcquireHeld(t *testing.T) {
 
 func TestReleaseIsIdempotent(t *testing.T) {
 	dir := t.TempDir()
-	if _, err := Acquire(dir, "pool-1", "x"); err != nil {
+	mine, err := Acquire(dir, "pool-1", "x")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := Release(dir, "pool-1"); err != nil {
+	if err := Release(dir, "pool-1", mine); err != nil {
 		t.Fatal(err)
 	}
 	if info, err := Get(dir, "pool-1"); err != nil || info != nil {
 		t.Errorf("Get after Release = %+v, %v; want free", info, err)
 	}
-	if err := Release(dir, "pool-1"); err != nil {
+	if err := Release(dir, "pool-1", mine); err != nil {
 		t.Errorf("second Release: %v", err)
 	}
 	if _, err := Acquire(dir, "pool-1", "y"); err != nil {
 		t.Errorf("Acquire after Release: %v", err)
+	}
+}
+
+func TestReleaseRefusesAnotherLiveLease(t *testing.T) {
+	dir := t.TempDir()
+	// The caller's lease was taken over behind its back (an
+	// explicit release racing a claim): its cleanup must not
+	// delete the new holder's live lease.
+	stale := &Info{
+		PID:       deadPID(t),
+		PIDStart:  "Mon Jan  2 15:04:05 2006",
+		Hostname:  hostname(t),
+		Branch:    "mine-once",
+		ClaimedAt: time.Now(),
+	}
+	plant(t, dir, "pool-1", live(t, "new-holder"))
+	err := Release(dir, "pool-1", stale)
+	var held *HeldError
+	if !errors.As(err, &held) {
+		t.Fatalf("Release over another live lease error = %v, want *HeldError", err)
+	}
+	if info, gerr := Get(dir, "pool-1"); gerr != nil || info == nil || info.Branch != "new-holder" {
+		t.Errorf("lease after refused Release = %+v, %v; want the new holder intact", info, gerr)
+	}
+}
+
+func TestReleaseClearsAStaleLease(t *testing.T) {
+	dir := t.TempDir()
+	// A dead holder is provably done: cleanup may clear it even
+	// without proving ownership.
+	plant(t, dir, "pool-1", Info{
+		PID:       deadPID(t),
+		PIDStart:  "Mon Jan  2 15:04:05 2006",
+		Hostname:  hostname(t),
+		Branch:    "crashed",
+		ClaimedAt: time.Now(),
+	})
+	if err := Release(dir, "pool-1", nil); err != nil {
+		t.Fatalf("Release of a stale lease: %v", err)
+	}
+	if info, err := Get(dir, "pool-1"); err != nil || info != nil {
+		t.Errorf("Get after Release = %+v, %v; want free", info, err)
 	}
 }
 
@@ -318,7 +361,7 @@ func TestSoak(t *testing.T) {
 			defer wg.Done()
 			for r := range rounds {
 				i := (w + r) % len(slots)
-				_, err := Acquire(dir, slots[i], "work")
+				mine, err := Acquire(dir, slots[i], "work")
 				var held *HeldError
 				if errors.As(err, &held) {
 					continue
@@ -331,7 +374,7 @@ func TestSoak(t *testing.T) {
 					t.Errorf("slot %s held by %d claimers at once", slots[i], n)
 				}
 				holders[i].Add(-1)
-				if err := Release(dir, slots[i]); err != nil {
+				if err := Release(dir, slots[i], mine); err != nil {
 					t.Errorf("Release(%s): %v", slots[i], err)
 				}
 			}

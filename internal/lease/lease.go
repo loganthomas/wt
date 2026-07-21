@@ -146,10 +146,37 @@ func Repin(leasesDir, slot, branch string, expect *Info) (*Info, error) {
 	return writeRecord(dir, branch, sessionPID)
 }
 
-// Release frees slot; releasing a free slot is not an error,
-// so cleanup paths can run it unconditionally.
-func Release(leasesDir, slot string) error {
-	return os.RemoveAll(filepath.Join(leasesDir, slot))
+// Release frees slot, but only when the current lease is the
+// expected one, provably dead, or absent — releasing a free slot
+// is not an error, so cleanup paths can run it unconditionally.
+// The guard matters when the caller's lease was taken over behind
+// its back (an explicit `wt release` racing a claim): removing
+// unconditionally would delete the new holder's live lease and
+// hand the slot to a third claimer. A live lease other than
+// expect, or an unreadable record (which proves nothing), returns
+// *HeldError and leaves the lease in place.
+func Release(leasesDir, slot string, expect *Info) error {
+	if err := os.MkdirAll(leasesDir, 0o755); err != nil {
+		return err
+	}
+	unlock, err := lockExclusive(filepath.Join(leasesDir, ".acquire.lock"))
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
+	dir := filepath.Join(leasesDir, slot)
+	current, rerr := readRecord(dir)
+	switch {
+	case errors.Is(rerr, fs.ErrNotExist):
+		// Free, or a recordless leftover: no writer can be
+		// mid-record while this flock is held, so removing is safe.
+	case rerr != nil:
+		return &HeldError{Slot: slot}
+	case !current.same(expect) && !current.Stale():
+		return &HeldError{Slot: slot, Info: current}
+	}
+	return os.RemoveAll(dir)
 }
 
 // Get reports the lease on slot: (nil, nil) when free, the record

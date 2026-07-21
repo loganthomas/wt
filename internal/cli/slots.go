@@ -81,7 +81,7 @@ func (p *poolRepo) claimSlot(
 			fmt.Fprintf(chatter, "claimed %s for %s\n", slot, branch)
 			return dest, nil
 		}
-		_ = lease.Release(p.state.LeasesDir(), slot)
+		_ = lease.Release(p.state.LeasesDir(), slot, mine)
 		if exitCodeFor(err) != exitPrecondition {
 			return "", err
 		}
@@ -261,7 +261,8 @@ func (p *poolRepo) releaseSlot(
 	// here. A failure after the pin simply leaves the slot claimed
 	// by this session — truthful, retryable, and self-expiring if
 	// the session dies.
-	if _, err := lease.Repin(leases, slot, cmp.Or(t.Branch, "(releasing)"), held); err != nil {
+	pinned, err := lease.Repin(leases, slot, cmp.Or(t.Branch, "(releasing)"), held)
+	if err != nil {
 		var heldErr *lease.HeldError
 		if errors.As(err, &heldErr) {
 			return preconditionf("%v — the slot changed hands; let that claim finish", heldErr)
@@ -281,7 +282,7 @@ func (p *poolRepo) releaseSlot(
 	if err := p.resetSlot(ctx, t, p.cfg.Base, chatter); err != nil {
 		return err
 	}
-	if err := lease.Release(leases, slot); err != nil {
+	if err := lease.Release(leases, slot, pinned); err != nil {
 		return err
 	}
 	fmt.Fprintf(chatter, "released %s\n", slot)
@@ -367,11 +368,12 @@ func (p *poolRepo) provisionPool(ctx context.Context, from, to int, chatter io.W
 	leases := p.state.LeasesDir()
 	for i := from + 1; i <= to; i++ {
 		slot := pool.SlotName(i)
-		if _, err := lease.Acquire(leases, slot, "(provisioning)"); err != nil {
+		mine, err := lease.Acquire(leases, slot, "(provisioning)")
+		if err != nil {
 			return err
 		}
-		err := p.provisionSlot(ctx, slot, p.cfg.Base, chatter)
-		if rerr := lease.Release(leases, slot); err == nil {
+		err = p.provisionSlot(ctx, slot, p.cfg.Base, chatter)
+		if rerr := lease.Release(leases, slot, mine); err == nil {
 			err = rerr
 		}
 		if err != nil {
