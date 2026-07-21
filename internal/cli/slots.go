@@ -291,32 +291,14 @@ func (p *poolRepo) releaseSlot(
 	if err := checkBase(ctx, p.g, p.cfg.Base); err != nil {
 		return err
 	}
-	leases := p.state.LeasesDir()
-	held, err := lease.Get(leases, slot)
-	// An unreadable record still occupies the slot — claim never
-	// steals what it cannot prove dead — so release, the documented
-	// escape hatch, must proceed and clear it rather than bounce
-	// off "not claimed".
-	if err == nil && held == nil && t.Detached {
-		return preconditionf("%s is not claimed — nothing to release", slot)
-	}
+	// A parked slot with a branch still attached is releasable —
+	// that is what parking fixes — so the claim requirement holds
+	// only for detached trees.
+	pinned, err := p.pinForRelease(slot, cmp.Or(t.Branch, lease.Releasing), t.Detached)
 	if err != nil {
-		held = nil
-	}
-	// Pin the lease to this session before any guard or reset runs:
-	// past this point no concurrent claim can steal the slot, and
-	// the lease removed at the end is provably the one handled
-	// here. A failure after the pin simply leaves the slot claimed
-	// by this session — truthful, retryable, and self-expiring if
-	// the session dies.
-	pinned, err := lease.Repin(leases, slot, cmp.Or(t.Branch, lease.Releasing), held)
-	if err != nil {
-		var heldErr *lease.HeldError
-		if errors.As(err, &heldErr) {
-			return preconditionf("%v — the slot changed hands; let that claim finish", heldErr)
-		}
 		return err
 	}
+	leases := p.state.LeasesDir()
 
 	if _, err := finishGuards(ctx, p.repo.Root, t, p.cfg.Copy); err != nil {
 		return err
@@ -365,29 +347,49 @@ func (p *poolRepo) checkStillInPool(slot string) error {
 	return nil
 }
 
+// pinForRelease transfers slot's lease to this session, the
+// entry half of every release: past a successful pin no
+// concurrent claim can steal the slot, and the lease dropped at
+// the end is provably the one handled here. A failure after the
+// pin simply leaves the slot claimed by this session — truthful,
+// retryable, and self-expiring if the session dies. A free slot
+// is refused when claimRequired; an unreadable record is taken
+// over regardless, because claim never steals what it cannot
+// prove dead and release is the documented way out.
+func (p *poolRepo) pinForRelease(
+	slot, branch string, claimRequired bool,
+) (*lease.Info, error) {
+	leases := p.state.LeasesDir()
+	held, err := lease.Get(leases, slot)
+	if err == nil && held == nil && claimRequired {
+		return nil, preconditionf("%s is not claimed — nothing to release", slot)
+	}
+	if err != nil {
+		held = nil
+	}
+	pinned, err := lease.Repin(leases, slot, branch, held)
+	if err != nil {
+		var heldErr *lease.HeldError
+		if errors.As(err, &heldErr) {
+			return nil, preconditionf(
+				"%v — the slot changed hands; let that claim finish", heldErr)
+		}
+		return nil, err
+	}
+	return pinned, nil
+}
+
 // releaseVacantSlot clears a lease on a slot with no worktree
 // behind it, via the same pin-then-drop protocol as a full
 // release, minus the tree work there is no tree to do. The slot's
 // recorded state goes too: with the tree gone it describes
 // nothing, and a later provision must not inherit it.
 func (p *poolRepo) releaseVacantSlot(slot string, chatter io.Writer) error {
-	leases := p.state.LeasesDir()
-	held, err := lease.Get(leases, slot)
-	if err == nil && held == nil {
-		return preconditionf("%s is not claimed — nothing to release", slot)
-	}
+	pinned, err := p.pinForRelease(slot, lease.Releasing, true)
 	if err != nil {
-		held = nil
-	}
-	pinned, err := lease.Repin(leases, slot, lease.Releasing, held)
-	if err != nil {
-		var heldErr *lease.HeldError
-		if errors.As(err, &heldErr) {
-			return preconditionf("%v — the slot changed hands; let that claim finish", heldErr)
-		}
 		return err
 	}
-	if err := lease.Release(leases, slot, pinned); err != nil {
+	if err := lease.Release(p.state.LeasesDir(), slot, pinned); err != nil {
 		return err
 	}
 	if err := p.state.RemoveTree(slot); err != nil {
