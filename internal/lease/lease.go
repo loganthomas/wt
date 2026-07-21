@@ -232,6 +232,14 @@ func writeRecord(dir, branch string) error {
 		_ = os.Remove(tmp.Name())
 		return err
 	}
+	// Synced before the rename: without it a power loss could
+	// publish an empty or torn record at the final name — one that
+	// parses as a holder no host can ever prove dead.
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
+		return err
+	}
 	if err := tmp.Close(); err != nil {
 		_ = os.Remove(tmp.Name())
 		return err
