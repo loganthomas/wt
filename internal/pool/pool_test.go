@@ -197,3 +197,29 @@ func TestHash(t *testing.T) {
 		t.Error("missing file hashes like an empty file")
 	}
 }
+
+// A case-insensitive filesystem (macOS by default) puts Slot-1
+// exactly where slot-1 must go, so the reservation folds case
+// where the destructive-path guard stays exact.
+func TestCollidesWithSlotName(t *testing.T) {
+	tests := []struct {
+		name  string
+		slot  bool
+		clash bool
+	}{
+		{"slot-1", true, true},
+		{"Slot-1", false, true},
+		{"SLOT-12", false, true},
+		{"slot-0", false, false},
+		{"slot-1x", false, false},
+		{"feature-login", false, false},
+	}
+	for _, tt := range tests {
+		if got := pool.IsSlotName(tt.name); got != tt.slot {
+			t.Errorf("IsSlotName(%q) = %v, want %v", tt.name, got, tt.slot)
+		}
+		if got := pool.CollidesWithSlotName(tt.name); got != tt.clash {
+			t.Errorf("CollidesWithSlotName(%q) = %v, want %v", tt.name, got, tt.clash)
+		}
+	}
+}

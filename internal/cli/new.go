@@ -87,7 +87,7 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	// one would become silently resettable the day pool mode is
 	// switched on, and its uncommitted work fair game for a claim.
 	name := repo.SanitizeBranch(branch)
-	if pool.IsSlotName(name) {
+	if pool.CollidesWithSlotName(name) {
 		return preconditionf(
 			"branch %q would take the tree name %s, which is reserved for pool slots — "+
 				"pick another name", branch, name)

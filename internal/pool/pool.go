@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 // slotName is the one spelling of a slot: slot-N, N ≥ 1, no
@@ -35,8 +36,19 @@ func Names(size int) []string {
 }
 
 // IsSlotName reports whether name is a slot wt itself would mint.
+// Exact by design: it gates destructive operations, so a name that
+// merely resembles a slot must never pass.
 func IsSlotName(name string) bool {
 	return slotName.MatchString(name)
+}
+
+// CollidesWithSlotName reports whether name would occupy a slot's
+// directory. Case folds here where IsSlotName will not: on a
+// case-insensitive filesystem (macOS by default) a tree named
+// Slot-1 sits exactly where slot-1 must go, so the name has to be
+// refused even though it is not itself a slot.
+func CollidesWithSlotName(name string) bool {
+	return IsSlotName(strings.ToLower(name))
 }
 
 // SlotIndex reports the 1-based index behind a slot name wt would

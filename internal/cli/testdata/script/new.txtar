@@ -46,6 +46,10 @@ exitcode 3 wt new slot-1
 stderr 'reserved for pool slots'
 ! stdout .
 
+# and case-folded, because the filesystem folds it too
+exitcode 3 wt new Slot-2
+stderr 'reserved for pool slots'
+
 # an unresolvable base is caught before git creates anything
 exitcode 3 wt new doomed --base no-such-ref
 stderr 'no-such-ref'
