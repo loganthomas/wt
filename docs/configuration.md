@@ -93,6 +93,7 @@ under `$XDG_STATE_HOME` (default `~/.local/state`):
 wt/repos/acme-3f2a9c1b/          # <repo basename>-<hash of the git dir path>
   leases/pool-3/lease.toml       # who holds slot 3: pid, start time, branch
   trees/<name>/refresh_hash      # refresh_if_changed hash at last refresh
+  trees/<name>/provisioned       # slot finished provisioning (setup ran)
 ```
 
 The slug keeps state directories human-readable;

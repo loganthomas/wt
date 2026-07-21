@@ -400,6 +400,7 @@ Merge order: built-in → global → repo.
 last_fetch                     # RFC3339 timestamp of last base fetch
 leases/pool-3/lease.toml       # atomic-mkdir lease: pid, pid_start, branch, claimed_at
 trees/<name>/refresh_hash      # SHA-256 of refresh_if_changed files at last refresh
+trees/<name>/provisioned       # marker: the slot's provisioning completed
 trees/<name>/last_used         # idle heuristics and picker ranking
 ```
 
@@ -589,7 +590,20 @@ which makes init/resize crashes and hand-edited sizes self-heal.
 `wt release` keeps the branch (plumbing hands it to the PR flow);
 `wt done` deletes it, symmetric with default mode.
 `hooks.refresh` also runs behind the same hash gate on
-default-mode `wt new`, so the two modes share one mechanism.
+default-mode `wt new`, so the two modes share one mechanism:
+a fresh tree or slot warms up exactly once —
+the setup hook when configured (recording the hash it satisfied),
+the gated refresh otherwise.
+An adversarial review pass then hardened the loop:
+lease records land atomically (a crash can leave a reclaimable
+recordless directory, never an unprovable torn record),
+release repins the lease to its own session before guards and
+reset run (closing a race where a concurrent claim's steal could
+put two sessions in one slot),
+a durable provisioned marker makes killed provisions redo
+themselves instead of silently skipping setup forever,
+and claims skip guard-blocked slots with a notice rather than
+letting one bad slot fail the whole pool.
 Remaining before exit is met: merge, batch fragments,
 tag `v0.1.0-alpha.4`.
 Phase 5 (sync & freshness) is ready once the tag is cut.

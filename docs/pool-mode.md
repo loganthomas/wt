@@ -104,6 +104,8 @@ and a crashed session never wedges a slot:
 the next claim reclaims it, loudly.
 `wt pool ls` shows stale leases as `stale`;
 a wedged slot can always be freed by hand with `wt release pool-N`.
+A slot the guards refuse to reset — stranded commits, say —
+is skipped with a notice and the claim moves on to the next one.
 
 ## Safety
 
