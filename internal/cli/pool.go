@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -66,7 +67,10 @@ func runPoolLs(cmd *cobra.Command) error {
 func slotRow(slot string, registered bool, held *lease.Info, err error) [4]string {
 	switch {
 	case err != nil:
-		return [4]string{slot, "claimed", "?", "lease record unreadable"}
+		return [4]string{
+			slot, "claimed", "?",
+			fmt.Sprintf("lease record unreadable — `wt release %s` clears it", slot),
+		}
 	case held == nil && !registered:
 		return [4]string{slot, "unprovisioned", "-", "provisions on first claim"}
 	case held == nil:
@@ -177,13 +181,22 @@ func (p *poolRepo) grow(ctx context.Context, from, to int, chatter io.Writer) er
 	if err := p.savePoolSize(to); err != nil {
 		return err
 	}
-	if err := p.provisionPool(ctx, from, to, chatter); err != nil {
-		if errIsHeld(err) {
-			return preconditionf("%v — a claim raced the resize; rerun it", err)
-		}
+	return resizeHeld(p.provisionPool(ctx, from, to, chatter))
+}
+
+// resizeHeld maps a lease refusal during resize to exit 3 with
+// the honest way forward: a readable holder means a claim raced
+// and a rerun will succeed once it settles; an unreadable record
+// never resolves itself and only `wt release` clears it.
+func resizeHeld(err error) error {
+	var held *lease.HeldError
+	if !errors.As(err, &held) {
 		return err
 	}
-	return nil
+	if held.Info == nil {
+		return preconditionf("%v — `wt release %s` clears it", held, held.Slot)
+	}
+	return preconditionf("%v — a claim raced the resize; rerun it", held)
 }
 
 // shrink removes the top slots down to size. Claimed victims
@@ -195,7 +208,12 @@ func (p *poolRepo) shrink(ctx context.Context, from, to int, chatter io.Writer) 
 	leases := p.state.LeasesDir()
 	for i := to + 1; i <= from; i++ {
 		slot := pool.SlotName(i)
-		if held, err := lease.Get(leases, slot); err == nil && held != nil && !held.Stale() {
+		held, err := lease.Get(leases, slot)
+		if err != nil {
+			return preconditionf(
+				"%s's lease record is unreadable — `wt release %s` clears it", slot, slot)
+		}
+		if held != nil && !held.Stale() {
 			return preconditionf("%s is claimed for %s — `wt done %s` first",
 				slot, held.Branch, held.Branch)
 		}
@@ -207,10 +225,7 @@ func (p *poolRepo) shrink(ctx context.Context, from, to int, chatter io.Writer) 
 	for i := from; i > to; i-- {
 		slot := pool.SlotName(i)
 		if err := lease.Acquire(leases, slot, "(removing)"); err != nil {
-			if errIsHeld(err) {
-				return preconditionf("%v — a claim raced the resize; rerun it", err)
-			}
-			return err
+			return resizeHeld(err)
 		}
 		if err := p.removeSlot(ctx, trees, slot); err != nil {
 			_ = lease.Release(leases, slot)

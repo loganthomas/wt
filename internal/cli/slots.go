@@ -410,9 +410,3 @@ func findTree(trees []gitx.Worktree, path string) (gitx.Worktree, bool) {
 	}
 	return gitx.Worktree{}, false
 }
-
-// errIsHeld reports whether err is a lease.HeldError.
-func errIsHeld(err error) bool {
-	var held *lease.HeldError
-	return errors.As(err, &held)
-}
