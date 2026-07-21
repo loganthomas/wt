@@ -79,10 +79,13 @@ stderr 'already checked out'
 exitcode 3 wt claim feat-b
 stderr 'already checked out in .*[/\\]pool-2'
 
-# guards hold on release: uncommitted work blocks it
+# guards hold on release: uncommitted work blocks it,
+# and the blocked slot stays claimed for its branch
 cp $WORK/junk.txt ../acme.trees/pool-1/junk.txt
 exitcode 3 wt done feat-c
 stderr 'uncommitted changes'
+exec wt pool ls
+stdout 'pool-1\s+claimed\s+feat-c'
 rm ../acme.trees/pool-1/junk.txt
 exec wt done feat-c
 stderr 'released pool-1'

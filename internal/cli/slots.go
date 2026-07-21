@@ -6,6 +6,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -186,6 +187,22 @@ func (p *poolRepo) releaseSlot(
 	// off "not claimed".
 	if err == nil && held == nil && t.Detached {
 		return preconditionf("%s is not claimed — nothing to release", slot)
+	}
+	if err != nil {
+		held = nil
+	}
+	// Pin the lease to this session before any guard or reset runs:
+	// past this point no concurrent claim can steal the slot, and
+	// the lease removed at the end is provably the one handled
+	// here. A failure after the pin simply leaves the slot claimed
+	// by this session — truthful, retryable, and self-expiring if
+	// the session dies.
+	if err := lease.Repin(leases, slot, cmp.Or(t.Branch, "(releasing)"), held); err != nil {
+		var heldErr *lease.HeldError
+		if errors.As(err, &heldErr) {
+			return preconditionf("%v — the slot changed hands; let that claim finish", heldErr)
+		}
+		return err
 	}
 
 	// The same protections as wt done on a personal tree (R2):
