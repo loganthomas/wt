@@ -25,13 +25,23 @@ exec wt init --yes
 ! stderr 'untracked \.env'
 ! grep 'copy = ' .git/wt.toml
 
-# flags beat detection
+# flags beat detection, and a flagged hook never inherits the
+# detected gate: it would silently skip on unchanged lockfiles
 cd $WORK
 exec git init -q -b main app3
 cd app3
 exec git commit -q --allow-empty -m 'initial'
 exec sh -c 'echo lock > package-lock.json'
-exec wt init --yes --refresh 'make deps' --refresh-if-changed deps.lock
+exec wt init --yes --refresh 'make deps'
 grep 'refresh = .make deps.' .git/wt.toml
-grep 'deps\.lock' .git/wt.toml
+! grep 'refresh_if_changed' .git/wt.toml
 ! grep 'npm ci' .git/wt.toml
+
+# an explicitly empty flag declines the proposal outright
+cd $WORK
+exec git init -q -b main app4
+cd app4
+exec git commit -q --allow-empty -m 'initial'
+exec sh -c 'echo lock > package-lock.json'
+exec wt init --yes --refresh ''
+! grep 'refresh' .git/wt.toml

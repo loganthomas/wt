@@ -85,19 +85,32 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	}
 	opts.base = cmp.Or(opts.base, seed.Base)
 	opts.treesDir = cmp.Or(opts.treesDir, seed.TreesDir, r.DefaultTreesDir())
-	opts.setup = cmp.Or(opts.setup, seed.Hooks.Setup)
-	opts.refresh = cmp.Or(opts.refresh, seed.Hooks.Refresh, det.refresh)
-	if opts.refreshGate == nil {
-		opts.refreshGate = seed.Hooks.RefreshIfChanged
+	// A changed flag wins even when its value is empty: under
+	// --yes, `--refresh ''` is the way to decline a global or
+	// detected hook, so zero values cannot stand in for "unset".
+	flags := cmd.Flags()
+	if !flags.Changed("setup") {
+		opts.setup = seed.Hooks.Setup
 	}
-	if opts.refreshGate == nil {
-		opts.refreshGate = det.gate
+	detHook := false
+	if !flags.Changed("refresh") {
+		if opts.refresh = seed.Hooks.Refresh; opts.refresh == "" {
+			opts.refresh = det.refresh
+			detHook = opts.refresh != ""
+		}
 	}
-	if opts.copyList == nil {
-		opts.copyList = seed.Copy
+	// The detected gate travels only with the detected hook:
+	// pinning a hook from another layer to a lockfile it knows
+	// nothing about would silently skip it on unchanged claims.
+	if !flags.Changed("refresh-if-changed") {
+		if opts.refreshGate = seed.Hooks.RefreshIfChanged; opts.refreshGate == nil && detHook {
+			opts.refreshGate = det.gate
+		}
 	}
-	if opts.copyList == nil {
-		opts.copyList = det.copies
+	if !flags.Changed("copy") {
+		if opts.copyList = seed.Copy; opts.copyList == nil {
+			opts.copyList = det.copies
+		}
 	}
 
 	if !opts.yes {
