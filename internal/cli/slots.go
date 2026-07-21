@@ -309,7 +309,7 @@ func (p *poolRepo) releaseSlot(
 	// here. A failure after the pin simply leaves the slot claimed
 	// by this session — truthful, retryable, and self-expiring if
 	// the session dies.
-	pinned, err := lease.Repin(leases, slot, cmp.Or(t.Branch, "(releasing)"), held)
+	pinned, err := lease.Repin(leases, slot, cmp.Or(t.Branch, lease.Releasing), held)
 	if err != nil {
 		var heldErr *lease.HeldError
 		if errors.As(err, &heldErr) {
@@ -379,7 +379,7 @@ func (p *poolRepo) releaseVacantSlot(slot string, chatter io.Writer) error {
 	if err != nil {
 		held = nil
 	}
-	pinned, err := lease.Repin(leases, slot, "(releasing)", held)
+	pinned, err := lease.Repin(leases, slot, lease.Releasing, held)
 	if err != nil {
 		var heldErr *lease.HeldError
 		if errors.As(err, &heldErr) {
@@ -483,7 +483,7 @@ func (p *poolRepo) provisionPool(ctx context.Context, from, to int, chatter io.W
 	leases := p.state.LeasesDir()
 	for i := from + 1; i <= to; i++ {
 		slot := pool.SlotName(i)
-		mine, err := lease.Acquire(leases, slot, "(provisioning)")
+		mine, err := lease.Acquire(leases, slot, lease.Provisioning)
 		if err != nil {
 			return err
 		}

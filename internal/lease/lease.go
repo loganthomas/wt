@@ -30,6 +30,22 @@ import (
 // (PLAN.md, State layout: leases/pool-3/lease.toml).
 const recordName = "lease.toml"
 
+// Internal branch labels: wt's own operations hold slots under
+// these instead of a user branch. Defined beside the record they
+// end up in, so a new label cannot dodge IsInternal.
+const (
+	Provisioning = "(provisioning)"
+	Removing     = "(removing)"
+	Releasing    = "(releasing)"
+)
+
+// IsInternal reports whether branch is one of wt's own operation
+// labels. Exact matches only: parentheses are legal in git branch
+// names, so a user branch called "(wip)" must not read as wt's.
+func IsInternal(branch string) bool {
+	return branch == Provisioning || branch == Removing || branch == Releasing
+}
+
 // Info is the record inside a lease directory.
 type Info struct {
 	PID       int       `toml:"pid"`

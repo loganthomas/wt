@@ -7,7 +7,6 @@ import (
 	"io"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -188,10 +187,9 @@ func (p *poolRepo) shrink(ctx context.Context, from, to int, chatter io.Writer) 
 				"%s's lease record is unreadable — `wt release %s` clears it", slot, slot)
 		}
 		if held != nil && !held.Stale() {
-			// Internal leases — "(provisioning)", "(removing)",
-			// "(releasing)" — name no tree, so the wt done advice
+			// Internal leases name no tree, so the wt done advice
 			// would be nonsense for them.
-			if strings.HasPrefix(held.Branch, "(") {
+			if lease.IsInternal(held.Branch) {
 				return preconditionf(
 					"%s is held by another wt operation %s — let it finish; "+
 						"if it crashed, `wt release %s` clears it",
@@ -203,7 +201,7 @@ func (p *poolRepo) shrink(ctx context.Context, from, to int, chatter io.Writer) 
 	}
 	for i := from; i > to; i-- {
 		slot := pool.SlotName(i)
-		mine, err := lease.Acquire(leases, slot, "(removing)")
+		mine, err := lease.Acquire(leases, slot, lease.Removing)
 		if err != nil {
 			return resizeHeld(err)
 		}
