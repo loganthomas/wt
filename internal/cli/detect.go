@@ -181,13 +181,7 @@ func present(root, name string) bool {
 // detectTracked reports which detection candidates (ecosystem
 // markers and copy files) the index owns; nil on error, which
 // detectDefaults reads as "unknown, propose none".
-// Flags that already settle both hooks and copies skip the query
-// outright: nothing tracking-dependent can land, and the answer
-// costs a git subprocess.
-func detectTracked(ctx context.Context, r *repo.Repo, flags *pflag.FlagSet) map[string]bool {
-	if flags.Changed("refresh") && flags.Changed("copy") {
-		return nil
-	}
+func detectTracked(ctx context.Context, r *repo.Repo) map[string]bool {
 	names := make([]string, 0, len(copyCandidates)+len(ecosystems))
 	names = append(names, copyCandidates...)
 	for _, e := range ecosystems {

@@ -87,7 +87,7 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	chatter := cmd.ErrOrStderr()
 	opts.base = cmp.Or(opts.base, seed.Base)
 	opts.treesDir = cmp.Or(opts.treesDir, seed.TreesDir, r.DefaultTreesDir())
-	det := detectDefaults(r.Root, detectTracked(ctx, r, cmd.Flags()))
+	det := detectDefaults(r.Root, detectTracked(ctx, r))
 	for _, note := range applyDetected(&opts, cmd.Flags(), seed, det) {
 		fmt.Fprintln(chatter, note)
 	}
