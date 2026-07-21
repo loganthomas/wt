@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/loganthomas/wt/internal/lease"
 	"github.com/loganthomas/wt/internal/repo"
 )
 
@@ -65,6 +66,13 @@ func exitCodeFor(err error) int {
 	var coded exitCoder
 	if errors.As(err, &coded) {
 		return coded.WtExitCode()
+	}
+	// A held lease is definitionally a precondition: the command
+	// was fine, the slot is busy. Mapped here so a call site that
+	// forgets to wrap one cannot leak it as a hard failure.
+	var held *lease.HeldError
+	if errors.As(err, &held) {
+		return exitPrecondition
 	}
 	return exitErr
 }
