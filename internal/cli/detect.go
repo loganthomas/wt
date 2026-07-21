@@ -54,12 +54,19 @@ type detected struct {
 }
 
 // detectDefaults scans root for well-known markers and proposes
-// init defaults. tracked reports which copyCandidates the index
-// owns (a tracked .env travels with checkouts and needs no
-// copying); nil means unknown, which proposes none.
+// init defaults. tracked reports which candidate files the index
+// owns; nil means unknown, which proposes nothing that depends on
+// it. Hooks require a tracked marker: an untracked lockfile never
+// reaches a fresh tree, so its gate would hash as absent forever
+// and the hook would run once and then never again. Copies
+// require the opposite (a tracked .env travels with checkouts and
+// needs no copying).
 func detectDefaults(root string, tracked map[string]bool) detected {
 	var d detected
 	for _, e := range ecosystems {
+		if tracked == nil || !tracked[e.marker] {
+			continue
+		}
 		if _, err := os.Stat(filepath.Join(root, e.marker)); err != nil {
 			continue
 		}
@@ -87,11 +94,16 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 	return d
 }
 
-// trackedCopyCandidates reports which of the well-known copy
-// files the index owns; nil on error, which detectDefaults reads
-// as "unknown, propose none".
-func trackedCopyCandidates(ctx context.Context, r *repo.Repo) map[string]bool {
-	tracked, err := gitx.New(r.Root).Tracked(ctx, copyCandidates...)
+// detectTracked reports which detection candidates (ecosystem
+// markers and copy files) the index owns; nil on error, which
+// detectDefaults reads as "unknown, propose none".
+func detectTracked(ctx context.Context, r *repo.Repo) map[string]bool {
+	names := make([]string, 0, len(copyCandidates)+len(ecosystems))
+	names = append(names, copyCandidates...)
+	for _, e := range ecosystems {
+		names = append(names, e.marker)
+	}
+	tracked, err := gitx.New(r.Root).Tracked(ctx, names...)
 	if err != nil {
 		return nil
 	}

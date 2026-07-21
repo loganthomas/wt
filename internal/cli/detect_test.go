@@ -25,7 +25,7 @@ func TestDetectDefaultsMostSpecificLockfileWins(t *testing.T) {
 	root := t.TempDir()
 	touch(t, root, "package-lock.json")
 	touch(t, root, "pnpm-lock.yaml")
-	d := detectDefaults(root, map[string]bool{})
+	d := detectDefaults(root, map[string]bool{"package-lock.json": true, "pnpm-lock.yaml": true})
 	if d.refresh != "pnpm install" || !slices.Equal(d.gate, []string{"pnpm-lock.yaml"}) {
 		t.Errorf("proposed %q gated on %v, want pnpm install on its lockfile", d.refresh, d.gate)
 	}
@@ -60,5 +60,15 @@ func TestDetectDefaultsSharedCacheNote(t *testing.T) {
 	}
 	if len(d.notes) != 1 {
 		t.Errorf("notes = %v, want the machine-wide-cache note", d.notes)
+	}
+}
+
+// An untracked lockfile never reaches a fresh tree, so gating on
+// it would run the hook once and then never again.
+func TestDetectDefaultsIgnoresUntrackedMarkers(t *testing.T) {
+	root := t.TempDir()
+	touch(t, root, "Cargo.lock")
+	if d := detectDefaults(root, map[string]bool{}); d.refresh != "" {
+		t.Errorf("refresh = %q, want none for an untracked lockfile", d.refresh)
 	}
 }

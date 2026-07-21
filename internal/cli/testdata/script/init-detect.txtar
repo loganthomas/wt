@@ -7,7 +7,8 @@
 exec git init -q -b main app
 cd app
 exec git commit -q --allow-empty -m 'initial'
-exec sh -c 'echo lock > pnpm-lock.yaml && echo secret > .env'
+exec sh -c 'echo lock > pnpm-lock.yaml && git add pnpm-lock.yaml && git commit -q -m lock'
+exec sh -c 'echo secret > .env'
 
 exec wt init --yes
 stderr 'detected pnpm-lock.yaml'
@@ -31,7 +32,7 @@ cd $WORK
 exec git init -q -b main app3
 cd app3
 exec git commit -q --allow-empty -m 'initial'
-exec sh -c 'echo lock > package-lock.json'
+exec sh -c 'echo lock > package-lock.json && git add package-lock.json && git commit -q -m lock'
 exec wt init --yes --refresh 'make deps'
 grep 'refresh = .make deps.' .git/wt.toml
 ! grep 'refresh_if_changed' .git/wt.toml
@@ -42,6 +43,17 @@ cd $WORK
 exec git init -q -b main app4
 cd app4
 exec git commit -q --allow-empty -m 'initial'
-exec sh -c 'echo lock > package-lock.json'
+exec sh -c 'echo lock > package-lock.json && git add package-lock.json && git commit -q -m lock'
 exec wt init --yes --refresh ''
+! grep 'refresh' .git/wt.toml
+
+# an untracked lockfile proposes nothing: it would never reach a
+# fresh tree, and a gate on it would hash as absent forever
+cd $WORK
+exec git init -q -b main app5
+cd app5
+exec git commit -q --allow-empty -m 'initial'
+exec sh -c 'echo lock > Cargo.lock'
+exec wt init --yes
+! stderr 'cargo fetch'
 ! grep 'refresh' .git/wt.toml

@@ -79,7 +79,7 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 		return err
 	}
 	chatter := cmd.ErrOrStderr()
-	det := detectDefaults(r.Root, trackedCopyCandidates(ctx, r))
+	det := detectDefaults(r.Root, detectTracked(ctx, r))
 	for _, note := range det.notes {
 		fmt.Fprintln(chatter, note)
 	}
