@@ -36,52 +36,17 @@ var ecosystems = []struct {
 	{"Cargo.lock", "cargo fetch"},
 }
 
-// sharedCacheMarkers name ecosystems whose expensive state is
-// already machine-wide: nothing for wt to configure, but saying
-// so heads off the "will my trees share caches?" question.
-var sharedCacheMarkers = []struct{ marker, note string }{
-	{"MODULE.bazel", "detected Bazel — a shared disk cache is the win here; see docs/recipes.md"},
-	{"go.mod", "detected Go — module and build caches are already machine-wide; no hooks needed"},
-}
-
 // copyCandidates are the well-known untracked files a new tree
 // needs a copy of.
 var copyCandidates = []string{".env", ".envrc", ".env.local"}
 
 // detected is what the repo scan proposes for the init form.
-// The gate and the notes are derived rather than stored, so they
-// cannot drift from the proposal they describe. Each note belongs
-// to one proposal, and the caller prints it only when that
-// proposal lands; info notes propose nothing and always print.
+// The winning marker doubles as the refresh gate, so the two
+// cannot drift from the hook they belong to.
 type detected struct {
-	marker    string // ecosystem marker that won, "" when none
-	refresh   string
-	copies    []string
-	infoNotes []string
-}
-
-// gate is the refresh gate implied by the winning marker.
-func (d detected) gate() []string {
-	if d.marker == "" {
-		return nil
-	}
-	return []string{d.marker}
-}
-
-// hookNote describes the proposed refresh hook and its gate.
-func (d detected) hookNote() string {
-	return fmt.Sprintf(
-		"detected %s — proposing refresh hook %q gated on it", d.marker, d.refresh)
-}
-
-// copyNotes describes each proposed copy file, one note apiece.
-func (d detected) copyNotes() []string {
-	notes := make([]string, 0, len(d.copies))
-	for _, name := range d.copies {
-		notes = append(notes, fmt.Sprintf(
-			"detected untracked %s — proposing it for the copy list", name))
-	}
-	return notes
+	marker  string // ecosystem marker that won, "" when none
+	refresh string
+	copies  []string
 }
 
 // detectDefaults scans root for well-known markers and proposes
@@ -100,11 +65,6 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 		}
 		d.marker, d.refresh = e.marker, e.hook
 		break
-	}
-	for _, m := range sharedCacheMarkers {
-		if present(root, m.marker) {
-			d.infoNotes = append(d.infoNotes, m.note)
-		}
 	}
 	if tracked == nil {
 		return d
@@ -150,7 +110,7 @@ func applyDetected(
 	if !flags.Changed("refresh-if-changed") {
 		opts.refreshGate = seed.Hooks.RefreshIfChanged
 		if opts.refreshGate == nil && detHook {
-			opts.refreshGate = det.gate()
+			opts.refreshGate = []string{det.marker}
 		}
 	}
 	detCopies := false
@@ -164,12 +124,16 @@ func applyDetected(
 
 	var notes []string
 	if detHook {
-		notes = append(notes, det.hookNote())
+		notes = append(notes, fmt.Sprintf(
+			"detected %s — proposing refresh hook %q gated on it", det.marker, det.refresh))
 	}
 	if detCopies {
-		notes = append(notes, det.copyNotes()...)
+		for _, name := range det.copies {
+			notes = append(notes, fmt.Sprintf(
+				"detected untracked %s — proposing it for the copy list", name))
+		}
 	}
-	return append(notes, det.infoNotes...)
+	return notes
 }
 
 // present reports whether name exists at the repo root.
