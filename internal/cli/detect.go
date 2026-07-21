@@ -11,6 +11,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/pflag"
+
+	"github.com/loganthomas/wt/internal/config"
 	"github.com/loganthomas/wt/internal/gitx"
 	"github.com/loganthomas/wt/internal/repo"
 )
@@ -113,6 +116,57 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 		d.copies = append(d.copies, name)
 	}
 	return d
+}
+
+// applyDetected settles the hook and copy values across the three
+// layers, most explicit first: flags, then global defaults, then
+// what the scan proposes, so users confirm recognizable values
+// instead of inventing them. A changed flag wins even when its
+// value is empty, since under --yes `--refresh ”` is the way to
+// decline a global or detected hook and zero values cannot stand
+// in for "unset". It returns the notes worth printing: only the
+// proposals that survived, because advertising a value that flags
+// or global config then beat would misstate what was configured.
+func applyDetected(
+	opts *initOptions, flags *pflag.FlagSet, seed config.Config, det detected,
+) []string {
+	if !flags.Changed("setup") {
+		opts.setup = seed.Hooks.Setup
+	}
+	detHook := false
+	if !flags.Changed("refresh") {
+		opts.refresh = seed.Hooks.Refresh
+		if opts.refresh == "" {
+			opts.refresh = det.refresh
+			detHook = opts.refresh != ""
+		}
+	}
+	// The detected gate travels only with the detected hook:
+	// pinning a hook from another layer to a lockfile it knows
+	// nothing about would silently skip it on unchanged claims.
+	if !flags.Changed("refresh-if-changed") {
+		opts.refreshGate = seed.Hooks.RefreshIfChanged
+		if opts.refreshGate == nil && detHook {
+			opts.refreshGate = det.gate()
+		}
+	}
+	detCopies := false
+	if !flags.Changed("copy") {
+		opts.copyList = seed.Copy
+		if opts.copyList == nil {
+			opts.copyList = det.copies
+			detCopies = opts.copyList != nil
+		}
+	}
+
+	var notes []string
+	if detHook {
+		notes = append(notes, det.hookNote())
+	}
+	if detCopies {
+		notes = append(notes, det.copyNotes()...)
+	}
+	return append(notes, det.infoNotes...)
 }
 
 // present reports whether name exists at the repo root.

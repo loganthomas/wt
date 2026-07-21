@@ -85,53 +85,10 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 		return err
 	}
 	chatter := cmd.ErrOrStderr()
-	det := detectDefaults(r.Root, detectTracked(ctx, r))
 	opts.base = cmp.Or(opts.base, seed.Base)
 	opts.treesDir = cmp.Or(opts.treesDir, seed.TreesDir, r.DefaultTreesDir())
-	// A changed flag wins even when its value is empty: under
-	// --yes, `--refresh ''` is the way to decline a global or
-	// detected hook, so zero values cannot stand in for "unset".
-	flags := cmd.Flags()
-	if !flags.Changed("setup") {
-		opts.setup = seed.Hooks.Setup
-	}
-	detHook := false
-	if !flags.Changed("refresh") {
-		opts.refresh = seed.Hooks.Refresh
-		if opts.refresh == "" {
-			opts.refresh = det.refresh
-			detHook = opts.refresh != ""
-		}
-	}
-	// The detected gate travels only with the detected hook:
-	// pinning a hook from another layer to a lockfile it knows
-	// nothing about would silently skip it on unchanged claims.
-	if !flags.Changed("refresh-if-changed") {
-		opts.refreshGate = seed.Hooks.RefreshIfChanged
-		if opts.refreshGate == nil && detHook {
-			opts.refreshGate = det.gate()
-		}
-	}
-	detCopies := false
-	if !flags.Changed("copy") {
-		opts.copyList = seed.Copy
-		if opts.copyList == nil {
-			opts.copyList = det.copies
-			detCopies = opts.copyList != nil
-		}
-	}
-	// Only the notes whose proposal survived the precedence above:
-	// advertising a value that flags or global config then beat
-	// would misstate what was configured.
-	if detHook {
-		fmt.Fprintln(chatter, det.hookNote())
-	}
-	if detCopies {
-		for _, note := range det.copyNotes() {
-			fmt.Fprintln(chatter, note)
-		}
-	}
-	for _, note := range det.infoNotes {
+	det := detectDefaults(r.Root, detectTracked(ctx, r))
+	for _, note := range applyDetected(&opts, cmd.Flags(), seed, det) {
 		fmt.Fprintln(chatter, note)
 	}
 
