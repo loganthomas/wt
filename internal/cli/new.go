@@ -94,17 +94,11 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	if err := copyFiles(ctx, w.repo.Root, dest, w.cfg.Copy, chatter); err != nil {
 		return fmt.Errorf("%w — the tree remains at %s", err, dest)
 	}
-	if setup := w.cfg.Hooks.Setup; setup != "" {
-		fmt.Fprintf(chatter, "running setup hook: %s\n", setup)
-		if err := runHook(ctx, dest, setup, chatter); err != nil {
-			return fmt.Errorf("setup hook failed: %w — the tree remains at %s", err, dest)
-		}
-	}
 	st, err := w.stateDir()
 	if err != nil {
 		return err
 	}
-	if err := refreshTree(ctx, w.cfg, st, dest, filepath.Base(dest), chatter); err != nil {
+	if err := finishFresh(ctx, w.cfg, st, dest, filepath.Base(dest), chatter); err != nil {
 		return fmt.Errorf("%w — the tree remains at %s", err, dest)
 	}
 

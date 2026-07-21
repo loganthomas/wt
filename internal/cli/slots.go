@@ -329,22 +329,38 @@ func (p *poolRepo) warmSlot(ctx context.Context, dest, slot string, chatter io.W
 	if err := copyFiles(ctx, p.repo.Root, dest, p.cfg.Copy, chatter); err != nil {
 		return err
 	}
-	if setup := p.cfg.Hooks.Setup; setup != "" {
-		fmt.Fprintf(chatter, "running setup hook: %s\n", setup)
-		if err := runHook(ctx, dest, setup, chatter); err != nil {
-			return fmt.Errorf("setup hook failed: %w", err)
-		}
+	if err := finishFresh(ctx, p.cfg, p.state, dest, slot, chatter); err != nil {
+		return err
 	}
-	if files := p.cfg.Hooks.RefreshIfChanged; len(files) > 0 {
+	return p.state.MarkProvisioned(slot)
+}
+
+// finishFresh completes a just-created tree or slot, one warm-up
+// only: the setup hook when configured — presumed to leave the
+// tree fully built, so the refresh hash it implicitly satisfied
+// is recorded rather than immediately re-run — otherwise the
+// refresh hook through its usual gate. Shared by wt new and slot
+// provisioning so the two can never disagree on what "fresh"
+// means.
+func finishFresh(
+	ctx context.Context, cfg config.Config, st state.Dir, dest, name string, chatter io.Writer,
+) error {
+	setup := cfg.Hooks.Setup
+	if setup == "" {
+		return refreshTree(ctx, cfg, st, dest, name, chatter)
+	}
+	fmt.Fprintf(chatter, "running setup hook: %s\n", setup)
+	if err := runHook(ctx, dest, setup, chatter); err != nil {
+		return fmt.Errorf("setup hook failed: %w", err)
+	}
+	if files := cfg.Hooks.RefreshIfChanged; len(files) > 0 {
 		hash, err := pool.Hash(dest, files)
 		if err != nil {
 			return err
 		}
-		if err := p.state.WriteRefreshHash(slot, hash); err != nil {
-			return err
-		}
+		return st.WriteRefreshHash(name, hash)
 	}
-	return p.state.MarkProvisioned(slot)
+	return nil
 }
 
 // provisionPool warms slots from+1 through to, holding each

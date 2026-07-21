@@ -1,0 +1,41 @@
+# The refresh gate on default-mode wt new (D5): setup, when
+# configured, is presumed to leave the tree fully built — the
+# refresh hash is recorded, never redundantly re-run right after —
+# while a refresh-only config uses refresh as the warm-up itself.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+cp $WORK/dep.lock dep.lock
+exec git add dep.lock
+exec git commit -q -m 'lockfile'
+
+cp $WORK/both.toml .git/wt.toml
+exec wt new both
+stderr 'running setup hook'
+! stderr 'refresh hook'
+
+cp $WORK/only.toml .git/wt.toml
+exec wt new only
+stderr 'running refresh hook'
+
+-- dep.lock --
+v1
+
+-- both.toml --
+base = 'main'
+trees_dir = '../acme.trees'
+
+[hooks]
+setup = 'true'
+refresh = 'true'
+refresh_if_changed = ['dep.lock']
+
+-- only.toml --
+base = 'main'
+trees_dir = '../acme.trees'
+
+[hooks]
+refresh = 'true'
+refresh_if_changed = ['dep.lock']

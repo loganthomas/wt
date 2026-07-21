@@ -24,7 +24,7 @@ exists ../acme.trees/pool-1/setup-ran
 # unchanged lockfile: the next claim skips the refresh hook
 exec wt release feat-1
 exec wt claim feat-2
-! stderr 'refresh'
+! stderr 'refresh hook'
 
 # lockfile changed on base: the next claim refreshes, once
 exec wt release feat-2
@@ -35,8 +35,40 @@ exec wt claim feat-3
 stderr 'running refresh hook'
 exec wt release feat-3
 exec wt claim feat-4
-! stderr 'refresh'
+! stderr 'refresh hook'
 exec wt release feat-4
+
+# a refresh-only pool (no setup hook): provisioning runs the
+# gated refresh itself, so the first claim never starts cold
+cd ..
+exec git init -q -b main lite
+cd lite
+cp $WORK/dep.lock dep.lock
+cp $WORK/gitignore .gitignore
+exec git add dep.lock .gitignore
+exec git commit -q -m 'lockfile'
+cp $WORK/lite.toml .git/wt.toml
+exec wt claim feat-1
+stderr 'provisioned pool-1'
+stderr 'running refresh hook'
+exists ../lite.trees/pool-1/refresh-ran
+
+# and the hash was recorded: the next claim skips it
+exec wt release feat-1
+exec wt claim feat-2
+! stderr 'refresh hook'
+exec wt release feat-2
+
+-- lite.toml --
+base = 'main'
+trees_dir = '../lite.trees'
+
+[hooks]
+refresh = 'touch refresh-ran'
+refresh_if_changed = ['dep.lock']
+
+[pool]
+size = 1
 
 -- wt.toml --
 base = 'main'
