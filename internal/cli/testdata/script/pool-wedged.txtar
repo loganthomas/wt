@@ -84,6 +84,17 @@ stdout 'pool-1\s+free'
 exec git -C ../acme.trees/pool-1 status
 stdout 'HEAD detached'
 
+# a dead session's nested git repository must not be silently
+# destroyed by a reclaim: its commits live only in the nested
+# .git, so the reset refuses and the claim skips the slot
+rm fail-now
+exec wt claim feat-h
+exec git -C ../acme.trees/pool-1 init -q scratchdep
+exec git -C ../acme.trees/pool-1/scratchdep commit -q --allow-empty -m 'nested'
+exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && rm -rf "$d/leases/pool-1"'
+exitcode 3 wt claim feat-i
+stderr 'nested git repository'
+
 -- failing.toml --
 base = 'main'
 trees_dir = '../acme.trees'

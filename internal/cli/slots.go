@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/loganthomas/wt/internal/config"
 	"github.com/loganthomas/wt/internal/gitx"
@@ -295,6 +296,21 @@ func (p *poolRepo) resetSlot(
 	entries, err := sg.Status(ctx)
 	if err != nil {
 		return err
+	}
+	for _, e := range entries {
+		// git status collapses an untracked nested repository to
+		// "dir/" even under -uall; its commits live only in that
+		// nested .git, invisible to the orphan guard, and the
+		// forced clean would destroy them. Refuse like any other
+		// guard: the claim skips the slot, and a human decides.
+		if !strings.HasSuffix(e.Path, "/") {
+			continue
+		}
+		if _, err := os.Stat(filepath.Join(t.Path, e.Path, ".git")); err == nil {
+			return preconditionf(
+				"%s holds a nested git repository %s — a reset would destroy its "+
+					"history; move it out or delete it by hand", slot, e.Path)
+		}
 	}
 	if len(entries) > 0 {
 		fmt.Fprintf(chatter, "%s: discarding %d leftover uncommitted change(s)\n",
