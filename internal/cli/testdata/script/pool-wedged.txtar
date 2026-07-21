@@ -68,6 +68,33 @@ stderr 'discarding'
 ! stderr 'reprovisioning'
 exec git branch --list feat-d
 stdout 'feat-d'
+exec wt release feat-e
+
+# a claim that fails after its branch attach must re-park the
+# slot: a branch left checked out behind a dropped lease would
+# bounce retries off "already checked out"
+cp $WORK/failing.toml .git/wt.toml
+exec wt claim feat-f
+exec wt release feat-f
+exec sh -c 'echo x > fail-now'
+exitcode 1 wt claim feat-g
+stderr 'refresh hook failed'
+exec wt pool ls
+stdout 'pool-1\s+free'
+exec git -C ../acme.trees/pool-1 status
+stdout 'HEAD detached'
+
+-- failing.toml --
+base = 'main'
+trees_dir = '../acme.trees'
+copy = ['fail-now']
+
+[hooks]
+refresh = 'test ! -f fail-now'
+refresh_if_changed = ['fail-now']
+
+[pool]
+size = 1
 
 -- refresh.toml --
 base = 'main'

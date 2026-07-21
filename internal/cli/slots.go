@@ -81,6 +81,10 @@ func (p *poolRepo) claimSlot(
 			fmt.Fprintf(chatter, "claimed %s for %s\n", slot, branch)
 			return dest, nil
 		}
+		if rerr := p.reparkSlot(ctx, slot, branch, base); rerr != nil {
+			return "", fmt.Errorf(
+				"%w — the slot keeps its claim; `wt release %s` clears it", err, slot)
+		}
 		_ = lease.Release(p.state.LeasesDir(), slot, mine)
 		if exitCodeFor(err) != exitPrecondition {
 			return "", err
@@ -88,6 +92,28 @@ func (p *poolRepo) claimSlot(
 		fmt.Fprintf(chatter, "skipping %s: %v\n", slot, err)
 		skip[slot] = true
 	}
+}
+
+// reparkSlot returns a slot to its parked state after a claim
+// failed partway, but only when the failure struck after this
+// claim's own branch attach: dropping the lease with the branch
+// still checked out would bounce retries off "already checked
+// out" while concurrent claims silently reset the tree. Slots the
+// guards refused are left exactly as found — a forced detach
+// there would destroy the very state the guard protected. When
+// the re-park itself fails, the caller keeps the lease so the
+// slot's condition stays visible.
+func (p *poolRepo) reparkSlot(ctx context.Context, slot, branch, base string) error {
+	dest := filepath.Join(p.treesDir(), slot)
+	trees, err := p.g.Worktrees(ctx)
+	if err != nil {
+		return err
+	}
+	t, registered := findTree(trees, dest)
+	if !registered || t.Branch != branch {
+		return nil
+	}
+	return gitx.New(dest).CheckoutDetach(ctx, base)
 }
 
 // prepareSlot readies one leased slot for branch: provision or
