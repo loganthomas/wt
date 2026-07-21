@@ -144,14 +144,19 @@ func Release(leasesDir, slot string) error {
 // Get reports the lease on slot: (nil, nil) when free, the record
 // when held. A held slot whose record is missing or unreadable is
 // an error carrying that fact; callers decide how loudly to say it.
+// The record is read before the directory is checked: the reverse
+// order misread a lease released between the two calls as a held
+// slot with an unreadable record.
 func Get(leasesDir, slot string) (*Info, error) {
 	dir := filepath.Join(leasesDir, slot)
-	if _, err := os.Stat(dir); errors.Is(err, fs.ErrNotExist) {
-		return nil, nil
-	} else if err != nil {
-		return nil, err
+	info, err := readRecord(dir)
+	if !errors.Is(err, fs.ErrNotExist) {
+		return info, err
 	}
-	return readRecord(dir)
+	if _, serr := os.Stat(dir); errors.Is(serr, fs.ErrNotExist) {
+		return nil, nil
+	}
+	return nil, err
 }
 
 // Stale reports whether the lease's holder is provably gone:
