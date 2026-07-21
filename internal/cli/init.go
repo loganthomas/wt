@@ -147,11 +147,12 @@ func provisionInitialPool(ctx context.Context, r *repo.Repo, chatter io.Writer) 
 	}
 	if err := resizeHeld(p.provisionPool(ctx, 0, merged.Pool.Size, chatter)); err != nil {
 		// The config is already saved and valid, and a rerun of
-		// init would refuse it; the recovery must name the command
-		// that finishes what init started.
+		// init would refuse it. The advice must name healing that
+		// exists: a resize to the size already configured returns
+		// early, while every claim provisions what it finds missing.
 		return fmt.Errorf(
-			"%w — the config is saved; adjust it with `wt config --edit`, "+
-				"then `wt pool resize %d` finishes provisioning", err, merged.Pool.Size)
+			"%w — the config is saved; fix the cause (`wt config --edit` for hooks), "+
+				"and the missing slots provision on the next claim", err)
 	}
 	return nil
 }
