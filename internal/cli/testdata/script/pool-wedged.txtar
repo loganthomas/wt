@@ -1,0 +1,19 @@
+# Crash artifacts a claim can prove dead must self-heal (D15, R3):
+# a recordless lease directory is a claimer that died between mkdir
+# and record write, and the next claim reclaims it.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes --pool-size 1
+stderr 'provisioned pool-1'
+
+# plant the crash artifact: a lease dir with no record
+exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/pool-1"'
+
+# the claim reclaims it instead of reporting the pool full
+exec wt claim feat-a
+stdout '[/\\]pool-1$'
+exec wt release feat-a

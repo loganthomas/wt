@@ -185,9 +185,15 @@ func (p *poolRepo) acquire(
 			continue
 		}
 		old, err := lease.Get(leases, slot)
-		if err != nil || old == nil || !old.Stale() {
+		if err == nil && (old == nil || !old.Stale()) {
 			continue
 		}
+		// A stale lease, or one Get cannot read: hand the slot to
+		// Acquire, which under its lock steals the provably dead,
+		// reclaims the recordless — a claimer that died between
+		// mkdir and record write — and refuses everything else.
+		// Filtering unreadable leases out here left that reclaim
+		// unreachable, wedging the slot until a manual release.
 		if mine, err := lease.Acquire(leases, slot, branch); err == nil {
 			return slot, mine, old, nil
 		}
