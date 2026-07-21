@@ -97,7 +97,8 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	}
 	detHook := false
 	if !flags.Changed("refresh") {
-		if opts.refresh = seed.Hooks.Refresh; opts.refresh == "" {
+		opts.refresh = seed.Hooks.Refresh
+		if opts.refresh == "" {
 			opts.refresh = det.refresh
 			detHook = opts.refresh != ""
 		}
@@ -106,13 +107,15 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	// pinning a hook from another layer to a lockfile it knows
 	// nothing about would silently skip it on unchanged claims.
 	if !flags.Changed("refresh-if-changed") {
-		if opts.refreshGate = seed.Hooks.RefreshIfChanged; opts.refreshGate == nil && detHook {
+		opts.refreshGate = seed.Hooks.RefreshIfChanged
+		if opts.refreshGate == nil && detHook {
 			opts.refreshGate = det.gate()
 		}
 	}
 	detCopies := false
 	if !flags.Changed("copy") {
-		if opts.copyList = seed.Copy; opts.copyList == nil {
+		opts.copyList = seed.Copy
+		if opts.copyList == nil {
 			opts.copyList = det.copies
 			detCopies = opts.copyList != nil
 		}
