@@ -11,6 +11,22 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+// LoadRepo reads the repo config file alone — no defaults, no
+// global merge — for read-modify-write flows like `wt pool
+// resize`, which must save back exactly what the user wrote plus
+// the one change. A missing file is an error here: modifying a
+// config that does not exist means wt init hasn't run.
+func LoadRepo(path string) (Config, error) {
+	if _, err := os.Stat(path); err != nil {
+		return Config{}, err
+	}
+	var cfg Config
+	if err := decodeFile(path, &cfg); err != nil {
+		return Config{}, err
+	}
+	return cfg, nil
+}
+
 // decodeFile strictly decodes one TOML file into v.
 // A missing file is not an error: both config layers are optional.
 // Decode failures carry file:line:column so the user can jump

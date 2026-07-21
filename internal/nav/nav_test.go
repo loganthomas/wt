@@ -184,3 +184,28 @@ func TestDisplayFallsBackToBasename(t *testing.T) {
 		t.Errorf("Display() = %q, want 'pool-3 (detached)'", got)
 	}
 }
+
+// A claimed slot is presented by what the user is working on,
+// never by its slot number (PLAN.md Phase 4): the branch is the
+// identity, the slot is the address.
+func TestDisplayShowsSlotAddress(t *testing.T) {
+	c := Candidate{Branch: "PROJ-123", Path: "/r/acme.trees/pool-3", Slot: "pool-3"}
+	if got := c.Display(); got != "PROJ-123 → pool-3" {
+		t.Errorf("Display() = %q, want %q", got, "PROJ-123 → pool-3")
+	}
+}
+
+func TestResolveTargetsSlotBranch(t *testing.T) {
+	cands := []Candidate{
+		{Branch: "main", Path: "/r/acme"},
+		{Branch: "PROJ-123", Path: "/r/acme.trees/pool-3", Slot: "pool-3"},
+	}
+	winner, _ := Resolve(cands, "PROJ")
+	if winner == nil || winner.Slot != "pool-3" {
+		t.Fatalf("Resolve(PROJ) = %+v, want the claimed slot", winner)
+	}
+	// The slot address itself still works as an exact spelling.
+	if w := ResolveExact(cands, "pool-3"); w == nil || w.Branch != "PROJ-123" {
+		t.Errorf("ResolveExact(pool-3) = %+v, want the claimed slot", w)
+	}
+}
