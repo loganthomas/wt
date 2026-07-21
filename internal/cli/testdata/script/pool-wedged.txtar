@@ -56,6 +56,19 @@ exec wt claim feat-d
 stderr 'provisioned pool-1'
 stderr 'running refresh hook'
 
+# losing the state dir wipes leases and markers both; the claimed,
+# branch-attached slot must take the reset path — which says what
+# it discards and keeps the branch reachable — never the silent
+# force-remove reserved for dead detached provisions
+exec sh -c 'echo wip > ../acme.trees/pool-1/scratch.txt'
+exec sh -c 'rm -rf "$(echo "$XDG_STATE_HOME"/wt/repos/*)"'
+exec wt claim feat-e
+stdout '[/\\]pool-1$'
+stderr 'discarding'
+! stderr 'reprovisioning'
+exec git branch --list feat-d
+stdout 'feat-d'
+
 -- refresh.toml --
 base = 'main'
 trees_dir = '../acme.trees'

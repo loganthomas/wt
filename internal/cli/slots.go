@@ -105,17 +105,20 @@ func (p *poolRepo) prepareSlot(
 	case registered && t.Prunable:
 		return "", preconditionf(
 			"%s is registered but gone from disk — `git worktree prune`, then claim again", dest)
-	case registered && !p.state.Provisioned(slot):
+	case registered && t.Detached && !p.state.Provisioned(slot):
 		// A provision died between worktree-add and its marker:
 		// the slot looks real but its setup hook never finished,
 		// and a plain reset would skip setup forever. Redo it from
 		// scratch — nothing but base content and half-built
 		// artifacts can be in there, with the orphan guard as the
-		// backstop for anything committed by hand.
-		if t.Detached {
-			if err := guard.CheckOrphans(ctx, t.Path); err != nil {
-				return "", err
-			}
+		// backstop for anything committed by hand. Detached only:
+		// provisioning never attaches a branch, so a branch on an
+		// unmarked slot proves the recorded state was lost, not
+		// that the tree is disposable — it takes the reset path
+		// below, which keeps branch commits reachable and says
+		// what it discards instead of force-removing silently.
+		if err := guard.CheckOrphans(ctx, t.Path); err != nil {
+			return "", err
 		}
 		fmt.Fprintf(chatter, "reprovisioning %s (an earlier provision did not complete)\n", slot)
 		if err := p.g.WorktreeRemoveForce(ctx, dest); err != nil {
