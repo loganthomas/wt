@@ -185,7 +185,15 @@ func provisionInitialPool(ctx context.Context, r *repo.Repo, chatter io.Writer) 
 			"base %q not found — slots will be provisioned on first claim\n", merged.Base)
 		return nil
 	}
-	return resizeHeld(p.provisionPool(ctx, 0, merged.Pool.Size, chatter))
+	if err := resizeHeld(p.provisionPool(ctx, 0, merged.Pool.Size, chatter)); err != nil {
+		// The config is already saved and valid, and a rerun of
+		// init would refuse it; the recovery must name the command
+		// that finishes what init started.
+		return fmt.Errorf(
+			"%w — the config is saved; adjust it with `wt config --edit`, "+
+				"then `wt pool resize %d` finishes provisioning", err, merged.Pool.Size)
+	}
+	return nil
 }
 
 // runInitForm collects the same values the flags cover,
