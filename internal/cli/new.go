@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/loganthomas/wt/internal/gitx"
+	"github.com/loganthomas/wt/internal/pool"
 	"github.com/loganthomas/wt/internal/repo"
 )
 
@@ -51,6 +52,14 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 		if t, ok := treeHoldingBranch(trees, branch); ok {
 			return preconditionf("branch %q is already checked out in %s", branch, t.Path)
 		}
+		// In pool mode the natural resume for an existing branch,
+		// say one left by a claim that failed after its branch
+		// create, is a claim, and the advice must say so.
+		if w.cfg.Pool != nil {
+			return preconditionf(
+				"branch %q already exists — `wt claim %s` resumes it in a slot, "+
+					"or pick another name", branch, branch)
+		}
 		return preconditionf(
 			"branch %q already exists — pick another name, or delete the branch first", branch)
 	}
@@ -74,7 +83,16 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 		return nil
 	}
 
-	dest := filepath.Join(w.treesDir(), repo.SanitizeBranch(branch))
+	// slot-N names are pool property (D14): a personal tree wearing
+	// one would become silently resettable the day pool mode is
+	// switched on, and its uncommitted work fair game for a claim.
+	name := repo.SanitizeBranch(branch)
+	if pool.IsSlotName(name) {
+		return preconditionf(
+			"branch %q would take the tree name %s, which is reserved for pool slots — "+
+				"pick another name", branch, name)
+	}
+	dest := filepath.Join(w.treesDir(), name)
 	if _, err := os.Stat(dest); err == nil {
 		return preconditionf(
 			"%s already exists (branch names flatten '/' to '-') — pick another name", dest)
