@@ -13,7 +13,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 )
 
 // slotName is the one spelling of a slot: pool-N, N ≥ 1, no
@@ -34,17 +33,9 @@ func Names(size int) []string {
 	return names
 }
 
-// ParseSlot reports the slot number a name spells, if any.
-func ParseSlot(name string) (int, bool) {
-	m := slotName.FindStringSubmatch(name)
-	if m == nil {
-		return 0, false
-	}
-	n, err := strconv.Atoi(m[1])
-	if err != nil {
-		return 0, false
-	}
-	return n, true
+// IsSlotName reports whether name is a slot wt itself would mint.
+func IsSlotName(name string) bool {
+	return slotName.MatchString(name)
 }
 
 // SlotPath reports whether path is a pool slot sitting directly
@@ -68,7 +59,7 @@ func SlotPath(treesDir, path string) (string, bool) {
 		return "", false
 	}
 	base := filepath.Base(resolved)
-	if _, ok := ParseSlot(base); !ok {
+	if !IsSlotName(base) {
 		return "", false
 	}
 	return base, true

@@ -22,31 +22,29 @@ func TestNames(t *testing.T) {
 	}
 }
 
-func TestParseSlot(t *testing.T) {
+func TestIsSlotName(t *testing.T) {
 	tests := []struct {
 		name string
-		n    int
 		ok   bool
 	}{
-		{"pool-1", 1, true},
-		{"pool-12", 12, true},
+		{"pool-1", true},
+		{"pool-12", true},
 		// Only names wt itself would mint count as slots:
 		// anything else must never be resettable (D14).
-		{"pool-0", 0, false},
-		{"pool-03", 0, false},
-		{"pool-", 0, false},
-		{"pool-x", 0, false},
-		{"pool-1x", 0, false},
-		{"POOL-1", 0, false},
-		{"my-pool-1", 0, false},
-		{"pool-1-backup", 0, false},
-		{"feature-login", 0, false},
-		{"", 0, false},
+		{"pool-0", false},
+		{"pool-03", false},
+		{"pool-", false},
+		{"pool-x", false},
+		{"pool-1x", false},
+		{"POOL-1", false},
+		{"my-pool-1", false},
+		{"pool-1-backup", false},
+		{"feature-login", false},
+		{"", false},
 	}
 	for _, tt := range tests {
-		n, ok := pool.ParseSlot(tt.name)
-		if n != tt.n || ok != tt.ok {
-			t.Errorf("ParseSlot(%q) = %d, %v; want %d, %v", tt.name, n, ok, tt.n, tt.ok)
+		if ok := pool.IsSlotName(tt.name); ok != tt.ok {
+			t.Errorf("IsSlotName(%q) = %v, want %v", tt.name, ok, tt.ok)
 		}
 	}
 }
