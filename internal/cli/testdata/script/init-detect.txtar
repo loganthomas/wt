@@ -34,6 +34,7 @@ cd app3
 exec git commit -q --allow-empty -m 'initial'
 exec sh -c 'echo lock > package-lock.json && git add package-lock.json && git commit -q -m lock'
 exec wt init --yes --refresh 'make deps'
+! stderr 'npm ci'
 grep 'refresh = .make deps.' .git/wt.toml
 ! grep 'refresh_if_changed' .git/wt.toml
 ! grep 'npm ci' .git/wt.toml

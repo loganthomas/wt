@@ -46,11 +46,16 @@ var sharedCacheMarkers = []struct{ marker, note string }{
 var copyCandidates = []string{".env", ".envrc", ".env.local"}
 
 // detected is what the repo scan proposes for the init form.
+// Notes are grouped by the proposal they describe, so the caller
+// prints only the ones whose proposal actually landed; info notes
+// propose nothing and always print.
 type detected struct {
-	refresh string
-	gate    []string
-	copies  []string
-	notes   []string
+	refresh   string
+	gate      []string
+	hookNote  string
+	copies    []string
+	copyNotes []string
+	infoNotes []string
 }
 
 // detectDefaults scans root for well-known markers and proposes
@@ -71,13 +76,13 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 			continue
 		}
 		d.refresh, d.gate = e.hook, []string{e.marker}
-		d.notes = append(d.notes, fmt.Sprintf(
-			"detected %s — proposing refresh hook %q gated on it", e.marker, e.hook))
+		d.hookNote = fmt.Sprintf(
+			"detected %s — proposing refresh hook %q gated on it", e.marker, e.hook)
 		break
 	}
 	for _, m := range sharedCacheMarkers {
 		if _, err := os.Stat(filepath.Join(root, m.marker)); err == nil {
-			d.notes = append(d.notes, m.note)
+			d.infoNotes = append(d.infoNotes, m.note)
 		}
 	}
 	if tracked == nil {
@@ -88,7 +93,7 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 			continue
 		}
 		d.copies = append(d.copies, name)
-		d.notes = append(d.notes, fmt.Sprintf(
+		d.copyNotes = append(d.copyNotes, fmt.Sprintf(
 			"detected untracked %s — proposing it for the copy list", name))
 	}
 	return d

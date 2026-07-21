@@ -68,6 +68,12 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 		return preconditionf(
 			"wt is already set up here (%s) — edit it with `wt config --edit`", r.ConfigPath())
 	}
+	// Before any scan runs: a run that is about to be refused must
+	// not chat about proposals first.
+	if !opts.yes && !isTerminal(os.Stdin) {
+		return usageError{errors.New(
+			"stdin is not a terminal; run `wt init --yes` with value flags instead")}
+	}
 
 	// Three layers seed the form, most explicit first: flags, then
 	// global defaults, then what a scan of the repo root proposes,
@@ -80,9 +86,6 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	}
 	chatter := cmd.ErrOrStderr()
 	det := detectDefaults(r.Root, detectTracked(ctx, r))
-	for _, note := range det.notes {
-		fmt.Fprintln(chatter, note)
-	}
 	opts.base = cmp.Or(opts.base, seed.Base)
 	opts.treesDir = cmp.Or(opts.treesDir, seed.TreesDir, r.DefaultTreesDir())
 	// A changed flag wins even when its value is empty: under
@@ -107,17 +110,29 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 			opts.refreshGate = det.gate
 		}
 	}
+	detCopies := false
 	if !flags.Changed("copy") {
 		if opts.copyList = seed.Copy; opts.copyList == nil {
 			opts.copyList = det.copies
+			detCopies = opts.copyList != nil
 		}
+	}
+	// Only the notes whose proposal survived the precedence above:
+	// advertising a value that flags or global config then beat
+	// would misstate what was configured.
+	if detHook {
+		fmt.Fprintln(chatter, det.hookNote)
+	}
+	if detCopies {
+		for _, note := range det.copyNotes {
+			fmt.Fprintln(chatter, note)
+		}
+	}
+	for _, note := range det.infoNotes {
+		fmt.Fprintln(chatter, note)
 	}
 
 	if !opts.yes {
-		if !isTerminal(os.Stdin) {
-			return usageError{errors.New(
-				"stdin is not a terminal; run `wt init --yes` with value flags instead")}
-		}
 		if err := runInitForm(&opts); err != nil {
 			return err
 		}
