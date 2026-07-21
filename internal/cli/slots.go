@@ -95,17 +95,16 @@ func (p *poolRepo) claimSlot(
 			return dest, nil
 		}
 		if rerr := p.reparkSlot(ctx, slot, branch, base); rerr != nil {
-			// The lease so far names wt itself and dies with it;
-			// only a repin to the session makes "keeps its claim"
-			// true past this process's exit.
-			if _, perr := lease.Repin(p.state.LeasesDir(), slot, branch, mine); perr != nil {
-				return "", fmt.Errorf(
-					"%w — re-parking also failed (%v); `wt release %s` clears the slot",
-					err, rerr, slot)
-			}
+			// The lease so far names wt itself and dies with it; the
+			// repin hands it to the session so the slot's condition
+			// stays visible past this process's exit. Best effort:
+			// should it fail too, the lease simply goes stale and the
+			// next claim reclaims the slot, which the advice below
+			// still covers.
+			_, _ = lease.Repin(p.state.LeasesDir(), slot, branch, mine)
 			return "", fmt.Errorf(
-				"%w — re-parking also failed (%v); the slot keeps its claim, "+
-					"`wt release %s` clears it", err, rerr, slot)
+				"%w — re-parking also failed (%v); `wt release %s` clears the slot",
+				err, rerr, slot)
 		}
 		_ = lease.Release(p.state.LeasesDir(), slot, mine)
 		if exitCodeFor(err) != exitPrecondition {
