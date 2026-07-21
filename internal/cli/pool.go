@@ -14,7 +14,6 @@ import (
 
 	"github.com/loganthomas/wt/internal/config"
 	"github.com/loganthomas/wt/internal/gitx"
-	"github.com/loganthomas/wt/internal/guard"
 	"github.com/loganthomas/wt/internal/lease"
 	"github.com/loganthomas/wt/internal/pool"
 )
@@ -246,23 +245,8 @@ func (p *poolRepo) removeSlot(ctx context.Context, trees []gitx.Worktree, slot s
 	if _, ok := pool.SlotPath(p.treesDir(), t.Path); !ok {
 		return fmt.Errorf("refusing to remove %s: not a pool slot under %s", t.Path, p.treesDir())
 	}
-	pristine, edited, err := splitCopies(ctx, p.repo.Root, t.Path, p.cfg.Copy)
-	if err != nil {
+	if _, err := finishGuards(ctx, p.repo.Root, t, p.cfg.Copy); err != nil {
 		return err
-	}
-	if len(edited) > 0 {
-		return preconditionf(
-			"%s: the planted copy %s no longer matches the main checkout — "+
-				"back it up, or make the two match first", t.Path, edited[0],
-		)
-	}
-	if err := guard.CheckDirty(ctx, t.Path, pristine...); err != nil {
-		return err
-	}
-	if t.Detached {
-		if err := guard.CheckOrphans(ctx, t.Path); err != nil {
-			return err
-		}
 	}
 	if err := p.g.WorktreeRemoveForce(ctx, dest); err != nil {
 		return err

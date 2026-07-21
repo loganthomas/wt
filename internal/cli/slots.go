@@ -255,25 +255,8 @@ func (p *poolRepo) releaseSlot(
 		return err
 	}
 
-	// The same protections as wt done on a personal tree (R2):
-	// pristine planted copies are wt's own and reset freely,
-	// an edited one is user data the clean would destroy.
-	pristine, edited, err := splitCopies(ctx, p.repo.Root, t.Path, p.cfg.Copy)
-	if err != nil {
+	if _, err := finishGuards(ctx, p.repo.Root, t, p.cfg.Copy); err != nil {
 		return err
-	}
-	if len(edited) > 0 {
-		return preconditionf(
-			"%s: the planted copy %s no longer matches the main checkout — "+
-				"back it up, or make the two match first", t.Path, edited[0])
-	}
-	if err := guard.CheckDirty(ctx, t.Path, pristine...); err != nil {
-		return err
-	}
-	if t.Detached {
-		if err := guard.CheckOrphans(ctx, t.Path); err != nil {
-			return err
-		}
 	}
 	if deleteBranch && t.Branch != "" {
 		if err := guard.CheckUnpushed(ctx, t.Path, p.cfg.Base); err != nil {

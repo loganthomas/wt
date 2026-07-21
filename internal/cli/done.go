@@ -80,28 +80,9 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 	// Guards before anything destructive (R2). The unpushed check
 	// runs only when the branch is about to be deleted: with
 	// --keep-branch every commit stays reachable through it.
-	// Pristine copies of the configured copy files are wt's own
-	// plantings and don't count as dirt; an edited one still does.
-	pristine, edited, err := splitCopies(ctx, w.repo.Root, target.Path, w.cfg.Copy)
+	pristine, err := finishGuards(ctx, w.repo.Root, target, w.cfg.Copy)
 	if err != nil {
 		return err
-	}
-	// Edited copies are refused here, not left to the dirty guard:
-	// copy files are routinely gitignored, invisible to git status,
-	// and `git worktree remove` deletes ignored files without asking.
-	if len(edited) > 0 {
-		return preconditionf(
-			"%s: the planted copy %s no longer matches the main checkout — "+
-				"back it up, or make the two match first",
-			target.Path, edited[0])
-	}
-	if err := guard.CheckDirty(ctx, target.Path, pristine...); err != nil {
-		return err
-	}
-	if target.Detached {
-		if err := guard.CheckOrphans(ctx, target.Path); err != nil {
-			return err
-		}
 	}
 	deleteBranch := target.Branch != "" && !keepBranch
 	if deleteBranch {
