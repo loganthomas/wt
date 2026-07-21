@@ -1,0 +1,60 @@
+# The refresh gate (PLAN.md D5): hooks.refresh runs on claim only
+# when the refresh_if_changed files differ from the recorded hash —
+# the lockfile short-circuit that makes claims take seconds.
+# Config is written by hand here, so the first claim also proves
+# that a missing slot is provisioned on demand.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+cp $WORK/dep.lock dep.lock
+cp $WORK/gitignore .gitignore
+exec git add dep.lock .gitignore
+exec git commit -q -m 'lockfile'
+cp $WORK/wt.toml .git/wt.toml
+
+# first claim provisions the slot: setup runs, hash is recorded
+exec wt claim feat-1
+stdout '[/\\]pool-1$'
+stderr 'provisioned pool-1'
+stderr 'running setup hook'
+exists ../acme.trees/pool-1/setup-ran
+
+# unchanged lockfile: the next claim skips the refresh hook
+exec wt release feat-1
+exec wt claim feat-2
+! stderr 'refresh'
+
+# lockfile changed on base: the next claim refreshes, once
+exec wt release feat-2
+cp $WORK/dep2.lock dep.lock
+exec git add dep.lock
+exec git commit -q -m 'bump lockfile'
+exec wt claim feat-3
+stderr 'running refresh hook'
+exec wt release feat-3
+exec wt claim feat-4
+! stderr 'refresh'
+exec wt release feat-4
+
+-- wt.toml --
+base = 'main'
+trees_dir = '../acme.trees'
+
+[hooks]
+setup = 'touch setup-ran'
+refresh = 'touch refresh-ran'
+refresh_if_changed = ['dep.lock']
+
+[pool]
+size = 1
+
+-- gitignore --
+*-ran
+
+-- dep.lock --
+v1
+
+-- dep2.lock --
+v2

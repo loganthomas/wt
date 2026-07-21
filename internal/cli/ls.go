@@ -27,7 +27,7 @@ func newLsCmd() *cobra.Command {
 }
 
 func runLs(cmd *cobra.Command, porcelain bool) error {
-	trees, err := repoTrees(cmd.Context())
+	_, trees, err := repoTrees(cmd.Context())
 	if err != nil {
 		return err
 	}

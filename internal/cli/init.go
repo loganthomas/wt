@@ -2,8 +2,10 @@ package cli
 
 import (
 	"cmp"
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -98,8 +100,34 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	if cfg.Pool != nil {
 		mode = fmt.Sprintf("pool mode, %d slots", cfg.Pool.Size)
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "initialized wt (%s) — config at %s\n", mode, r.ConfigPath())
+	chatter := cmd.ErrOrStderr()
+	fmt.Fprintf(chatter, "initialized wt (%s) — config at %s\n", mode, r.ConfigPath())
+	if cfg.Pool != nil {
+		return provisionInitialPool(ctx, r, chatter)
+	}
 	return nil
+}
+
+// provisionInitialPool pre-warms the just-configured pool.
+// The merged config is reloaded first: hooks and copy lists may
+// come from the global layer, and provisioning must see exactly
+// what a later claim will. A base that doesn't resolve yet only
+// defers the work — claims provision missing slots on demand.
+func provisionInitialPool(ctx context.Context, r *repo.Repo, chatter io.Writer) error {
+	merged, err := loadMerged(r)
+	if err != nil {
+		return err
+	}
+	p, err := poolOf(&wtRepo{repo: r, cfg: merged})
+	if err != nil {
+		return err
+	}
+	if !p.g.HasCommit(ctx, merged.Base) {
+		fmt.Fprintf(chatter,
+			"base %q not found — slots will be provisioned on first claim\n", merged.Base)
+		return nil
+	}
+	return p.provisionPool(ctx, 0, merged.Pool.Size, chatter)
 }
 
 // runInitForm collects the same values the flags cover,

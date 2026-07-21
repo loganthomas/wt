@@ -60,6 +60,22 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 		return preconditionf(
 			"base %q does not resolve to a commit — fetch it, or set base in wt.toml", base)
 	}
+	chatter := cmd.ErrOrStderr()
+
+	// Pool mode: the same intent lands in a claimed slot instead
+	// of a fresh tree (D3 — the [pool] table is the dispatch).
+	if w.cfg.Pool != nil {
+		p, err := poolOf(w)
+		if err != nil {
+			return err
+		}
+		dest, err := p.claimSlot(ctx, branch, base, chatter)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), dest)
+		return nil
+	}
 
 	dest := filepath.Join(w.treesDir(), repo.SanitizeBranch(branch))
 	if _, err := os.Stat(dest); err == nil {
@@ -73,7 +89,6 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	if err := g.WorktreeAdd(ctx, dest, branch, base); err != nil {
 		return err
 	}
-	chatter := cmd.ErrOrStderr()
 	fmt.Fprintf(chatter, "created %s (branch %s off %s)\n", dest, branch, base)
 
 	if err := copyFiles(ctx, w.repo.Root, dest, w.cfg.Copy, chatter); err != nil {
@@ -84,6 +99,13 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 		if err := runHook(ctx, dest, setup, chatter); err != nil {
 			return fmt.Errorf("setup hook failed: %w — the tree remains at %s", err, dest)
 		}
+	}
+	st, err := w.stateDir()
+	if err != nil {
+		return err
+	}
+	if err := refreshTree(ctx, w.cfg, st, dest, filepath.Base(dest), chatter); err != nil {
+		return fmt.Errorf("%w — the tree remains at %s", err, dest)
 	}
 
 	// The tree path is the machine-facing product (D13);

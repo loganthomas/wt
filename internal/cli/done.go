@@ -9,6 +9,7 @@ import (
 
 	"github.com/loganthomas/wt/internal/gitx"
 	"github.com/loganthomas/wt/internal/guard"
+	"github.com/loganthomas/wt/internal/pool"
 )
 
 func newDoneCmd() *cobra.Command {
@@ -43,6 +44,18 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 	}
 	if target.Path == w.repo.Root {
 		return preconditionf("%s is the main checkout — wt only removes trees it manages", target.Path)
+	}
+	// A slot is finished by releasing it, never by removing it:
+	// the warm tree is the pool's whole value. Everything below
+	// stays the personal-tree path.
+	if w.cfg.Pool != nil {
+		if slot, ok := pool.SlotPath(w.treesDir(), target.Path); ok {
+			p, err := poolOf(w)
+			if err != nil {
+				return err
+			}
+			return p.releaseSlot(ctx, target, slot, !keepBranch, cmd.ErrOrStderr())
+		}
 	}
 	// Checked before the guards and the copy sweep: git would
 	// refuse the removal anyway, but only after wt had already
@@ -105,6 +118,13 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 		}
 	}
 	if err := g.WorktreeRemove(ctx, target.Path); err != nil {
+		return err
+	}
+	st, err := w.stateDir()
+	if err != nil {
+		return err
+	}
+	if err := st.RemoveTree(filepath.Base(target.Path)); err != nil {
 		return err
 	}
 	chatter := cmd.ErrOrStderr()
