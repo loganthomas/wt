@@ -179,8 +179,12 @@ func (p *poolRepo) releaseSlot(
 	ctx context.Context, t gitx.Worktree, slot string, deleteBranch bool, chatter io.Writer,
 ) error {
 	leases := p.state.LeasesDir()
-	held, _ := lease.Get(leases, slot)
-	if held == nil && t.Detached {
+	held, err := lease.Get(leases, slot)
+	// An unreadable record still occupies the slot — claim never
+	// steals what it cannot prove dead — so release, the documented
+	// escape hatch, must proceed and clear it rather than bounce
+	// off "not claimed".
+	if err == nil && held == nil && t.Detached {
 		return preconditionf("%s is not claimed — nothing to release", slot)
 	}
 

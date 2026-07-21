@@ -1,0 +1,33 @@
+# A corrupt lease record must never wedge a slot for good:
+# claim refuses it (wt only steals what it can prove dead),
+# so `wt release pool-N` is the documented escape hatch and has
+# to work even when the record is unreadable and the slot parked.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes --pool-size 1
+stderr 'provisioned pool-1'
+
+# a claim/done cycle guarantees the state tree for this repo exists
+exec wt new feat-a
+exec wt done feat-a
+
+# corrupt the lease record by hand, as a crash or fs fault might
+# (the glob covers only the existing slug segment; the lease dir
+# itself is being invented here)
+exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/pool-1" && printf "not = [toml" > "$d/leases/pool-1/lease.toml"'
+
+# the pool is wedged: claim must not steal what it cannot prove dead
+exitcode 3 wt claim feat-b
+stderr 'no free slot'
+exec wt pool ls
+stdout 'pool-1\s+claimed\s+\?\s+lease record unreadable'
+
+# the escape hatch: release frees the slot anyway
+exec wt release pool-1
+stderr 'released pool-1'
+exec wt claim feat-b
+stdout '[/\\]pool-1$'
