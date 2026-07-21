@@ -101,12 +101,17 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 	if err := g.WorktreeRemove(ctx, target.Path); err != nil {
 		return err
 	}
-	st, err := w.stateDir()
-	if err != nil {
-		return err
-	}
-	if err := st.RemoveTree(filepath.Base(target.Path)); err != nil {
-		return err
+	// State is keyed by basename, so only a tree inside the trees
+	// dir may clear it: finishing a hand-made worktree elsewhere
+	// must not delete a managed namesake's recorded state.
+	if filepath.Dir(target.Path) == w.treesDir() {
+		st, err := w.stateDir()
+		if err != nil {
+			return err
+		}
+		if err := st.RemoveTree(filepath.Base(target.Path)); err != nil {
+			return err
+		}
 	}
 	chatter := cmd.ErrOrStderr()
 	fmt.Fprintf(chatter, "removed %s\n", target.Path)
