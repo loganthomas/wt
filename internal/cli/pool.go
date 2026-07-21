@@ -228,8 +228,8 @@ func (p *poolRepo) removeSlot(ctx context.Context, trees []gitx.Worktree, slot s
 	if err := checkRemovable(t); err != nil {
 		return err
 	}
-	if _, ok := pool.SlotPath(p.treesDir(), t.Path); !ok {
-		return fmt.Errorf("refusing to remove %s: not a pool slot under %s", t.Path, p.treesDir())
+	if _, err := p.requireSlot(t.Path, "remove"); err != nil {
+		return err
 	}
 	if _, err := finishGuards(ctx, p.repo.Root, t, p.cfg.Copy); err != nil {
 		return err

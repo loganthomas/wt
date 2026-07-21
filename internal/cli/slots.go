@@ -262,9 +262,9 @@ func (p *poolRepo) acquire(
 func (p *poolRepo) resetSlot(
 	ctx context.Context, t gitx.Worktree, base string, chatter io.Writer,
 ) error {
-	slot, ok := pool.SlotPath(p.treesDir(), t.Path)
-	if !ok {
-		return fmt.Errorf("refusing to reset %s: not a pool slot under %s", t.Path, p.treesDir())
+	slot, err := p.requireSlot(t.Path, "reset")
+	if err != nil {
+		return err
 	}
 	if t.Detached {
 		if err := guard.CheckOrphans(ctx, t.Path); err != nil {
@@ -333,6 +333,18 @@ func (p *poolRepo) releaseSlot(
 		fmt.Fprintf(chatter, "kept branch %s\n", t.Branch)
 	}
 	return nil
+}
+
+// requireSlot is the D14 pattern guard at the door of every
+// destructive slot operation: only a true slot path may pass,
+// and the refusal names the operation it stopped.
+func (p *poolRepo) requireSlot(path, verb string) (string, error) {
+	slot, ok := pool.SlotPath(p.treesDir(), path)
+	if !ok {
+		return "", fmt.Errorf(
+			"refusing to %s %s: not a pool slot under %s", verb, path, p.treesDir())
+	}
+	return slot, nil
 }
 
 // checkStillInPool re-reads the configured size and refuses a
