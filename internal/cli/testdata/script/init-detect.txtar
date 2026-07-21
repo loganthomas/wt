@@ -1,0 +1,37 @@
+# wt init proposes hook and copy defaults from what the repo root
+# already says: lockfiles pick the refresh hook and its gate, and
+# well-known untracked files join the copy list. Flags still win.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main app
+cd app
+exec git commit -q --allow-empty -m 'initial'
+exec sh -c 'echo lock > pnpm-lock.yaml && echo secret > .env'
+
+exec wt init --yes
+stderr 'detected pnpm-lock.yaml'
+stderr 'detected untracked \.env'
+grep 'refresh = .pnpm install.' .git/wt.toml
+grep 'refresh_if_changed' .git/wt.toml
+grep 'copy = ' .git/wt.toml
+
+# a tracked .env is not proposed: it travels with checkouts
+cd $WORK
+exec git init -q -b main app2
+cd app2
+exec sh -c 'echo public > .env && git add .env && git commit -q -m env'
+exec wt init --yes
+! stderr 'untracked \.env'
+! grep 'copy = ' .git/wt.toml
+
+# flags beat detection
+cd $WORK
+exec git init -q -b main app3
+cd app3
+exec git commit -q --allow-empty -m 'initial'
+exec sh -c 'echo lock > package-lock.json'
+exec wt init --yes --refresh 'make deps' --refresh-if-changed deps.lock
+grep 'refresh = .make deps.' .git/wt.toml
+grep 'deps\.lock' .git/wt.toml
+! grep 'npm ci' .git/wt.toml

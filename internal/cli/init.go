@@ -18,11 +18,14 @@ import (
 )
 
 type initOptions struct {
-	base     string
-	treesDir string
-	poolSize int
-	copyList []string
-	yes      bool
+	base        string
+	treesDir    string
+	poolSize    int
+	copyList    []string
+	setup       string
+	refresh     string
+	refreshGate []string
+	yes         bool
 }
 
 func newInitCmd() *cobra.Command {
@@ -42,6 +45,10 @@ func newInitCmd() *cobra.Command {
 	f.StringVar(&opts.treesDir, "trees-dir", "", "container directory for wt-managed trees")
 	f.IntVar(&opts.poolSize, "pool-size", 0, "pre-warmed pool slots (0 keeps pool mode off)")
 	f.StringSliceVar(&opts.copyList, "copy", nil, "untracked files to copy into new trees")
+	f.StringVar(&opts.setup, "setup", "", "hook run once inside each fresh tree or slot")
+	f.StringVar(&opts.refresh, "refresh", "", "hook that keeps trees warm on claims")
+	f.StringSliceVar(&opts.refreshGate, "refresh-if-changed", nil,
+		"files whose hash gates the refresh hook")
 	f.BoolVar(&opts.yes, "yes", false, "no prompts; use defaults for anything not flagged")
 	return cmd
 }
@@ -62,16 +69,35 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 			"wt is already set up here (%s) — edit it with `wt config --edit`", r.ConfigPath())
 	}
 
-	// Global defaults (and the built-ins behind them) seed the
-	// form, so flags only need to state what differs.
+	// Three layers seed the form, most explicit first: flags, then
+	// global defaults, then what a scan of the repo root proposes,
+	// so users confirm recognizable values instead of inventing
+	// them (lockfiles know what "warm" means here better than a
+	// first-time user does).
 	seed, err := loadMerged(r)
 	if err != nil {
 		return err
 	}
+	chatter := cmd.ErrOrStderr()
+	det := detectDefaults(r.Root, trackedCopyCandidates(ctx, r))
+	for _, note := range det.notes {
+		fmt.Fprintln(chatter, note)
+	}
 	opts.base = cmp.Or(opts.base, seed.Base)
 	opts.treesDir = cmp.Or(opts.treesDir, seed.TreesDir, r.DefaultTreesDir())
+	opts.setup = cmp.Or(opts.setup, seed.Hooks.Setup)
+	opts.refresh = cmp.Or(opts.refresh, seed.Hooks.Refresh, det.refresh)
+	if opts.refreshGate == nil {
+		opts.refreshGate = seed.Hooks.RefreshIfChanged
+	}
+	if opts.refreshGate == nil {
+		opts.refreshGate = det.gate
+	}
 	if opts.copyList == nil {
 		opts.copyList = seed.Copy
+	}
+	if opts.copyList == nil {
+		opts.copyList = det.copies
 	}
 
 	if !opts.yes {
@@ -88,6 +114,11 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 		Base:     opts.base,
 		TreesDir: opts.treesDir,
 		Copy:     opts.copyList,
+		Hooks: config.Hooks{
+			Setup:            opts.setup,
+			Refresh:          opts.refresh,
+			RefreshIfChanged: opts.refreshGate,
+		},
 	}
 	if opts.poolSize > 0 {
 		cfg.Pool = &config.Pool{Size: opts.poolSize}
@@ -100,7 +131,6 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	if cfg.Pool != nil {
 		mode = fmt.Sprintf("pool mode, %d slots", cfg.Pool.Size)
 	}
-	chatter := cmd.ErrOrStderr()
 	fmt.Fprintf(chatter, "initialized wt (%s) — config at %s\n", mode, r.ConfigPath())
 	if cfg.Pool != nil {
 		return provisionInitialPool(ctx, r, chatter)
@@ -134,6 +164,7 @@ func provisionInitialPool(ctx context.Context, r *repo.Repo, chatter io.Writer) 
 // pre-filled with whatever the flags and defaults already chose.
 func runInitForm(opts *initOptions) error {
 	copyStr := strings.Join(opts.copyList, ",")
+	gateStr := strings.Join(opts.refreshGate, ",")
 	usePool := opts.poolSize > 0
 	sizeStr := "4"
 	if usePool {
@@ -155,6 +186,18 @@ func runInitForm(opts *initOptions) error {
 				Title("Copy into new trees").
 				Description("Untracked files new trees need, comma-separated (e.g. .env,.envrc)").
 				Value(&copyStr),
+			huh.NewInput().
+				Title("Setup hook").
+				Description("Runs once inside each fresh tree or slot; empty for none").
+				Value(&opts.setup),
+			huh.NewInput().
+				Title("Refresh hook").
+				Description("Keeps trees warm on claims (e.g. pnpm install); empty for none").
+				Value(&opts.refresh),
+			huh.NewInput().
+				Title("Refresh gate").
+				Description("Comma-separated files; refresh runs only when their hash changes").
+				Value(&gateStr),
 			huh.NewConfirm().
 				Title("Pool mode?").
 				Description("Pre-warmed, reusable slots — for big repos where cold trees are unusable").
@@ -173,6 +216,7 @@ func runInitForm(opts *initOptions) error {
 	}
 
 	opts.copyList = splitList(copyStr)
+	opts.refreshGate = splitList(gateStr)
 	opts.poolSize = 0
 	if usePool {
 		// Validated by the form; Atoi cannot fail here.

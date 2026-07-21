@@ -24,6 +24,14 @@ It is per-person, per-machine config — like `.git/config` itself.
 
 ## Per-repo file — `.git/wt.toml`
 
+`wt init` proposes defaults by scanning the repo root:
+a lockfile (`pnpm-lock.yaml`, `package-lock.json`, `uv.lock`, …)
+pre-fills the refresh hook and its gate,
+and well-known untracked files (`.env`, `.envrc`) join the copy list.
+Every proposal is editable in the form
+or overridable with `--setup`, `--refresh`,
+`--refresh-if-changed`, and `--copy`.
+
 ```toml
 base      = "main"                 # branch new trees start from
 trees_dir = "../acme.trees"        # container for wt-managed trees
