@@ -171,10 +171,8 @@ func runPoolResize(cmd *cobra.Command, arg string) error {
 // provisioning on demand — never the reverse, where warm trees
 // sit outside the configured pool.
 func (p *poolRepo) grow(ctx context.Context, from, to int, chatter io.Writer) error {
-	if !p.g.HasCommit(ctx, p.cfg.Base) {
-		return preconditionf(
-			"base %q does not resolve to a commit — fetch it, or set base in wt.toml", p.cfg.Base,
-		)
+	if err := checkBase(ctx, p.g, p.cfg.Base); err != nil {
+		return err
 	}
 	if err := p.savePoolSize(to); err != nil {
 		return err

@@ -48,6 +48,27 @@ func errNoTreeMatches(name string) error {
 	return fmt.Errorf("no tree matches %q — `wt ls` shows what exists", name)
 }
 
+// checkBase is the one spelling of the unresolvable-base error,
+// shared by new, claim, and resize.
+func checkBase(ctx context.Context, g *gitx.Git, base string) error {
+	if !g.HasCommit(ctx, base) {
+		return preconditionf(
+			"base %q does not resolve to a commit — fetch it, or set base in wt.toml", base)
+	}
+	return nil
+}
+
+// treeHoldingBranch finds the worktree with branch checked out,
+// for the R4 errors that must point straight at it.
+func treeHoldingBranch(trees []gitx.Worktree, branch string) (gitx.Worktree, bool) {
+	for _, t := range trees {
+		if t.Branch == branch {
+			return t, true
+		}
+	}
+	return gitx.Worktree{}, false
+}
+
 // nameArg unpacks the optional [name] positional argument.
 func nameArg(args []string) string {
 	if len(args) == 0 {

@@ -47,14 +47,11 @@ func runClaim(cmd *cobra.Command, branch, baseFlag string) error {
 	if err != nil {
 		return err
 	}
-	for _, t := range trees {
-		if t.Branch == branch {
-			return preconditionf("branch %q is already checked out in %s", branch, t.Path)
-		}
+	if t, ok := treeHoldingBranch(trees, branch); ok {
+		return preconditionf("branch %q is already checked out in %s", branch, t.Path)
 	}
-	if !p.g.HasCommit(ctx, base) {
-		return preconditionf(
-			"base %q does not resolve to a commit — fetch it, or set base in wt.toml", base)
+	if err := checkBase(ctx, p.g, base); err != nil {
+		return err
 	}
 	dest, err := p.claimSlot(ctx, branch, base, cmd.ErrOrStderr())
 	if err != nil {

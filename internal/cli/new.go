@@ -48,17 +48,14 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 		}
 		// R4: when the branch lives in some tree already,
 		// the error must point straight at it.
-		for _, t := range trees {
-			if t.Branch == branch {
-				return preconditionf("branch %q is already checked out in %s", branch, t.Path)
-			}
+		if t, ok := treeHoldingBranch(trees, branch); ok {
+			return preconditionf("branch %q is already checked out in %s", branch, t.Path)
 		}
 		return preconditionf(
 			"branch %q already exists — pick another name, or delete the branch first", branch)
 	}
-	if !g.HasCommit(ctx, base) {
-		return preconditionf(
-			"base %q does not resolve to a commit — fetch it, or set base in wt.toml", base)
+	if err := checkBase(ctx, g, base); err != nil {
+		return err
 	}
 	chatter := cmd.ErrOrStderr()
 
