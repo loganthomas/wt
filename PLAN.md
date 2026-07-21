@@ -355,7 +355,7 @@ merged-branch slots, and `wt clean -n` previews every action.
 | Command                          | One-liner                                                                                                        |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `wt`                             | Interactive fuzzy picker over trees → cd. Non-TTY: porcelain list.                                               |
-| `wt init`                        | Interactive setup: base branch, trees dir, pool y/n + size, prompt indicator, copy list; writes `.git/wt.toml`.  |
+| `wt init`                        | Interactive setup: base branch, trees dir, pool y/n + size, prompt indicator, copy list; writes `.git/wt.toml`. Answers pre-filled from a repo-root scan. |
 | `wt new <branch> [--base <ref>]` | Default: create worktree + branch off base. Pool: claim a slot, reset, branch there. Prints tree path on stdout. |
 | `wt ls [--porcelain] [--json]`   | List trees: branch, path, age, ahead/behind base, dirty, slot/lease state.                                       |
 | `wt go [query]`                  | Fuzzy-jump: best match cd (with query) or picker (without).                                                      |
@@ -571,7 +571,7 @@ so they track the installed binary and golden files stay stable.
 - **Exit:** claim → work → release loop with crash-safe leases and
   warm-cache resets. Tag `v0.1.0-alpha.4`.
 
-**Status (2026-07-20):** code complete, PR open against `dev`.
+**Status (2026-07-21):** code complete, PR open against `dev`.
 Design refinements surfaced by implementation:
 the lease is a **two-phase handoff**: a claim is held under wt's
 own PID while it provisions (a killed wt leaves a provably dead
@@ -607,6 +607,24 @@ a durable provisioned marker makes killed provisions redo
 themselves instead of silently skipping setup forever,
 and claims skip guard-blocked slots with a notice rather than
 letting one bad slot fail the whole pool.
+`slot-N` became reserved vocabulary in the process: a personal
+tree wearing that name would turn silently resettable the day
+pool mode is switched on, so `wt new` refuses it, case-folded
+because macOS filesystems are.
+Two additions beyond the checklist, both serving D5's
+"users must not have to invent hook values":
+`wt init` now pre-fills its answers from a repo-root scan
+(the first *tracked* lockfile proposes a refresh hook gated on
+itself; *untracked* `.env`/`.envrc` propose a copy list; flags
+and global config both beat the scan, and `hooks.setup` is never
+guessed) — documented under "Detected defaults" in
+`docs/configuration.md`;
+and one aligner renders every tabular listing, so `wt ls` and
+`wt pool ls` cannot drift on spacing or trailing whitespace (D13).
+A simplification pass then removed what the hardening had
+over-built: a memo over `ps` start tokens that saved a handful of
+subprocesses and cost a PID-reuse hazard, and a layer of derived
+helpers around the init scan's notes.
 Remaining before exit is met: merge, batch fragments,
 tag `v0.1.0-alpha.4`.
 Phase 5 (sync & freshness) is ready once the tag is cut.
