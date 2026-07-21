@@ -98,6 +98,14 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 		}
 	}
 
+	// After both paths have had their say: a gate with no hook
+	// gates nothing, and writing it would put a key in wt.toml
+	// describing a run that cannot happen. Reachable by declining a
+	// global hook with an empty --refresh, clearing the form's hook
+	// field, or naming only --refresh-if-changed.
+	if opts.refresh == "" {
+		opts.refreshGate = nil
+	}
 	cfg := config.Config{
 		Base:     opts.base,
 		TreesDir: opts.treesDir,

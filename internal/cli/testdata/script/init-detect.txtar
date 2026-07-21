@@ -48,6 +48,15 @@ exec sh -c 'echo lock > package-lock.json && git add package-lock.json && git co
 exec wt init --yes --refresh ''
 ! grep 'refresh' .git/wt.toml
 
+# declining the hook takes its gate with it: a gate with no hook
+# would describe a run that cannot happen
+cd $WORK
+exec git init -q -b main app6
+cd app6
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes --refresh-if-changed deps.lock
+! grep 'refresh_if_changed' .git/wt.toml
+
 # an untracked lockfile proposes nothing: it would never reach a
 # fresh tree, and a gate on it would hash as absent forever
 cd $WORK
