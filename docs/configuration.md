@@ -30,9 +30,9 @@ trees_dir = "../acme.trees"        # container for wt-managed trees
 copy      = [".env", ".envrc"]     # untracked files copied into new trees
 
 [hooks]
-setup              = "make bootstrap"   # runs once, inside each new tree
-refresh            = "pnpm install"     # pool mode (Phase 4): runs on claim,
-refresh_if_changed = ["pnpm-lock.yaml"] # …only when these files' hash changed
+setup              = "make bootstrap"   # runs once, inside each new tree/slot
+refresh            = "pnpm install"     # runs on claim and new — but only
+refresh_if_changed = ["pnpm-lock.yaml"] # …when these files' hash changed
 
 [pool]                             # presence of this table = pool mode
 size = 6
@@ -43,10 +43,10 @@ size = 6
 | `base`                     | `main`             | Base branch `wt new` branches off (override per call with `--base`).                                                          |
 | `trees_dir`                | `../<repo>.trees`  | Container for managed trees. Relative paths anchor at the main checkout, so they mean the same thing from any worktree.       |
 | `copy`                     | `[]`               | Untracked files ported (copied, never symlinked) from the main checkout into each new tree. Entries must stay inside the tree. |
-| `hooks.setup`              | —                  | Command run once inside a freshly created tree, via `sh -c`. Its output goes to stderr.                                       |
-| `hooks.refresh`            | —                  | Pool mode, lands in Phase 4.                                                                                                  |
-| `hooks.refresh_if_changed` | `[]`               | Pool mode, lands in Phase 4.                                                                                                  |
-| `pool.size`                | —                  | Number of pre-warmed slots; the `[pool]` table's presence is what enables pool mode. Lands in Phase 4.                        |
+| `hooks.setup`              | —                  | Command run once inside a freshly created tree or provisioned slot, via `sh -c`. Its output goes to stderr.                   |
+| `hooks.refresh`            | —                  | Command run on every claim and `wt new`, gated by `refresh_if_changed`. Without a gate it runs every time.                    |
+| `hooks.refresh_if_changed` | `[]`               | Files whose combined hash gates `hooks.refresh`: unchanged hash, no run. The lockfile short-circuit of [pool mode](pool-mode.md). |
+| `pool.size`                | —                  | Number of pre-warmed slots; the `[pool]` table's presence is what enables [pool mode](pool-mode.md). Resize with `wt pool resize`. |
 
 ### Copied files and `wt done`
 
@@ -90,10 +90,11 @@ wt: /path/.git/wt.toml:2:1: unknown key "bogus" (not part of wt's config)
 under `$XDG_STATE_HOME` (default `~/.local/state`):
 
 ```
-wt/repos/acme-3f2a9c1b/     # <repo basename>-<hash of the git dir path>
+wt/repos/acme-3f2a9c1b/          # <repo basename>-<hash of the git dir path>
+  leases/pool-3/lease.toml       # who holds slot 3: pid, start time, branch
+  trees/<name>/refresh_hash      # refresh_if_changed hash at last refresh
 ```
 
 The slug keeps state directories human-readable;
 the hash keeps two clones named `acme` apart.
-Phase 2 defines the location; leases, fetch timestamps,
-and refresh hashes fill it in as later phases land.
+Fetch timestamps join the layout in Phase 5.

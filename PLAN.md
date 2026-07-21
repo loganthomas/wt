@@ -526,7 +526,8 @@ and `wt done` points prunable trees at `git worktree prune`.
 - **Exit:** the eval line in `.zshrc` gives cd-on-select, completions,
   optional prompt. Tag `v0.1.0-alpha.3`.
 
-**Status (2026-07-20):** code complete, PR open against `dev`.
+**Status (2026-07-20): complete.**
+Merged to `main`; `v0.1.0-alpha.3` tagged and released.
 Two D12 refinements surfaced by implementation:
 the interactivity probe is **stdin + stderr**, never stdout —
 the shim captures stdout to implement the cd protocol,
@@ -545,30 +546,53 @@ The shim's cd set is bare `wt`, `wt go`, and `wt new`;
 Completions are bootstrapped via `eval "$(wt completion zsh)"`
 inside the shim rather than inlined,
 so they track the installed binary and golden files stay stable.
-Remaining before exit is met: merge, batch fragments,
-tag `v0.1.0-alpha.3`.
-Phase 4 (pool mode) is ready to be taken up once the tag is cut.
 
 ### Phase 4 — Pool mode (L)
 
-- [ ] `internal/lease`: atomic-mkdir lease + PID/start-time liveness —
+- [x] `internal/lease`: atomic-mkdir lease + PID/start-time liveness —
       TDD before claim exists
       (unit tests simulate a crash: lease held by a dead PID).
-- [ ] Slot provisioning: `wt init` pool path and `wt pool resize`
+- [x] Slot provisioning: `wt init` pool path and `wt pool resize`
       (grow runs the setup hook per slot; shrink refuses claimed slots).
-- [ ] Claim/reset semantics (from the reference tool):
-      `git fetch` (if stale) → `checkout -f --detach <base>` →
+- [x] Claim/reset semantics (from the reference tool):
+      `checkout -f --detach <base>` →
       `clean -fd` (**never `-x`** — gitignored build artifacts keep slots warm) →
       refresh-hash gate → `hooks.refresh` if lockfiles changed → branch create.
-- [ ] Pattern guard: reset/release refuse any path not matching
+      (The `git fetch` (if stale) step is Phase 5's opportunistic fetch.)
+- [x] Pattern guard: reset/release refuse any path not matching
       `<trees_dir>/pool-N` — unit-tested with hostile inputs
       (main checkout, personal tree, symlinks).
-- [ ] `wt new`/`done` dispatch on pool presence;
+- [x] `wt new`/`done` dispatch on pool presence;
       `wt claim`/`release` plumbing; `wt pool ls`.
-- [ ] Fuzzy matching over slots targets the _branch/ticket_, not `pool-3`
+- [x] Fuzzy matching over slots targets the _branch/ticket_, not `pool-3`
       (picker shows `PROJ-123 → pool-3`).
 - **Exit:** claim → work → release loop with crash-safe leases and
   warm-cache resets. Tag `v0.1.0-alpha.4`.
+
+**Status (2026-07-20):** code complete, PR open against `dev`.
+Design refinements surfaced by implementation:
+the lease's liveness anchor is wt's **parent** PID
+(the shell, script, or agent session — wt itself exits in
+milliseconds), with start time read via `ps -o lstart=`;
+the concurrency soak test forced a short **flock** around the
+lease's check-steal-create section — rename-based stealing raced —
+while the mkdir'd directory remains the persistent, crash-surviving
+claim, and the kernel drops the flock with its holder,
+so the serialization cannot wedge (D15 intact: liveness, not
+wall clock, decides staleness).
+A lease directory left recordless by a crash is provably dead
+under that lock and reclaimed instead of wedging the slot.
+Claims take free slots before provably-dead ones,
+so crash leftovers survive while the pool has room,
+and a missing slot is provisioned on demand,
+which makes init/resize crashes and hand-edited sizes self-heal.
+`wt release` keeps the branch (plumbing hands it to the PR flow);
+`wt done` deletes it, symmetric with default mode.
+`hooks.refresh` also runs behind the same hash gate on
+default-mode `wt new`, so the two modes share one mechanism.
+Remaining before exit is met: merge, batch fragments,
+tag `v0.1.0-alpha.4`.
+Phase 5 (sync & freshness) is ready once the tag is cut.
 
 ### Phase 5 — Sync & freshness (M)
 
