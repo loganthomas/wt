@@ -67,10 +67,7 @@ func (e *HeldError) Error() string {
 // phase of the handoff described in the package comment — and is
 // returned so the caller can later prove which lease is its own.
 func Acquire(leasesDir, slot, branch string) (*Info, error) {
-	if err := os.MkdirAll(leasesDir, 0o755); err != nil {
-		return nil, err
-	}
-	unlock, err := lockExclusive(filepath.Join(leasesDir, ".acquire.lock"))
+	unlock, err := lockLeases(leasesDir)
 	if err != nil {
 		return nil, err
 	}
@@ -126,10 +123,7 @@ func Acquire(leasesDir, slot, branch string) (*Info, error) {
 // session doing the work, and a release pins the slot to the
 // session clearing it. The record written is returned.
 func Repin(leasesDir, slot, branch string, expect *Info) (*Info, error) {
-	if err := os.MkdirAll(leasesDir, 0o755); err != nil {
-		return nil, err
-	}
-	unlock, err := lockExclusive(filepath.Join(leasesDir, ".acquire.lock"))
+	unlock, err := lockLeases(leasesDir)
 	if err != nil {
 		return nil, err
 	}
@@ -156,10 +150,7 @@ func Repin(leasesDir, slot, branch string, expect *Info) (*Info, error) {
 // expect, or an unreadable record (which proves nothing), returns
 // *HeldError and leaves the lease in place.
 func Release(leasesDir, slot string, expect *Info) error {
-	if err := os.MkdirAll(leasesDir, 0o755); err != nil {
-		return err
-	}
-	unlock, err := lockExclusive(filepath.Join(leasesDir, ".acquire.lock"))
+	unlock, err := lockLeases(leasesDir)
 	if err != nil {
 		return err
 	}
@@ -288,6 +279,17 @@ func writeRecord(dir, branch string, pid int) (*Info, error) {
 		return nil, err
 	}
 	return info, nil
+}
+
+// lockLeases enters the lease critical section: the leases
+// directory is created as needed and the acquire flock taken.
+// One spelling for all three protocol entry points, so the lock
+// path and mode cannot drift between them.
+func lockLeases(leasesDir string) (unlock func(), err error) {
+	if err := os.MkdirAll(leasesDir, 0o755); err != nil {
+		return nil, err
+	}
+	return lockExclusive(filepath.Join(leasesDir, ".acquire.lock"))
 }
 
 func readRecord(dir string) (*Info, error) {
