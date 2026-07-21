@@ -11,6 +11,8 @@ that are **claimed**, worked in, and **released** back, warm.
 Ordinary repos don't need any of this;
 the default mode's create/remove lifecycle is simpler.
 Reach for a pool when tree creation is what hurts.
+How caches are shared (and deliberately not shared) across trees,
+with per-ecosystem setups, is covered in [recipes.md](recipes.md).
 
 ## Enabling
 

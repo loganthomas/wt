@@ -663,8 +663,10 @@ stays short):
     resize, worked example with real hook config.
   - `docs/configuration.md` — full config reference
     (every key, default, and merge order), state-dir layout.
-  - `docs/recipes.md` — per-ecosystem examples
-    (Go, pnpm, npm/yarn, direnv, `.env` porting, port-per-slot pattern).
+  - `docs/recipes.md` — the shared-vs-per-tree cache model and
+    per-ecosystem examples (Bazel, Go, pnpm, npm/yarn, direnv,
+    `.env` porting, port-per-slot pattern).
+    _(First version landed with Phase 4; Phase 7 edits it.)_
   - `docs/shell.md` — shim internals, prompt indicator, starship segment,
     completions.
   - `docs/agents.md` — machine contract: stdout/stderr rules, exit codes,
