@@ -94,8 +94,12 @@ func (g *Git) CheckoutDetach(ctx context.Context, ref string) error {
 // CleanUntracked removes untracked files and directories.
 // Never -x: gitignored build artifacts are what keep pool slots
 // warm (D14), so ignored files always survive a reset.
+// Double -f because a single one skips untracked nested git repos
+// while still exiting 0 — a reset that reported success would
+// leave them to fail the next holder's guards, with no wt command
+// able to clear them.
 func (g *Git) CleanUntracked(ctx context.Context) error {
-	_, err := g.run(ctx, "clean", "-q", "-fd")
+	_, err := g.run(ctx, "clean", "-q", "-ffd")
 	return err
 }
 

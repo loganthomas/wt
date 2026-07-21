@@ -117,6 +117,7 @@ func TestSlotLifecycleOperations(t *testing.T) {
 
 	gittest.WriteFile(t, slot, "scratch.txt", "leftover\n")
 	gittest.WriteFile(t, slot, "node_modules/dep.js", "cached\n")
+	gittest.Repo(t, filepath.Join(slot, "vendored"))
 	if err := sg.CheckoutDetach(t.Context(), "main"); err != nil {
 		t.Fatal(err)
 	}
@@ -125,6 +126,12 @@ func TestSlotLifecycleOperations(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(slot, "scratch.txt")); err == nil {
 		t.Error("CleanUntracked left the untracked file behind")
+	}
+	// A single -f skips nested git repos yet exits 0; the reset
+	// must actually discard them or the next holder inherits dirt
+	// no guard lets them release.
+	if _, err := os.Stat(filepath.Join(slot, "vendored")); err == nil {
+		t.Error("CleanUntracked left a nested git repo behind")
 	}
 	// Never -x: gitignored caches are what keep slots warm (D14).
 	if _, err := os.Stat(filepath.Join(slot, "node_modules", "dep.js")); err != nil {
