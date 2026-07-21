@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -16,8 +17,8 @@ func touch(t *testing.T, root, name string) {
 
 func TestDetectDefaultsEmptyRepo(t *testing.T) {
 	d := detectDefaults(t.TempDir(), map[string]bool{})
-	if d.refresh != "" || d.gate != nil || d.copies != nil ||
-		d.hookNote != "" || d.copyNotes != nil || d.infoNotes != nil {
+	if d.marker != "" || d.refresh != "" || d.gate() != nil || d.copies != nil ||
+		len(d.copyNotes()) != 0 || d.infoNotes != nil {
 		t.Errorf("empty repo proposed %+v, want nothing", d)
 	}
 }
@@ -27,11 +28,11 @@ func TestDetectDefaultsMostSpecificLockfileWins(t *testing.T) {
 	touch(t, root, "package-lock.json")
 	touch(t, root, "pnpm-lock.yaml")
 	d := detectDefaults(root, map[string]bool{"package-lock.json": true, "pnpm-lock.yaml": true})
-	if d.refresh != "pnpm install" || !slices.Equal(d.gate, []string{"pnpm-lock.yaml"}) {
-		t.Errorf("proposed %q gated on %v, want pnpm install on its lockfile", d.refresh, d.gate)
+	if d.refresh != "pnpm install" || !slices.Equal(d.gate(), []string{"pnpm-lock.yaml"}) {
+		t.Errorf("proposed %q gated on %v, want pnpm install on its lockfile", d.refresh, d.gate())
 	}
-	if d.hookNote == "" {
-		t.Error("hookNote empty, want the proposal note")
+	if !strings.Contains(d.hookNote(), "pnpm-lock.yaml") {
+		t.Errorf("hookNote = %q, want it to name the winning marker", d.hookNote())
 	}
 }
 

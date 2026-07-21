@@ -46,16 +46,39 @@ var sharedCacheMarkers = []struct{ marker, note string }{
 var copyCandidates = []string{".env", ".envrc", ".env.local"}
 
 // detected is what the repo scan proposes for the init form.
-// Notes are grouped by the proposal they describe, so the caller
-// prints only the ones whose proposal actually landed; info notes
-// propose nothing and always print.
+// The gate and the notes are derived rather than stored, so they
+// cannot drift from the proposal they describe. Each note belongs
+// to one proposal, and the caller prints it only when that
+// proposal lands; info notes propose nothing and always print.
 type detected struct {
+	marker    string // ecosystem marker that won, "" when none
 	refresh   string
-	gate      []string
-	hookNote  string
 	copies    []string
-	copyNotes []string
 	infoNotes []string
+}
+
+// gate is the refresh gate implied by the winning marker.
+func (d detected) gate() []string {
+	if d.marker == "" {
+		return nil
+	}
+	return []string{d.marker}
+}
+
+// hookNote describes the proposed refresh hook and its gate.
+func (d detected) hookNote() string {
+	return fmt.Sprintf(
+		"detected %s — proposing refresh hook %q gated on it", d.marker, d.refresh)
+}
+
+// copyNotes describes each proposed copy file, one note apiece.
+func (d detected) copyNotes() []string {
+	notes := make([]string, 0, len(d.copies))
+	for _, name := range d.copies {
+		notes = append(notes, fmt.Sprintf(
+			"detected untracked %s — proposing it for the copy list", name))
+	}
+	return notes
 }
 
 // detectDefaults scans root for well-known markers and proposes
@@ -72,9 +95,7 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 		if tracked == nil || !tracked[e.marker] || !present(root, e.marker) {
 			continue
 		}
-		d.refresh, d.gate = e.hook, []string{e.marker}
-		d.hookNote = fmt.Sprintf(
-			"detected %s — proposing refresh hook %q gated on it", e.marker, e.hook)
+		d.marker, d.refresh = e.marker, e.hook
 		break
 	}
 	for _, m := range sharedCacheMarkers {
@@ -90,8 +111,6 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 			continue
 		}
 		d.copies = append(d.copies, name)
-		d.copyNotes = append(d.copyNotes, fmt.Sprintf(
-			"detected untracked %s — proposing it for the copy list", name))
 	}
 	return d
 }

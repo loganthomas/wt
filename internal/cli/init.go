@@ -107,7 +107,7 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	// nothing about would silently skip it on unchanged claims.
 	if !flags.Changed("refresh-if-changed") {
 		if opts.refreshGate = seed.Hooks.RefreshIfChanged; opts.refreshGate == nil && detHook {
-			opts.refreshGate = det.gate
+			opts.refreshGate = det.gate()
 		}
 	}
 	detCopies := false
@@ -121,10 +121,10 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 	// advertising a value that flags or global config then beat
 	// would misstate what was configured.
 	if detHook {
-		fmt.Fprintln(chatter, det.hookNote)
+		fmt.Fprintln(chatter, det.hookNote())
 	}
 	if detCopies {
-		for _, note := range det.copyNotes {
+		for _, note := range det.copyNotes() {
 			fmt.Fprintln(chatter, note)
 		}
 	}
