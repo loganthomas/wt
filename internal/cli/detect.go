@@ -122,8 +122,8 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 // layers, most explicit first: flags, then global defaults, then
 // what the scan proposes, so users confirm recognizable values
 // instead of inventing them. A changed flag wins even when its
-// value is empty, since under --yes `--refresh ”` is the way to
-// decline a global or detected hook and zero values cannot stand
+// value is empty, since under --yes an empty --refresh is the way
+// to decline a global or detected hook and zero values cannot stand
 // in for "unset". It returns the notes worth printing: only the
 // proposals that survived, because advertising a value that flags
 // or global config then beat would misstate what was configured.
@@ -178,7 +178,13 @@ func present(root, name string) bool {
 // detectTracked reports which detection candidates (ecosystem
 // markers and copy files) the index owns; nil on error, which
 // detectDefaults reads as "unknown, propose none".
-func detectTracked(ctx context.Context, r *repo.Repo) map[string]bool {
+// Flags that already settle both hooks and copies skip the query
+// outright: nothing tracking-dependent can land, and the answer
+// costs a git subprocess.
+func detectTracked(ctx context.Context, r *repo.Repo, flags *pflag.FlagSet) map[string]bool {
+	if flags.Changed("refresh") && flags.Changed("copy") {
+		return nil
+	}
 	names := make([]string, 0, len(copyCandidates)+len(ecosystems))
 	names = append(names, copyCandidates...)
 	for _, e := range ecosystems {
