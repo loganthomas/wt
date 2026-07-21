@@ -228,10 +228,16 @@ func (p *poolRepo) acquire(
 		if held, err := lease.Get(leases, slot); err != nil || held != nil {
 			continue
 		}
-		if mine, err := lease.Acquire(leases, slot, branch); err == nil {
+		mine, err := lease.Acquire(leases, slot, branch)
+		if err == nil {
 			return slot, mine, nil, nil
 		}
-		// Lost the race for this slot; keep scanning.
+		if !isHeld(err) {
+			// Only a lost race reads as "keep scanning"; an I/O
+			// failure would repeat on every slot and must not be
+			// dressed up as a full pool.
+			return "", nil, nil, err
+		}
 	}
 	for _, slot := range names {
 		if skip[slot] {
@@ -247,8 +253,12 @@ func (p *poolRepo) acquire(
 		// mkdir and record write — and refuses everything else.
 		// Filtering unreadable leases out here left that reclaim
 		// unreachable, wedging the slot until a manual release.
-		if mine, err := lease.Acquire(leases, slot, branch); err == nil {
+		mine, aerr := lease.Acquire(leases, slot, branch)
+		if aerr == nil {
 			return slot, mine, old, nil
+		}
+		if !isHeld(aerr) {
+			return "", nil, nil, aerr
 		}
 	}
 	size := p.cfg.Pool.Size
@@ -343,6 +353,13 @@ func (p *poolRepo) releaseSlot(
 		fmt.Fprintf(chatter, "kept branch %s\n", t.Branch)
 	}
 	return nil
+}
+
+// isHeld reports whether err is a lease refusal — the expected,
+// scannable kind of Acquire failure — as opposed to a hard error.
+func isHeld(err error) bool {
+	var held *lease.HeldError
+	return errors.As(err, &held)
 }
 
 // requireSlot is the D14 pattern guard at the door of every
