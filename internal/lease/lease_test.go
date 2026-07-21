@@ -307,6 +307,9 @@ func TestProcessStartIgnoresCallerTZ(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("TZ", "America/New_York")
+	// Dropped from the memo so the second call really re-runs ps
+	// under the changed TZ instead of trivially agreeing.
+	startCache.Delete(os.Getpid())
 	ny, err := processStart(os.Getpid())
 	if err != nil {
 		t.Fatal(err)
