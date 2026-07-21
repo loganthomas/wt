@@ -57,9 +57,9 @@ func poolOf(w *wtRepo) (*poolRepo, error) {
 
 // claimSlot runs a whole claim: lease a slot, provision or reset
 // it, attach the branch, port the copy files, refresh behind the
-// lockfile gate. It returns the slot's path — the machine product
+// lockfile gate. It returns the slot's path, the machine product
 // of every claim (D13). Any failure drops the lease again, so a
-// failed claim can never shrink the usable pool — and a slot the
+// failed claim can never shrink the usable pool, and a slot the
 // guards refuse (say, stranded orphan commits) is skipped with a
 // notice rather than blocking every claim while healthy slots
 // sit free (R3).
@@ -119,7 +119,7 @@ func (p *poolRepo) claimSlot(
 // claim's own branch attach: dropping the lease with the branch
 // still checked out would bounce retries off "already checked
 // out" while concurrent claims silently reset the tree. Slots the
-// guards refused are left exactly as found — a forced detach
+// guards refused are left exactly as found: a forced detach
 // there would destroy the very state the guard protected. When
 // the re-park itself fails, the caller repins the lease to the
 // session so the slot's condition stays visibly claimed instead
@@ -156,12 +156,12 @@ func (p *poolRepo) prepareSlot(
 		// A provision died between worktree-add and its marker:
 		// the slot looks real but its setup hook never finished,
 		// and a plain reset would skip setup forever. Redo it from
-		// scratch — nothing but base content and half-built
+		// scratch: nothing but base content and half-built
 		// artifacts can be in there, with the orphan guard as the
 		// backstop for anything committed by hand. Detached only:
 		// provisioning never attaches a branch, so a branch on an
 		// unmarked slot proves the recorded state was lost, not
-		// that the tree is disposable — it takes the reset path
+		// that the tree is disposable; it takes the reset path
 		// below, which keeps branch commits reachable and says
 		// what it discards instead of force-removing silently.
 		if err := guard.CheckOrphans(ctx, t.Path); err != nil {
@@ -182,7 +182,7 @@ func (p *poolRepo) prepareSlot(
 		// An unregistered slot may have just been removed by a
 		// shrink working from a newer config than this claim
 		// loaded; re-read the size before materializing a tree the
-		// pool no longer owns — it would be invisible to pool ls.
+		// pool no longer owns; it would be invisible to pool ls.
 		if err := p.checkStillInPool(slot); err != nil {
 			return "", err
 		}
@@ -250,8 +250,8 @@ func (p *poolRepo) acquire(
 		}
 		// A stale lease, or one Get cannot read: hand the slot to
 		// Acquire, which under its lock steals the provably dead,
-		// reclaims the recordless — a claimer that died between
-		// mkdir and record write — and refuses everything else.
+		// reclaims the recordless (a claimer that died between
+		// mkdir and record write), and refuses everything else.
 		// Filtering unreadable leases out here left that reclaim
 		// unreachable, wedging the slot until a manual release.
 		mine, aerr := lease.Acquire(leases, slot, branch)
@@ -275,8 +275,8 @@ func (p *poolRepo) acquire(
 
 // resetSlot parks a slot back at base: forced detach, then clean
 // without -x, so gitignored caches stay warm (D14). The pattern
-// guard runs first — reset is the destructive primitive, and only
-// true slot paths may ever reach it — and the orphan guard keeps
+// guard runs first (reset is the destructive primitive, and only
+// true slot paths may ever reach it), and the orphan guard keeps
 // a detached slot's commits recoverable (R2). Everything else
 // uncommitted is discarded with notice: it belongs to no live
 // session, or its session already passed the release guards.
@@ -324,7 +324,7 @@ func (p *poolRepo) resetSlot(
 
 // releaseSlot finishes work in a slot: guards, park at base,
 // optional branch delete, lease drop. The tree itself always
-// stays — a warm slot is the entire point of the pool.
+// stays: a warm slot is the entire point of the pool.
 func (p *poolRepo) releaseSlot(
 	ctx context.Context, t gitx.Worktree, slot string, deleteBranch bool, chatter io.Writer,
 ) error {
@@ -334,8 +334,8 @@ func (p *poolRepo) releaseSlot(
 	if err := checkBase(ctx, p.g, p.cfg.Base); err != nil {
 		return err
 	}
-	// A parked slot with a branch still attached is releasable —
-	// that is what parking fixes — so the claim requirement holds
+	// A parked slot with a branch still attached is releasable
+	// (that is what parking fixes), so the claim requirement holds
 	// only for detached trees.
 	pinned, err := p.pinForRelease(slot, cmp.Or(t.Branch, lease.Releasing), t.Detached)
 	if err != nil {
@@ -371,8 +371,8 @@ func (p *poolRepo) releaseSlot(
 	return nil
 }
 
-// isHeld reports whether err is a lease refusal — the expected,
-// scannable kind of Acquire failure — as opposed to a hard error.
+// isHeld reports whether err is a lease refusal (the expected,
+// scannable kind of Acquire failure) as opposed to a hard error.
 func isHeld(err error) bool {
 	var held *lease.HeldError
 	return errors.As(err, &held)
@@ -392,7 +392,7 @@ func (p *poolRepo) requireSlot(path, verb string) (string, error) {
 
 // checkStillInPool re-reads the configured size and refuses a
 // slot the pool no longer covers. Config trouble only costs the
-// recheck — the claim then trusts the size it loaded at startup.
+// recheck: the claim then trusts the size it loaded at startup.
 func (p *poolRepo) checkStillInPool(slot string) error {
 	idx, ok := pool.SlotIndex(slot)
 	if !ok {
@@ -413,7 +413,7 @@ func (p *poolRepo) checkStillInPool(slot string) error {
 // entry half of every release: past a successful pin no
 // concurrent claim can steal the slot, and the lease dropped at
 // the end is provably the one handled here. A failure after the
-// pin simply leaves the slot claimed by this session — truthful,
+// pin simply leaves the slot claimed by this session: truthful,
 // retryable, and self-expiring if the session dies. A free slot
 // is refused when claimRequired; an unreadable record is taken
 // over regardless, because claim never steals what it cannot
@@ -517,9 +517,9 @@ func (p *poolRepo) warmSlot(ctx context.Context, dest, slot string, chatter io.W
 }
 
 // finishFresh completes a just-created tree or slot, one warm-up
-// only: the setup hook when configured — presumed to leave the
+// only: the setup hook when configured (presumed to leave the
 // tree fully built, so the refresh hash it implicitly satisfied
-// is recorded rather than immediately re-run — otherwise the
+// is recorded rather than immediately re-run), otherwise the
 // refresh hook through its usual gate. Shared by wt new and slot
 // provisioning so the two can never disagree on what "fresh"
 // means.

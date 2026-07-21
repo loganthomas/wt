@@ -26,7 +26,7 @@ type Candidate struct {
 }
 
 // Display names the candidate for human-facing lists.
-// A claimed slot leads with the branch — the work is the identity,
+// A claimed slot leads with the branch: the work is the identity,
 // the slot is only its current address (PLAN.md Phase 4).
 func (c Candidate) Display() string {
 	if c.Branch != "" && c.Slot != "" {

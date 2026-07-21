@@ -136,7 +136,7 @@ func runPoolResize(cmd *cobra.Command, arg string) error {
 
 // grow writes the new size first: a crash mid-provision leaves an
 // oversized config with missing slots, which claims heal by
-// provisioning on demand — never the reverse, where warm trees
+// provisioning on demand, never the reverse, where warm trees
 // sit outside the configured pool.
 func (p *poolRepo) grow(ctx context.Context, from, to int, chatter io.Writer) error {
 	if err := checkBase(ctx, p.g, p.cfg.Base); err != nil {

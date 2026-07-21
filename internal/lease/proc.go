@@ -24,18 +24,18 @@ func alive(pid int) bool {
 // processStart returns pid's start time as ps prints it
 // (e.g. "Mon Jul 20 09:15:02 2026"). The value is only ever
 // compared for equality against a recorded copy, so its format
-// does not matter — only that a reused PID prints a different one
+// does not matter, only that a reused PID prints a different one
 // and the same process always prints the same one: TZ and locale
 // are pinned, because ps renders lstart in local time and a claim
 // written under one TZ must not read as a different process under
 // another (that misread would steal a live lease). lstart is a
 // BSD/GNU extension, not POSIX, but present on both v1 platforms
 // (macOS, Linux CI); where ps lacks it the guard degrades to
-// PID-liveness alone, which fails safe — never steals.
+// PID-liveness alone, which fails safe: never steals.
 // Shelling out beats per-OS sysctl/procfs code for a call made a
 // handful of times per command.
 // Successes are memoized: a live process's start time never
-// changes, and one wt run otherwise repeats the identical query —
+// changes, and one wt run otherwise repeats the identical query:
 // per slot in pool ls, per provisioned slot in init and resize.
 // Liveness itself is never cached; only the token behind it.
 func processStart(pid int) (string, error) {
@@ -56,7 +56,7 @@ func processStart(pid int) (string, error) {
 	return start, nil
 }
 
-// startCache holds pid → start token for the process lifetime.
+// startCache maps pid to start token for the process lifetime.
 // Concurrent claims (the soak test, parallel wt-in-scripts) make
 // this a sync.Map rather than a plain one.
 var startCache sync.Map

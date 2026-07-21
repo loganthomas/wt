@@ -62,7 +62,7 @@ func checkBase(ctx context.Context, g *gitx.Git, base string) error {
 // any guard or sweep runs: a locked tree would fail only after wt
 // had already deleted the planted copy files, and a prunable
 // tree's directory is gone, so the guards (which run inside it)
-// cannot vouch for anything — hand that cleanup to git. Shared by
+// cannot vouch for anything: hand that cleanup to git. Shared by
 // wt done and slot removal, the two tree-deleting paths.
 func checkRemovable(t gitx.Worktree) error {
 	if t.Locked {

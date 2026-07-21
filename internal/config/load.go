@@ -11,8 +11,8 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-// LoadRepo reads the repo config file alone — no defaults, no
-// global merge — for read-modify-write flows like `wt pool
+// LoadRepo reads the repo config file alone (no defaults, no
+// global merge) for read-modify-write flows like `wt pool
 // resize`, which must save back the same values the user wrote
 // plus the one change (Save re-marshals, so comments and
 // formatting are not preserved). A missing file is an error here:

@@ -1,4 +1,4 @@
-# Pool mode: the claim → work → release loop (PLAN.md Phase 4).
+# Pool mode: the claim, work, release loop (PLAN.md Phase 4).
 # wt new and wt done dispatch on pool presence; claim/release are
 # the plumbing spellings; slots reset instead of being removed.
 
@@ -95,7 +95,7 @@ exitcode 3 wt release pool-1
 stderr 'not claimed'
 
 # a personal tree created outside the pool is still removed the
-# default way — the release path only ever touches slots
+# default way; the release path only ever touches slots
 exec git worktree add -q ../acme.trees/personal -b personal main
 exec wt done personal
 stderr 'removed .*[/\\]personal'

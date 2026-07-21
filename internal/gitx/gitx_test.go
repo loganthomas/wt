@@ -84,7 +84,7 @@ func TestRunScrubsRepoLocalEnv(t *testing.T) {
 
 // TestSlotLifecycleOperations walks the git operations a pool
 // slot goes through: provision detached, take a branch, reset
-// back to detached, clean untracked — with ignored files (the
+// back to detached, clean untracked, with ignored files (the
 // warm caches pool mode exists for) surviving every reset.
 func TestSlotLifecycleOperations(t *testing.T) {
 	gittest.Scrub(t)

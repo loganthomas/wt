@@ -48,8 +48,8 @@ func (w *wtRepo) treesDir() string {
 }
 
 // treeStateName maps a worktree path to its recorded-state key.
-// Only trees directly inside the trees dir have state — keyed by
-// basename — so a hand-made worktree elsewhere must never touch a
+// Only trees directly inside the trees dir have state, keyed by
+// basename, so a hand-made worktree elsewhere must never touch a
 // managed namesake's records.
 func (w *wtRepo) treeStateName(path string) (string, bool) {
 	if filepath.Dir(path) != w.treesDir() {

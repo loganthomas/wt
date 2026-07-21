@@ -3,15 +3,15 @@
 // the repo's state dir whose record names the claiming session:
 // PID, process start time, hostname, branch, claim time.
 // A lease goes stale only when its PID is dead or its start time
-// no longer matches (PID reuse) — never by wall clock alone,
+// no longer matches (PID reuse), never by wall clock alone,
 // so long-running legitimate work is never reaped (R3).
 //
 // A claim is a two-phase handoff. Acquire records wt's own PID:
-// while wt provisions the slot — setup hooks can run for minutes —
+// while wt provisions the slot (setup hooks can run for minutes),
 // the slot is protected by wt's liveness, and a kill leaves a
 // lease that is provably dead rather than one pinned to a shell
 // that outlives the work. On success the caller Repins the lease
-// to the session — the shell, script, or agent doing the work —
+// to the session (the shell, script, or agent doing the work)
 // because wt itself exits within milliseconds of finishing.
 package lease
 
@@ -55,7 +55,7 @@ type Info struct {
 	ClaimedAt time.Time `toml:"claimed_at"`
 }
 
-// HeldError reports a slot whose lease is live — or unverifiable,
+// HeldError reports a slot whose lease is live, or unverifiable,
 // which wt treats the same way: it only ever steals a lease it can
 // prove dead.
 type HeldError struct {
@@ -72,15 +72,15 @@ func (e *HeldError) Error() string {
 }
 
 // Acquire claims slot under leasesDir for branch.
-// The lease directory is the persistent claim — it survives every
-// process involved, which is the point — while a short flock
+// The lease directory is the persistent claim (it survives every
+// process involved, which is the point), while a short flock
 // serializes the check-steal-create critical section, so racing
 // claimers can neither double-create nor steal a lease that was
 // re-acquired between their staleness check and their theft.
 // The flock cannot wedge: the kernel drops it with its holder.
 // A provably dead lease is stolen; a live or unverifiable one
-// returns *HeldError. The record names wt's own PID — the claim
-// phase of the handoff described in the package comment — and is
+// returns *HeldError. The record names wt's own PID (the claim
+// phase of the handoff described in the package comment) and is
 // returned so the caller can later prove which lease is its own.
 func Acquire(leasesDir, slot, branch string) (*Info, error) {
 	unlock, err := lockLeases(leasesDir)
@@ -127,13 +127,13 @@ func Acquire(leasesDir, slot, branch string) (*Info, error) {
 // (nil expect: the record was absent or unreadable at entry).
 // Work that runs after a successful Repin cannot race a
 // concurrent Acquire, because the slot is now held live by the
-// repinning session itself — and should that session die
+// repinning session itself; should that session die
 // mid-operation, its pin goes stale like any other lease.
 // A live lease other than the expected one returns *HeldError;
 // a stale or unreadable one is taken over regardless of expect,
 // since its holder is either provably dead or unprovable-and-
 // being-cleared on explicit user request. The new record names
-// the session (wt's original parent) — this is the handoff half
+// the session (wt's original parent): this is the handoff half
 // of both protocols: a finished claim pins its slot to the
 // session doing the work, and a release pins the slot to the
 // session clearing it. The record written is returned.
@@ -156,7 +156,7 @@ func Repin(leasesDir, slot, branch string, expect *Info) (*Info, error) {
 }
 
 // Release frees slot, but only when the current lease is the
-// expected one, provably dead, or absent — releasing a free slot
+// expected one, provably dead, or absent; releasing a free slot
 // is not an error, so cleanup paths can run it unconditionally.
 // The guard matters when the caller's lease was taken over behind
 // its back (an explicit `wt release` racing a claim): removing
@@ -205,9 +205,9 @@ func Get(leasesDir, slot string) (*Info, error) {
 
 // Stale reports whether the lease's holder is provably gone:
 // its PID is dead, or the PID is alive but belongs to a different
-// process than the one recorded (start times differ — PID reuse).
-// Anything unverifiable — a foreign host, an unreadable start
-// time — reads as live: wt never steals on a guess.
+// process than the one recorded (start times differ: PID reuse).
+// Anything unverifiable (a foreign host, an unreadable start
+// time) reads as live: wt never steals on a guess.
 func (i *Info) Stale() bool {
 	if host, err := os.Hostname(); err != nil || i.Hostname != host {
 		return false
@@ -249,13 +249,13 @@ func (i *Info) same(o *Info) bool {
 		i.Hostname == o.Hostname && i.ClaimedAt.Equal(o.ClaimedAt)
 }
 
-// sessionPID is wt's parent as it was at startup — the shell,
+// sessionPID is wt's parent as it was at startup: the shell,
 // script, or agent session doing the work. Captured before any
 // work runs: if that session later dies, Getppid would report the
 // reaper (init, or a PID-1 shell in a container) and the lease
 // would wrongly track a process that never claimed anything.
 // Recording the original parent means an orphaned claim's lease
-// reads stale the moment its session is gone — and a container
+// reads stale the moment its session is gone, and a container
 // session that legitimately IS PID 1 stays live by its own
 // start time, instead of being mistaken for a reparented orphan.
 var sessionPID = os.Getppid()
@@ -279,7 +279,7 @@ func writeRecord(dir, branch string, pid int) (*Info, error) {
 		return nil, err
 	}
 	// Temp file + rename: a crash mid-write leaves a recordless
-	// directory — the state Acquire already reclaims — never a
+	// directory (the state Acquire already reclaims), never a
 	// torn or empty record, which nothing could ever prove dead.
 	tmp, err := os.CreateTemp(dir, recordName+".tmp-*")
 	if err != nil {
@@ -291,7 +291,7 @@ func writeRecord(dir, branch string, pid int) (*Info, error) {
 		return nil, err
 	}
 	// Synced before the rename: without it a power loss could
-	// publish an empty or torn record at the final name — one that
+	// publish an empty or torn record at the final name: one that
 	// parses as a holder no host can ever prove dead.
 	if err := tmp.Sync(); err != nil {
 		_ = tmp.Close()

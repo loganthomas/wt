@@ -73,7 +73,7 @@ func copyFile(src, dst string) error {
 }
 
 // finishGuards is the one safety sequence in front of every
-// finishing action — remove, release, or shrink (R2): the planted
+// finishing action (remove, release, or shrink; R2): the planted
 // copies are split, an edited one refuses (it is user data the
 // action would destroy, invisible to git status when ignored),
 // then the dirty and orphaned-commit guards speak. Returns the

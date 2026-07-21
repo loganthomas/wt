@@ -46,7 +46,7 @@ func (d Dir) WriteRefreshHash(name, hash string) error {
 	return d.writeTreeFile(name, refreshHashFile, []byte(hash+"\n"))
 }
 
-// MarkProvisioned records that tree name finished provisioning —
+// MarkProvisioned records that tree name finished provisioning:
 // worktree, copies, setup hook, all of it. Written last, so its
 // absence on a registered slot proves the provision died midway.
 func (d Dir) MarkProvisioned(name string) error {

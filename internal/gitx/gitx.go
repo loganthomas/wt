@@ -76,7 +76,7 @@ func (g *Git) WorktreeRemoveForce(ctx context.Context, path string) error {
 }
 
 // WorktreeAddDetach creates a worktree at path with a detached
-// HEAD at ref — the parked state of a pool slot.
+// HEAD at ref, the parked state of a pool slot.
 func (g *Git) WorktreeAddDetach(ctx context.Context, path, ref string) error {
 	_, err := g.run(ctx, "worktree", "add", "--quiet", "--detach", path, ref)
 	return err
@@ -95,7 +95,7 @@ func (g *Git) CheckoutDetach(ctx context.Context, ref string) error {
 // Never -x: gitignored build artifacts are what keep pool slots
 // warm (D14), so ignored files always survive a reset.
 // Double -f because a single one skips untracked nested git repos
-// while still exiting 0 — a reset that reported success would
+// while still exiting 0; a reset that reported success would
 // leave them to fail the next holder's guards, with no wt command
 // able to clear them.
 func (g *Git) CleanUntracked(ctx context.Context) error {

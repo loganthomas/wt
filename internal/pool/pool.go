@@ -17,7 +17,7 @@ import (
 )
 
 // slotName is the one spelling of a slot: pool-N, N ≥ 1, no
-// leading zeros — exactly the names wt itself mints, nothing more.
+// leading zeros: exactly the names wt itself mints, nothing more.
 var slotName = regexp.MustCompile(`^pool-([1-9][0-9]*)$`)
 
 // SlotName names the i-th pool slot (1-based).
@@ -57,9 +57,9 @@ func SlotIndex(name string) (int, bool) {
 // inside treesDir, and which one. This is the pattern guard
 // (D14): every reset, release, and slot removal must pass here
 // first, so the main checkout and personal trees are structurally
-// unresettable. Both sides are symlink-resolved before comparing —
-// a symlink named like a slot but pointing elsewhere resolves
-// elsewhere and is refused — and anything unresolvable fails
+// unresettable. Both sides are symlink-resolved before comparing
+// (a symlink named like a slot but pointing elsewhere resolves
+// elsewhere and is refused), and anything unresolvable fails
 // closed.
 func SlotPath(treesDir, path string) (string, bool) {
 	container, err := filepath.EvalSymlinks(treesDir)

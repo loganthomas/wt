@@ -299,8 +299,8 @@ func TestGlobalPath(t *testing.T) {
 }
 
 // LoadRepo feeds read-modify-write flows (wt pool resize):
-// it must return exactly what the repo file says — no defaults,
-// no global merge — so saving it back never smuggles in values
+// it must return exactly what the repo file says (no defaults,
+// no global merge), so saving it back never smuggles in values
 // the user never wrote.
 func TestLoadRepo(t *testing.T) {
 	dir := t.TempDir()

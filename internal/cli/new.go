@@ -60,7 +60,7 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	chatter := cmd.ErrOrStderr()
 
 	// Pool mode: the same intent lands in a claimed slot instead
-	// of a fresh tree (D3 — the [pool] table is the dispatch).
+	// of a fresh tree (D3: the [pool] table is the dispatch).
 	if w.cfg.Pool != nil {
 		p, err := poolOf(w)
 		if err != nil {

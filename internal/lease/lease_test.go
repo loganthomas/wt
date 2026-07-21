@@ -201,7 +201,7 @@ func TestAcquireStealsDeadPID(t *testing.T) {
 
 // TestStaleNeverTrustsACachedMismatch pins the pid-reuse hazard
 // of the start-token memo: a token cached for an earlier holder of
-// the same pid must not condemn the live process now wearing it —
+// the same pid must not condemn the live process now wearing it;
 // only a fresh query may read as stale.
 func TestStaleNeverTrustsACachedMismatch(t *testing.T) {
 	// The record carries the real token; the cache then claims the
@@ -315,7 +315,7 @@ func TestCorruptRecordHeldConservatively(t *testing.T) {
 // TestProcessStartIgnoresCallerTZ pins the false-stale trap:
 // ps renders lstart in local time, so without a fixed TZ the same
 // live process reads as a different one across sessions with
-// different timezones — and its lease would be stolen.
+// different timezones, and its lease would be stolen.
 func TestProcessStartIgnoresCallerTZ(t *testing.T) {
 	t.Setenv("TZ", "UTC")
 	utc, err := processStart(os.Getpid())

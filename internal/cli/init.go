@@ -112,7 +112,7 @@ func runInit(cmd *cobra.Command, opts initOptions) error {
 // The merged config is reloaded first: hooks and copy lists may
 // come from the global layer, and provisioning must see exactly
 // what a later claim will. A base that doesn't resolve yet only
-// defers the work — claims provision missing slots on demand.
+// defers the work: claims provision missing slots on demand.
 func provisionInitialPool(ctx context.Context, r *repo.Repo, chatter io.Writer) error {
 	merged, err := loadMerged(r)
 	if err != nil {

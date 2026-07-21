@@ -1,5 +1,5 @@
 # The refresh gate (PLAN.md D5): hooks.refresh runs on claim only
-# when the refresh_if_changed files differ from the recorded hash —
+# when the refresh_if_changed files differ from the recorded hash:
 # the lockfile short-circuit that makes claims take seconds.
 # Config is written by hand here, so the first claim also proves
 # that a missing slot is provisioned on demand.

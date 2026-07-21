@@ -1,6 +1,6 @@
 # The refresh gate on default-mode wt new (D5): setup, when
-# configured, is presumed to leave the tree fully built — the
-# refresh hash is recorded, never redundantly re-run right after —
+# configured, is presumed to leave the tree fully built (the
+# refresh hash is recorded, never redundantly re-run right after),
 # while a refresh-only config uses refresh as the warm-up itself.
 
 [!exec:git] skip 'git not on PATH'

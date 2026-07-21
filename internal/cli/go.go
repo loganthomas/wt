@@ -76,9 +76,9 @@ func jumpInteractive(cmd *cobra.Command, trees []gitx.Worktree, cands []nav.Cand
 
 // jumpCandidates converts worktrees into jump targets.
 // Bare entries are dropped: they have no checkout to land in.
-// Parked slots are dropped too — there is nothing to work on in
-// one, and landing there would race the next claim's reset —
-// while claimed slots carry their address for display
+// Parked slots are dropped too: there is nothing to work on in
+// one, and landing there would race the next claim's reset.
+// Claimed slots carry their address for display
 // ("branch → pool-3", PLAN.md Phase 4).
 func jumpCandidates(trees []gitx.Worktree, treesDir string) []nav.Candidate {
 	cands := make([]nav.Candidate, 0, len(trees))
@@ -99,7 +99,7 @@ func jumpCandidates(trees []gitx.Worktree, treesDir string) []nav.Candidate {
 }
 
 // slotTreesDir reports the container to annotate slots from, or
-// "" when pool mode is off — and on config trouble, which only
+// "" when pool mode is off, and on config trouble, which only
 // costs the annotation, never the jump, matching repoTrees'
 // broken-config tolerance.
 func slotTreesDir(r *repo.Repo) string {

@@ -1,7 +1,7 @@
 # Crash artifacts a claim can prove dead must self-heal (D15, R3):
 # a recordless lease directory is a claimer that died between mkdir
 # and record write, and the next claim reclaims it. What no claim
-# may touch — a wedged lease on a slot with no worktree behind it —
+# may touch (a wedged lease on a slot with no worktree behind it)
 # must still clear via wt release, exactly as pool ls advertises.
 
 [!exec:git] skip 'git not on PATH'
@@ -57,8 +57,8 @@ stderr 'provisioned pool-1'
 stderr 'running refresh hook'
 
 # losing the state dir wipes leases and markers both; the claimed,
-# branch-attached slot must take the reset path — which says what
-# it discards and keeps the branch reachable — never the silent
+# branch-attached slot must take the reset path (which says what
+# it discards and keeps the branch reachable), never the silent
 # force-remove reserved for dead detached provisions
 exec sh -c 'echo wip > ../acme.trees/pool-1/scratch.txt'
 exec sh -c 'rm -rf "$(echo "$XDG_STATE_HOME"/wt/repos/*)"'
