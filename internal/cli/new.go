@@ -95,12 +95,6 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	if err != nil {
 		return err
 	}
-	// A namesake tree removed out of band can leave recorded state
-	// behind; a leftover refresh hash would satisfy the gate and
-	// skip this fresh tree's warm-up.
-	if err := st.RemoveTree(filepath.Base(dest)); err != nil {
-		return err
-	}
 	if err := finishFresh(ctx, w.cfg, st, dest, filepath.Base(dest), chatter); err != nil {
 		return fmt.Errorf("%w — the tree remains at %s", err, dest)
 	}

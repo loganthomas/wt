@@ -150,9 +150,6 @@ func (p *poolRepo) prepareSlot(
 		if err := p.g.WorktreeRemoveForce(ctx, dest); err != nil {
 			return "", err
 		}
-		if err := p.state.RemoveTree(slot); err != nil {
-			return "", err
-		}
 		if err := p.provisionSlot(ctx, slot, base, chatter); err != nil {
 			return "", err
 		}
@@ -422,9 +419,10 @@ func (p *poolRepo) provisionSlot(
 			"%s already exists but is not a registered worktree — "+
 				"remove the leftover directory, then rerun", dest)
 	}
-	// A previous incarnation's recorded state must not leak into
-	// this tree: a leftover refresh hash would satisfy the gate and
-	// skip the very warm-up a cold tree exists to get.
+	// Cleared before the worktree exists: a stale provisioned
+	// marker still standing inside the add-to-warm crash window
+	// would make a crashed provision read as complete. finishFresh
+	// clears the rest of the stale state for every fresh tree.
 	if err := p.state.RemoveTree(slot); err != nil {
 		return err
 	}
@@ -460,6 +458,13 @@ func (p *poolRepo) warmSlot(ctx context.Context, dest, slot string, chatter io.W
 func finishFresh(
 	ctx context.Context, cfg config.Config, st state.Dir, dest, name string, chatter io.Writer,
 ) error {
+	// Fresh also means no inherited state: a namesake tree removed
+	// out of band can leave a refresh hash behind that would
+	// satisfy the gate and skip the very warm-up this function
+	// exists to run.
+	if err := st.RemoveTree(name); err != nil {
+		return err
+	}
 	setup := cfg.Hooks.Setup
 	if setup == "" {
 		return refreshTree(ctx, cfg, st, dest, name, chatter)
