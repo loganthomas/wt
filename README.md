@@ -47,7 +47,7 @@ Details in [docs/shell.md](docs/shell.md).
 | Command                          | One-liner                                                                     |
 | -------------------------------- | ----------------------------------------------------------------------------- |
 | `wt`                             | Interactive fuzzy picker over trees → cd. Without a TTY: porcelain list.      |
-| `wt init`                        | Set up wt for a repo (prompts, or `--yes` + flags); writes `.git/wt.toml`.    |
+| `wt init`                        | Set up wt for a repo (prompts, or `--yes` + flags); writes `.git/wt.toml`. Pre-fills its answers from a [scan of the repo root](docs/configuration.md#detected-defaults). |
 | `wt new <branch> [--base <ref>]` | Create a worktree + branch off the base, and cd there under the shim. In [pool mode](docs/pool-mode.md): claim a pre-warmed slot instead. |
 | `wt ls [--porcelain]`            | List worktrees: branch, path, state.                                          |
 | `wt go [query]`                  | Fuzzy-jump: best match cds (with a query) or picker (without).                |

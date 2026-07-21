@@ -34,7 +34,13 @@ func newInitCmd() *cobra.Command {
 		Use:   "init",
 		Short: "Set up wt for this repository",
 		Long: "Set up wt for this repository: asks a few questions\n" +
-			"(or takes flags with --yes) and writes .git/wt.toml.",
+			"(or takes flags with --yes) and writes .git/wt.toml.\n" +
+			"\n" +
+			"The answers come pre-filled from a scan of the repo root:\n" +
+			"a tracked lockfile proposes a refresh hook gated on it, and\n" +
+			"well-known untracked files (.env, .envrc) propose a copy list.\n" +
+			"Flags and your global config both beat the scan, and an empty\n" +
+			"flag value declines a proposal outright.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runInit(cmd, opts)
@@ -44,11 +50,13 @@ func newInitCmd() *cobra.Command {
 	f.StringVar(&opts.base, "base", "", "base branch new trees start from")
 	f.StringVar(&opts.treesDir, "trees-dir", "", "container directory for wt-managed trees")
 	f.IntVar(&opts.poolSize, "pool-size", 0, "pre-warmed pool slots (0 keeps pool mode off)")
-	f.StringSliceVar(&opts.copyList, "copy", nil, "untracked files to copy into new trees")
+	f.StringSliceVar(&opts.copyList, "copy", nil,
+		"untracked files to copy into new trees (empty declines the scan's proposal)")
 	f.StringVar(&opts.setup, "setup", "", "hook run once inside each fresh tree or slot")
-	f.StringVar(&opts.refresh, "refresh", "", "hook that keeps trees warm on claims")
+	f.StringVar(&opts.refresh, "refresh", "",
+		"hook that keeps trees warm on claims (empty declines the scan's proposal)")
 	f.StringSliceVar(&opts.refreshGate, "refresh-if-changed", nil,
-		"files whose hash gates the refresh hook")
+		"files whose hash gates the refresh hook (default: the detected lockfile)")
 	f.BoolVar(&opts.yes, "yes", false, "no prompts; use defaults for anything not flagged")
 	return cmd
 }
