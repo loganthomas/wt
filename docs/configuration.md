@@ -31,7 +31,7 @@ copy      = [".env", ".envrc"]     # untracked files copied into new trees
 
 [hooks]
 setup              = "make bootstrap"   # runs once, inside each new tree/slot
-refresh            = "pnpm install"     # runs on claim and new — but only
+refresh            = "pnpm install"     # runs on each claim — but only
 refresh_if_changed = ["pnpm-lock.yaml"] # …when these files' hash changed
 
 [pool]                             # presence of this table = pool mode
@@ -44,7 +44,7 @@ size = 6
 | `trees_dir`                | `../<repo>.trees`  | Container for managed trees. Relative paths anchor at the main checkout, so they mean the same thing from any worktree.       |
 | `copy`                     | `[]`               | Untracked files ported (copied, never symlinked) from the main checkout into each new tree. Entries must stay inside the tree. |
 | `hooks.setup`              | —                  | Command run once inside a freshly created tree or provisioned slot, via `sh -c`. Its output goes to stderr.                   |
-| `hooks.refresh`            | —                  | Command run on every claim and `wt new`, gated by `refresh_if_changed`. Without a gate it runs every time.                    |
+| `hooks.refresh`            | —                  | Command run on every claim, and on `wt new` when no setup hook is configured (setup is presumed to leave the tree fully built). Gated by `refresh_if_changed`; without a gate it runs each time. |
 | `hooks.refresh_if_changed` | `[]`               | Files whose combined hash gates `hooks.refresh`: unchanged hash, no run. The lockfile short-circuit of [pool mode](pool-mode.md). |
 | `pool.size`                | —                  | Number of pre-warmed slots; the `[pool]` table's presence is what enables [pool mode](pool-mode.md). Resize with `wt pool resize`. |
 

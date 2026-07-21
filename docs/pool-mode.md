@@ -104,6 +104,10 @@ never by wall clock —
 so long-running work is never reaped,
 and a crashed session never wedges a slot:
 the next claim reclaims it, loudly.
+Deadness is only provable on the host that claimed:
+a lease from another machine — or from before a hostname change —
+reads as unverifiable and is never reaped;
+`wt release pool-N` clears it.
 `wt pool ls` shows stale leases as `stale`;
 a wedged slot can always be freed by hand with `wt release pool-N`.
 A slot the guards refuse to reset — stranded commits, say —
@@ -116,7 +120,9 @@ Two guards make resets structurally safe (PLAN.md D14):
 - **Pattern guard** — only a path of the exact form
   `<trees_dir>/pool-N` (symlinks resolved) can ever be reset,
   released, or removed by pool machinery.
-  The main checkout and personal trees don't match, ever.
+  The main checkout and personal trees don't match, ever —
+  which also means any `pool-N` name inside the trees dir
+  is pool property; don't hand-make worktrees there.
 - **Orphan guard** — no reset proceeds while a detached HEAD
   holds commits nothing else can reach;
   wt tells you how to rescue them instead.

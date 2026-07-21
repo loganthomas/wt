@@ -13,9 +13,10 @@ import (
 
 // LoadRepo reads the repo config file alone — no defaults, no
 // global merge — for read-modify-write flows like `wt pool
-// resize`, which must save back exactly what the user wrote plus
-// the one change. A missing file is an error here: modifying a
-// config that does not exist means wt init hasn't run.
+// resize`, which must save back the same values the user wrote
+// plus the one change (Save re-marshals, so comments and
+// formatting are not preserved). A missing file is an error here:
+// modifying a config that does not exist means wt init hasn't run.
 func LoadRepo(path string) (Config, error) {
 	if _, err := os.Stat(path); err != nil {
 		return Config{}, err
