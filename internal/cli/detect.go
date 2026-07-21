@@ -69,10 +69,7 @@ type detected struct {
 func detectDefaults(root string, tracked map[string]bool) detected {
 	var d detected
 	for _, e := range ecosystems {
-		if tracked == nil || !tracked[e.marker] {
-			continue
-		}
-		if _, err := os.Stat(filepath.Join(root, e.marker)); err != nil {
+		if tracked == nil || !tracked[e.marker] || !present(root, e.marker) {
 			continue
 		}
 		d.refresh, d.gate = e.hook, []string{e.marker}
@@ -81,7 +78,7 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 		break
 	}
 	for _, m := range sharedCacheMarkers {
-		if _, err := os.Stat(filepath.Join(root, m.marker)); err == nil {
+		if present(root, m.marker) {
 			d.infoNotes = append(d.infoNotes, m.note)
 		}
 	}
@@ -89,7 +86,7 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 		return d
 	}
 	for _, name := range copyCandidates {
-		if _, err := os.Stat(filepath.Join(root, name)); err != nil || tracked[name] {
+		if !present(root, name) || tracked[name] {
 			continue
 		}
 		d.copies = append(d.copies, name)
@@ -97,6 +94,12 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 			"detected untracked %s — proposing it for the copy list", name))
 	}
 	return d
+}
+
+// present reports whether name exists at the repo root.
+func present(root, name string) bool {
+	_, err := os.Stat(filepath.Join(root, name))
+	return err == nil
 }
 
 // detectTracked reports which detection candidates (ecosystem
