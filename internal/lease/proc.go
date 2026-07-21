@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
-	"sync"
 	"syscall"
 )
 
@@ -34,14 +33,7 @@ func alive(pid int) bool {
 // PID-liveness alone, which fails safe: never steals.
 // Shelling out beats per-OS sysctl/procfs code for a call made a
 // handful of times per command.
-// Successes are memoized: a live process's start time never
-// changes, and one wt run otherwise repeats the identical query:
-// per slot in pool ls, per provisioned slot in init and resize.
-// Liveness itself is never cached; only the token behind it.
 func processStart(pid int) (string, error) {
-	if start, ok := startCache.Load(pid); ok {
-		return start.(string), nil
-	}
 	cmd := exec.Command("ps", "-o", "lstart=", "-p", strconv.Itoa(pid))
 	cmd.Env = append(os.Environ(), "TZ=UTC", "LC_ALL=C")
 	out, err := cmd.Output()
@@ -52,11 +44,5 @@ func processStart(pid int) (string, error) {
 	if start == "" {
 		return "", fmt.Errorf("ps -p %d: no such process", pid)
 	}
-	startCache.Store(pid, start)
 	return start, nil
 }
-
-// startCache maps pid to start token for the process lifetime.
-// Concurrent claims (the soak test, parallel wt-in-scripts) make
-// this a sync.Map rather than a plain one.
-var startCache sync.Map
