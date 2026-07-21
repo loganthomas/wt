@@ -557,7 +557,8 @@ so they track the installed binary and golden files stay stable.
       (grow runs the setup hook per slot; shrink refuses claimed slots).
 - [x] Claim/reset semantics (from the reference tool):
       `checkout -f --detach <base>` →
-      `clean -fd` (**never `-x`** — gitignored build artifacts keep slots warm) →
+      `clean -ffd` (**never `-x`** — gitignored build artifacts keep slots warm;
+      a nested git repo is refused, not destroyed) →
       refresh-hash gate → `hooks.refresh` if lockfiles changed → branch create.
       (The `git fetch` (if stale) step is Phase 5's opportunistic fetch.)
 - [x] Pattern guard: reset/release refuse any path not matching
@@ -572,9 +573,11 @@ so they track the installed binary and golden files stay stable.
 
 **Status (2026-07-20):** code complete, PR open against `dev`.
 Design refinements surfaced by implementation:
-the lease's liveness anchor is wt's **parent** PID
-(the shell, script, or agent session — wt itself exits in
-milliseconds), with start time read via `ps -o lstart=`;
+the lease is a **two-phase handoff**: a claim is held under wt's
+own PID while it provisions (a killed wt leaves a provably dead
+lease), then repinned to the session captured at startup — the
+shell, script, or agent doing the work — on success, with start
+time read via `ps -o lstart=` under a pinned TZ and locale;
 the concurrency soak test forced a short **flock** around the
 lease's check-steal-create section — rename-based stealing raced —
 while the mkdir'd directory remains the persistent, crash-surviving

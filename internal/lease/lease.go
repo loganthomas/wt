@@ -125,11 +125,10 @@ func Acquire(leasesDir, slot, branch string) (*Info, error) {
 // Repin atomically transfers slot's lease to the calling session,
 // provided it has not changed hands since expect was read
 // (nil expect: the record was absent or unreadable at entry).
-// It is the release-side half of the claim protocol: guards and
-// resets that run after a successful Repin cannot race a
+// Work that runs after a successful Repin cannot race a
 // concurrent Acquire, because the slot is now held live by the
-// releasing session itself — and should that session die
-// mid-release, its pin goes stale like any other lease.
+// repinning session itself — and should that session die
+// mid-operation, its pin goes stale like any other lease.
 // A live lease other than the expected one returns *HeldError;
 // a stale or unreadable one is taken over regardless of expect,
 // since its holder is either provably dead or unprovable-and-

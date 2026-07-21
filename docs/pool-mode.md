@@ -56,8 +56,10 @@ but land in a slot instead of creating or removing a tree.
 A claim is fast because the slot is warm:
 
 1. take the slot's lease (free slots first, then provably dead ones);
-2. reset: forced detach onto the base, then `git clean -fd` —
+2. reset: forced detach onto the base, then `git clean -ffd` —
    never `-x`, so gitignored caches like `node_modules` survive;
+   an untracked nested git repository is refused with a rescue
+   hint rather than destroyed;
 3. check out your branch (created off the base when new);
 4. re-port the `copy` files;
 5. run `hooks.refresh` **only if** the `refresh_if_changed` hash moved —
@@ -98,6 +100,9 @@ wt pool resize 2    # shrink: refuses while a doomed slot is claimed
 
 A claim is recorded as a lease naming the claiming session:
 PID, its start time, hostname, branch, claim time.
+While wt is still preparing the slot the lease names wt itself —
+so a claim killed mid-provision self-expires —
+and on success it is handed off to your session.
 A lease is stale only when its process is **provably dead**
 (the PID is gone, or reused by a different process) —
 never by wall clock —

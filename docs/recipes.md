@@ -40,7 +40,7 @@ For bucket 2, no — tree2 builds its own copy
 (fast, because bucket 1 feeds it),
 or, in [pool mode](pool-mode.md), tree2 is a slot
 that was warmed up in advance and never goes cold:
-resets use `git clean -fd`, never `-x`,
+resets use `git clean -ffd`, never `-x`,
 so gitignored caches survive every claim/release cycle,
 and `hooks.refresh` re-runs only when your lockfile
 actually changed.
