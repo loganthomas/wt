@@ -201,15 +201,19 @@ func (p *poolRepo) shrink(ctx context.Context, from, to int, chatter io.Writer) 
 				slot, held.Branch, held.Branch)
 		}
 	}
-	trees, err := p.g.Worktrees(ctx)
-	if err != nil {
-		return err
-	}
 	for i := from; i > to; i-- {
 		slot := pool.SlotName(i)
 		mine, err := lease.Acquire(leases, slot, "(removing)")
 		if err != nil {
 			return resizeHeld(err)
+		}
+		// Listed under the lease: a claim that came and went since
+		// the precheck may have provisioned the slot, and a stale
+		// listing would skip the removal while the config shrank.
+		trees, err := p.g.Worktrees(ctx)
+		if err != nil {
+			_ = lease.Release(leases, slot, mine)
+			return err
 		}
 		if err := p.removeSlot(ctx, trees, slot); err != nil {
 			_ = lease.Release(leases, slot, mine)

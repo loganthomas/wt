@@ -49,6 +49,26 @@ func TestIsSlotName(t *testing.T) {
 	}
 }
 
+func TestSlotIndex(t *testing.T) {
+	tests := []struct {
+		name string
+		idx  int
+		ok   bool
+	}{
+		{"pool-1", 1, true},
+		{"pool-12", 12, true},
+		{"pool-0", 0, false},
+		{"pool-x", 0, false},
+		{"feature-login", 0, false},
+	}
+	for _, tt := range tests {
+		idx, ok := pool.SlotIndex(tt.name)
+		if idx != tt.idx || ok != tt.ok {
+			t.Errorf("SlotIndex(%q) = %d, %v; want %d, %v", tt.name, idx, ok, tt.idx, tt.ok)
+		}
+	}
+}
+
 // TestSlotPath drives the pattern guard with the hostile inputs
 // from PLAN.md Phase 4: the main checkout, personal trees, and
 // symlinks must all be structurally unresettable.

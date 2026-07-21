@@ -135,6 +135,13 @@ func (p *poolRepo) prepareSlot(
 			return "", err
 		}
 	default:
+		// An unregistered slot may have just been removed by a
+		// shrink working from a newer config than this claim
+		// loaded; re-read the size before materializing a tree the
+		// pool no longer owns — it would be invisible to pool ls.
+		if err := p.checkStillInPool(slot); err != nil {
+			return "", err
+		}
 		if err := p.provisionSlot(ctx, slot, base, chatter); err != nil {
 			return "", err
 		}
@@ -303,6 +310,25 @@ func (p *poolRepo) releaseSlot(
 		fmt.Fprintf(chatter, "deleted branch %s\n", t.Branch)
 	case t.Branch != "":
 		fmt.Fprintf(chatter, "kept branch %s\n", t.Branch)
+	}
+	return nil
+}
+
+// checkStillInPool re-reads the configured size and refuses a
+// slot the pool no longer covers. Config trouble only costs the
+// recheck — the claim then trusts the size it loaded at startup.
+func (p *poolRepo) checkStillInPool(slot string) error {
+	idx, ok := pool.SlotIndex(slot)
+	if !ok {
+		return fmt.Errorf("%s is not a slot name", slot)
+	}
+	merged, err := loadMerged(p.repo)
+	if err != nil {
+		return nil
+	}
+	if merged.Pool == nil || idx > merged.Pool.Size {
+		return preconditionf(
+			"the pool shrank below %s while this claim ran — rerun the claim", slot)
 	}
 	return nil
 }
