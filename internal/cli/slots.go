@@ -304,6 +304,38 @@ func (p *poolRepo) releaseSlot(
 	return nil
 }
 
+// releaseVacantSlot clears a lease on a slot with no worktree
+// behind it, via the same pin-then-drop protocol as a full
+// release, minus the tree work there is no tree to do. The slot's
+// recorded state goes too: with the tree gone it describes
+// nothing, and a later provision must not inherit it.
+func (p *poolRepo) releaseVacantSlot(slot string, chatter io.Writer) error {
+	leases := p.state.LeasesDir()
+	held, err := lease.Get(leases, slot)
+	if err == nil && held == nil {
+		return preconditionf("%s is not claimed — nothing to release", slot)
+	}
+	if err != nil {
+		held = nil
+	}
+	pinned, err := lease.Repin(leases, slot, "(releasing)", held)
+	if err != nil {
+		var heldErr *lease.HeldError
+		if errors.As(err, &heldErr) {
+			return preconditionf("%v — the slot changed hands; let that claim finish", heldErr)
+		}
+		return err
+	}
+	if err := lease.Release(leases, slot, pinned); err != nil {
+		return err
+	}
+	if err := p.state.RemoveTree(slot); err != nil {
+		return err
+	}
+	fmt.Fprintf(chatter, "released %s\n", slot)
+	return nil
+}
+
 // provisionSlot creates and warms one slot: a detached worktree
 // at base, ported copies, the setup hook, and the refresh hash
 // recorded so the first claim doesn't redo what setup just did.

@@ -1,6 +1,8 @@
 # Crash artifacts a claim can prove dead must self-heal (D15, R3):
 # a recordless lease directory is a claimer that died between mkdir
-# and record write, and the next claim reclaims it.
+# and record write, and the next claim reclaims it. What no claim
+# may touch — a wedged lease on a slot with no worktree behind it —
+# must still clear via wt release, exactly as pool ls advertises.
 
 [!exec:git] skip 'git not on PATH'
 
@@ -17,3 +19,27 @@ exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/pool
 exec wt claim feat-a
 stdout '[/\\]pool-1$'
 exec wt release feat-a
+
+# wedge a slot that has no tree at all: the worktree vanishes out
+# of band and the lease record is torn
+exec git worktree remove --force ../acme.trees/pool-1
+exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/pool-1" && printf "not = [toml" > "$d/leases/pool-1/lease.toml"'
+exec wt pool ls
+stdout 'pool-1\s+claimed\s+\?\s+lease record unreadable'
+
+# no claim can prove that record dead, so the pool is full
+exitcode 3 wt claim feat-b
+stderr 'no free slot'
+
+# the advertised escape hatch works without a tree to resolve
+exec wt release pool-1
+stderr 'released pool-1'
+
+# a free vacant slot has nothing to release
+exitcode 3 wt release pool-1
+stderr 'not claimed'
+
+# and the slot provisions again on the next claim
+exec wt claim feat-b
+stderr 'provisioned pool-1'
+stdout '[/\\]pool-1$'
