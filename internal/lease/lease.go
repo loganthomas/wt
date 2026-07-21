@@ -6,9 +6,13 @@
 // no longer matches (PID reuse) — never by wall clock alone,
 // so long-running legitimate work is never reaped (R3).
 //
-// The recorded PID is wt's parent — the shell, script, or agent
-// session doing the work — because wt itself exits within
-// milliseconds of claiming.
+// A claim is a two-phase handoff. Acquire records wt's own PID:
+// while wt provisions the slot — setup hooks can run for minutes —
+// the slot is protected by wt's liveness, and a kill leaves a
+// lease that is provably dead rather than one pinned to a shell
+// that outlives the work. On success the caller Repins the lease
+// to the session — the shell, script, or agent doing the work —
+// because wt itself exits within milliseconds of finishing.
 package lease
 
 import (
@@ -59,14 +63,16 @@ func (e *HeldError) Error() string {
 // re-acquired between their staleness check and their theft.
 // The flock cannot wedge: the kernel drops it with its holder.
 // A provably dead lease is stolen; a live or unverifiable one
-// returns *HeldError.
-func Acquire(leasesDir, slot, branch string) error {
+// returns *HeldError. The record names wt's own PID — the claim
+// phase of the handoff described in the package comment — and is
+// returned so the caller can later prove which lease is its own.
+func Acquire(leasesDir, slot, branch string) (*Info, error) {
 	if err := os.MkdirAll(leasesDir, 0o755); err != nil {
-		return err
+		return nil, err
 	}
 	unlock, err := lockExclusive(filepath.Join(leasesDir, ".acquire.lock"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer unlock()
 
@@ -83,23 +89,24 @@ func Acquire(leasesDir, slot, branch string) error {
 			// A corrupt record proves nothing about its holder;
 			// never steal on a guess (wt release clears a truly
 			// wedged slot by hand).
-			return &HeldError{Slot: slot}
+			return nil, &HeldError{Slot: slot}
 		case !info.Stale():
-			return &HeldError{Slot: slot, Info: info}
+			return nil, &HeldError{Slot: slot, Info: info}
 		}
 		if err := os.RemoveAll(dir); err != nil {
-			return err
+			return nil, err
 		}
 		err = os.Mkdir(dir, 0o755)
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if err := writeRecord(dir, branch); err != nil {
+	mine, err := writeRecord(dir, branch, os.Getpid())
+	if err != nil {
 		_ = os.RemoveAll(dir)
-		return err
+		return nil, err
 	}
-	return nil
+	return mine, nil
 }
 
 // Repin atomically transfers slot's lease to the calling session,
@@ -113,26 +120,30 @@ func Acquire(leasesDir, slot, branch string) error {
 // A live lease other than the expected one returns *HeldError;
 // a stale or unreadable one is taken over regardless of expect,
 // since its holder is either provably dead or unprovable-and-
-// being-cleared on explicit user request.
-func Repin(leasesDir, slot, branch string, expect *Info) error {
+// being-cleared on explicit user request. The new record names
+// the session (wt's original parent) — this is the handoff half
+// of both protocols: a finished claim pins its slot to the
+// session doing the work, and a release pins the slot to the
+// session clearing it. The record written is returned.
+func Repin(leasesDir, slot, branch string, expect *Info) (*Info, error) {
 	if err := os.MkdirAll(leasesDir, 0o755); err != nil {
-		return err
+		return nil, err
 	}
 	unlock, err := lockExclusive(filepath.Join(leasesDir, ".acquire.lock"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer unlock()
 
 	dir := filepath.Join(leasesDir, slot)
 	current, rerr := readRecord(dir)
 	if rerr == nil && !current.same(expect) && !current.Stale() {
-		return &HeldError{Slot: slot, Info: current}
+		return nil, &HeldError{Slot: slot, Info: current}
 	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
+		return nil, err
 	}
-	return writeRecord(dir, branch)
+	return writeRecord(dir, branch, sessionPID)
 }
 
 // Release frees slot; releasing a free slot is not an error,
@@ -204,13 +215,13 @@ func (i *Info) same(o *Info) bool {
 // start time, instead of being mistaken for a reparented orphan.
 var sessionPID = os.Getppid()
 
-func writeRecord(dir, branch string) error {
+func writeRecord(dir, branch string, pid int) (*Info, error) {
 	host, err := os.Hostname()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	info := &Info{
-		PID:       sessionPID,
+		PID:       pid,
 		Hostname:  host,
 		Branch:    branch,
 		ClaimedAt: time.Now().UTC(),
@@ -220,19 +231,19 @@ func writeRecord(dir, branch string) error {
 	info.PIDStart, _ = processStart(info.PID)
 	raw, err := toml.Marshal(info)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	// Temp file + rename: a crash mid-write leaves a recordless
 	// directory — the state Acquire already reclaims — never a
 	// torn or empty record, which nothing could ever prove dead.
 	tmp, err := os.CreateTemp(dir, recordName+".tmp-*")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if _, err := tmp.Write(raw); err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmp.Name())
-		return err
+		return nil, err
 	}
 	// Synced before the rename: without it a power loss could
 	// publish an empty or torn record at the final name — one that
@@ -240,13 +251,16 @@ func writeRecord(dir, branch string) error {
 	if err := tmp.Sync(); err != nil {
 		_ = tmp.Close()
 		_ = os.Remove(tmp.Name())
-		return err
+		return nil, err
 	}
 	if err := tmp.Close(); err != nil {
 		_ = os.Remove(tmp.Name())
-		return err
+		return nil, err
 	}
-	return os.Rename(tmp.Name(), filepath.Join(dir, recordName))
+	if err := os.Rename(tmp.Name(), filepath.Join(dir, recordName)); err != nil {
+		return nil, err
+	}
+	return info, nil
 }
 
 func readRecord(dir string) (*Info, error) {

@@ -15,7 +15,7 @@ import (
 
 func TestAcquireFree(t *testing.T) {
 	dir := t.TempDir()
-	if err := Acquire(dir, "pool-1", "feature/login"); err != nil {
+	if _, err := Acquire(dir, "pool-1", "feature/login"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -35,10 +35,10 @@ func TestAcquireFree(t *testing.T) {
 	if info.Branch != "feature/login" {
 		t.Errorf("Branch = %q, want %q", info.Branch, "feature/login")
 	}
-	// The liveness anchor is the invoking session (wt itself exits
-	// immediately), which from this test's perspective is its parent.
-	if info.PID != os.Getppid() {
-		t.Errorf("PID = %d, want parent pid %d", info.PID, os.Getppid())
+	// The claim phase anchors on the claiming process itself; the
+	// lease tracks the session only after the success-side Repin.
+	if info.PID != os.Getpid() {
+		t.Errorf("PID = %d, want own pid %d", info.PID, os.Getpid())
 	}
 	if info.ClaimedAt.IsZero() {
 		t.Error("ClaimedAt is zero")
@@ -67,10 +67,10 @@ func TestGetFreeSlot(t *testing.T) {
 
 func TestAcquireHeld(t *testing.T) {
 	dir := t.TempDir()
-	if err := Acquire(dir, "pool-1", "first"); err != nil {
+	if _, err := Acquire(dir, "pool-1", "first"); err != nil {
 		t.Fatal(err)
 	}
-	err := Acquire(dir, "pool-1", "second")
+	_, err := Acquire(dir, "pool-1", "second")
 	var held *HeldError
 	if !errors.As(err, &held) {
 		t.Fatalf("second Acquire error = %v, want *HeldError", err)
@@ -82,7 +82,7 @@ func TestAcquireHeld(t *testing.T) {
 
 func TestReleaseIsIdempotent(t *testing.T) {
 	dir := t.TempDir()
-	if err := Acquire(dir, "pool-1", "x"); err != nil {
+	if _, err := Acquire(dir, "pool-1", "x"); err != nil {
 		t.Fatal(err)
 	}
 	if err := Release(dir, "pool-1"); err != nil {
@@ -94,7 +94,7 @@ func TestReleaseIsIdempotent(t *testing.T) {
 	if err := Release(dir, "pool-1"); err != nil {
 		t.Errorf("second Release: %v", err)
 	}
-	if err := Acquire(dir, "pool-1", "y"); err != nil {
+	if _, err := Acquire(dir, "pool-1", "y"); err != nil {
 		t.Errorf("Acquire after Release: %v", err)
 	}
 }
@@ -144,7 +144,7 @@ func TestAcquireStealsDeadPID(t *testing.T) {
 		Branch:    "crashed",
 		ClaimedAt: time.Now(),
 	})
-	if err := Acquire(dir, "pool-1", "fresh"); err != nil {
+	if _, err := Acquire(dir, "pool-1", "fresh"); err != nil {
 		t.Fatalf("Acquire over dead lease: %v", err)
 	}
 	info, err := Get(dir, "pool-1")
@@ -167,7 +167,7 @@ func TestAcquireStealsReusedPID(t *testing.T) {
 		Branch:    "reused",
 		ClaimedAt: time.Now(),
 	})
-	if err := Acquire(dir, "pool-1", "fresh"); err != nil {
+	if _, err := Acquire(dir, "pool-1", "fresh"); err != nil {
 		t.Fatalf("Acquire over reused-PID lease: %v", err)
 	}
 }
@@ -186,7 +186,7 @@ func TestLiveLeaseIsNeverStaleByAge(t *testing.T) {
 		Branch:    "long-running",
 		ClaimedAt: time.Now().Add(-90 * 24 * time.Hour),
 	})
-	err = Acquire(dir, "pool-1", "impatient")
+	_, err = Acquire(dir, "pool-1", "impatient")
 	var held *HeldError
 	if !errors.As(err, &held) {
 		t.Fatalf("Acquire over live lease error = %v, want *HeldError", err)
@@ -203,7 +203,7 @@ func TestForeignHostLeaseIsNeverStale(t *testing.T) {
 		Branch:    "remote",
 		ClaimedAt: time.Now(),
 	})
-	err := Acquire(dir, "pool-1", "local")
+	_, err := Acquire(dir, "pool-1", "local")
 	var held *HeldError
 	if !errors.As(err, &held) {
 		t.Fatalf("Acquire over foreign-host lease error = %v, want *HeldError", err)
@@ -219,7 +219,7 @@ func TestRecordlessLeaseIsReclaimed(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "pool-1"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := Acquire(dir, "pool-1", "x"); err != nil {
+	if _, err := Acquire(dir, "pool-1", "x"); err != nil {
 		t.Fatalf("Acquire over a recordless lease: %v", err)
 	}
 }
@@ -246,7 +246,7 @@ func TestCorruptRecordHeldConservatively(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	aerr := Acquire(dir, "pool-1", "x")
+	_, aerr := Acquire(dir, "pool-1", "x")
 	var held *HeldError
 	if !errors.As(aerr, &held) {
 		t.Fatalf("Acquire error = %v, want *HeldError", aerr)
@@ -318,7 +318,7 @@ func TestSoak(t *testing.T) {
 			defer wg.Done()
 			for r := range rounds {
 				i := (w + r) % len(slots)
-				err := Acquire(dir, slots[i], "work")
+				_, err := Acquire(dir, slots[i], "work")
 				var held *HeldError
 				if errors.As(err, &held) {
 					continue
@@ -341,7 +341,7 @@ func TestSoak(t *testing.T) {
 
 	// No slot was lost: every one is acquirable at the end.
 	for _, s := range slots {
-		if err := Acquire(dir, s, "final"); err != nil {
+		if _, err := Acquire(dir, s, "final"); err != nil {
 			t.Errorf("slot %s lost after soak: %v", s, err)
 		}
 	}
@@ -366,14 +366,14 @@ func live(t *testing.T, branch string) Info {
 
 func TestRepinTakesTheExpectedLease(t *testing.T) {
 	dir := t.TempDir()
-	if err := Acquire(dir, "pool-1", "feat"); err != nil {
+	if _, err := Acquire(dir, "pool-1", "feat"); err != nil {
 		t.Fatal(err)
 	}
 	expect, err := Get(dir, "pool-1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := Repin(dir, "pool-1", "feat", expect); err != nil {
+	if _, err := Repin(dir, "pool-1", "feat", expect); err != nil {
 		t.Fatalf("Repin over the expected lease: %v", err)
 	}
 	got, err := Get(dir, "pool-1")
@@ -398,7 +398,7 @@ func TestRepinRefusesAChangedLiveLease(t *testing.T) {
 		ClaimedAt: time.Now(),
 	}
 	plant(t, dir, "pool-1", live(t, "racer"))
-	err := Repin(dir, "pool-1", "crashed", expect)
+	_, err := Repin(dir, "pool-1", "crashed", expect)
 	var held *HeldError
 	if !errors.As(err, &held) {
 		t.Fatalf("Repin over a changed live lease error = %v, want *HeldError", err)
@@ -411,7 +411,7 @@ func TestRepinRefusesAChangedLiveLease(t *testing.T) {
 func TestRepinRefusesALiveLeaseWhenNoneWasExpected(t *testing.T) {
 	dir := t.TempDir()
 	plant(t, dir, "pool-1", live(t, "racer"))
-	err := Repin(dir, "pool-1", "x", nil)
+	_, err := Repin(dir, "pool-1", "x", nil)
 	var held *HeldError
 	if !errors.As(err, &held) {
 		t.Fatalf("Repin(nil expect) over a live lease error = %v, want *HeldError", err)
@@ -430,7 +430,7 @@ func TestRepinClearsWedgedStates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := Repin(dir, "pool-1", "rescue", nil); err != nil {
+	if _, err := Repin(dir, "pool-1", "rescue", nil); err != nil {
 		t.Fatalf("Repin over an unreadable record: %v", err)
 	}
 
@@ -450,12 +450,12 @@ func TestRepinClearsWedgedStates(t *testing.T) {
 		Branch:    "crashed-a",
 		ClaimedAt: time.Now(),
 	}
-	if err := Repin(dir, "pool-2", "rescue", other); err != nil {
+	if _, err := Repin(dir, "pool-2", "rescue", other); err != nil {
 		t.Fatalf("Repin over a different-but-stale lease: %v", err)
 	}
 
 	// No lease at all: repin claims outright (drift healing).
-	if err := Repin(dir, "pool-3", "heal", nil); err != nil {
+	if _, err := Repin(dir, "pool-3", "heal", nil); err != nil {
 		t.Fatalf("Repin on a free slot: %v", err)
 	}
 	if info, err := Get(dir, "pool-3"); err != nil || info == nil {
@@ -465,10 +465,10 @@ func TestRepinClearsWedgedStates(t *testing.T) {
 
 func TestAcquireRefusesARepinnedSlot(t *testing.T) {
 	dir := t.TempDir()
-	if err := Repin(dir, "pool-1", "releasing", nil); err != nil {
+	if _, err := Repin(dir, "pool-1", "releasing", nil); err != nil {
 		t.Fatal(err)
 	}
-	err := Acquire(dir, "pool-1", "eager")
+	_, err := Acquire(dir, "pool-1", "eager")
 	var held *HeldError
 	if !errors.As(err, &held) {
 		t.Fatalf("Acquire over a repinned slot error = %v, want *HeldError", err)

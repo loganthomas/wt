@@ -57,7 +57,7 @@ func (p *poolRepo) claimSlot(
 ) (string, error) {
 	skip := make(map[string]bool)
 	for {
-		slot, reclaimed, err := p.acquire(branch, skip)
+		slot, mine, reclaimed, err := p.acquire(branch, skip)
 		if err != nil {
 			return "", err
 		}
@@ -67,6 +67,17 @@ func (p *poolRepo) claimSlot(
 		}
 		dest, err := p.prepareSlot(ctx, slot, branch, base, chatter)
 		if err == nil {
+			// The handoff: the slot was held by wt itself while it
+			// provisioned; now the session doing the work takes over
+			// (see the lease package comment).
+			if _, err := lease.Repin(p.state.LeasesDir(), slot, branch, mine); err != nil {
+				var heldErr *lease.HeldError
+				if errors.As(err, &heldErr) {
+					return "", preconditionf(
+						"%v — the slot changed hands mid-claim; rerun the claim", heldErr)
+				}
+				return "", err
+			}
 			fmt.Fprintf(chatter, "claimed %s for %s\n", slot, branch)
 			return dest, nil
 		}
@@ -149,9 +160,12 @@ func (p *poolRepo) prepareSlot(
 
 // acquire leases the first available slot outside skip: free ones
 // first, then provably dead ones, so a crashed session's leftovers
-// survive as long as the pool has other room. It reports a stolen
-// lease's old record so the caller can say what was reclaimed.
-func (p *poolRepo) acquire(branch string, skip map[string]bool) (string, *lease.Info, error) {
+// survive as long as the pool has other room. It returns the lease
+// record it wrote, and a stolen lease's old record so the caller
+// can say what was reclaimed.
+func (p *poolRepo) acquire(
+	branch string, skip map[string]bool,
+) (string, *lease.Info, *lease.Info, error) {
 	leases := p.state.LeasesDir()
 	names := pool.Names(p.cfg.Pool.Size)
 	for _, slot := range names {
@@ -161,8 +175,8 @@ func (p *poolRepo) acquire(branch string, skip map[string]bool) (string, *lease.
 		if held, err := lease.Get(leases, slot); err != nil || held != nil {
 			continue
 		}
-		if err := lease.Acquire(leases, slot, branch); err == nil {
-			return slot, nil, nil
+		if mine, err := lease.Acquire(leases, slot, branch); err == nil {
+			return slot, mine, nil, nil
 		}
 		// Lost the race for this slot; keep scanning.
 	}
@@ -174,17 +188,17 @@ func (p *poolRepo) acquire(branch string, skip map[string]bool) (string, *lease.
 		if err != nil || old == nil || !old.Stale() {
 			continue
 		}
-		if err := lease.Acquire(leases, slot, branch); err == nil {
-			return slot, old, nil
+		if mine, err := lease.Acquire(leases, slot, branch); err == nil {
+			return slot, mine, old, nil
 		}
 	}
 	size := p.cfg.Pool.Size
 	if len(skip) > 0 {
-		return "", nil, preconditionf(
+		return "", nil, nil, preconditionf(
 			"no usable slot in the pool of %d (%d blocked, reasons above) — "+
 				"resolve a blocked slot, or `wt pool resize %d`", size, len(skip), size+1)
 	}
-	return "", nil, preconditionf(
+	return "", nil, nil, preconditionf(
 		"no free slot in the pool of %d — `wt pool ls` shows the holders; "+
 			"`wt done` a finished one, or `wt pool resize %d`", size, size+1)
 }
@@ -247,7 +261,7 @@ func (p *poolRepo) releaseSlot(
 	// here. A failure after the pin simply leaves the slot claimed
 	// by this session — truthful, retryable, and self-expiring if
 	// the session dies.
-	if err := lease.Repin(leases, slot, cmp.Or(t.Branch, "(releasing)"), held); err != nil {
+	if _, err := lease.Repin(leases, slot, cmp.Or(t.Branch, "(releasing)"), held); err != nil {
 		var heldErr *lease.HeldError
 		if errors.As(err, &heldErr) {
 			return preconditionf("%v — the slot changed hands; let that claim finish", heldErr)
@@ -353,7 +367,7 @@ func (p *poolRepo) provisionPool(ctx context.Context, from, to int, chatter io.W
 	leases := p.state.LeasesDir()
 	for i := from + 1; i <= to; i++ {
 		slot := pool.SlotName(i)
-		if err := lease.Acquire(leases, slot, "(provisioning)"); err != nil {
+		if _, err := lease.Acquire(leases, slot, "(provisioning)"); err != nil {
 			return err
 		}
 		err := p.provisionSlot(ctx, slot, p.cfg.Base, chatter)

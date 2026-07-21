@@ -196,7 +196,7 @@ func (p *poolRepo) shrink(ctx context.Context, from, to int, chatter io.Writer) 
 	}
 	for i := from; i > to; i-- {
 		slot := pool.SlotName(i)
-		if err := lease.Acquire(leases, slot, "(removing)"); err != nil {
+		if _, err := lease.Acquire(leases, slot, "(removing)"); err != nil {
 			return resizeHeld(err)
 		}
 		if err := p.removeSlot(ctx, trees, slot); err != nil {
