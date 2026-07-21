@@ -118,7 +118,7 @@ func (p *poolRepo) acquire(branch string) (string, *lease.Info, error) {
 		if held, err := lease.Get(leases, slot); err != nil || held != nil {
 			continue
 		}
-		if _, err := lease.Acquire(leases, slot, branch); err == nil {
+		if err := lease.Acquire(leases, slot, branch); err == nil {
 			return slot, nil, nil
 		}
 		// Lost the race for this slot; keep scanning.
@@ -128,7 +128,7 @@ func (p *poolRepo) acquire(branch string) (string, *lease.Info, error) {
 		if err != nil || old == nil || !old.Stale() {
 			continue
 		}
-		if _, err := lease.Acquire(leases, slot, branch); err == nil {
+		if err := lease.Acquire(leases, slot, branch); err == nil {
 			return slot, old, nil
 		}
 	}
@@ -285,7 +285,7 @@ func (p *poolRepo) provisionPool(ctx context.Context, from, to int, chatter io.W
 	leases := p.state.LeasesDir()
 	for i := from + 1; i <= to; i++ {
 		slot := pool.SlotName(i)
-		if _, err := lease.Acquire(leases, slot, "(provisioning)"); err != nil {
+		if err := lease.Acquire(leases, slot, "(provisioning)"); err != nil {
 			return err
 		}
 		err := p.provisionSlot(ctx, slot, p.cfg.Base, chatter)

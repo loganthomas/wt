@@ -209,7 +209,7 @@ func (p *poolRepo) shrink(ctx context.Context, from, to int, chatter io.Writer) 
 	}
 	for i := from; i > to; i-- {
 		slot := pool.SlotName(i)
-		if _, err := lease.Acquire(leases, slot, "(removing)"); err != nil {
+		if err := lease.Acquire(leases, slot, "(removing)"); err != nil {
 			if errIsHeld(err) {
 				return preconditionf("%v — a claim raced the resize; rerun it", err)
 			}

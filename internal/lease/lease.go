@@ -60,13 +60,13 @@ func (e *HeldError) Error() string {
 // The flock cannot wedge: the kernel drops it with its holder.
 // A provably dead lease is stolen; a live or unverifiable one
 // returns *HeldError.
-func Acquire(leasesDir, slot, branch string) (*Info, error) {
+func Acquire(leasesDir, slot, branch string) error {
 	if err := os.MkdirAll(leasesDir, 0o755); err != nil {
-		return nil, err
+		return err
 	}
 	unlock, err := lockExclusive(filepath.Join(leasesDir, ".acquire.lock"))
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer unlock()
 
@@ -83,24 +83,56 @@ func Acquire(leasesDir, slot, branch string) (*Info, error) {
 			// A corrupt record proves nothing about its holder;
 			// never steal on a guess (wt release clears a truly
 			// wedged slot by hand).
-			return nil, &HeldError{Slot: slot}
+			return &HeldError{Slot: slot}
 		case !info.Stale():
-			return nil, &HeldError{Slot: slot, Info: info}
+			return &HeldError{Slot: slot, Info: info}
 		}
 		if err := os.RemoveAll(dir); err != nil {
-			return nil, err
+			return err
 		}
 		err = os.Mkdir(dir, 0o755)
 	}
 	if err != nil {
-		return nil, err
+		return err
 	}
-	info, err := writeRecord(dir, branch)
-	if err != nil {
+	if err := writeRecord(dir, branch); err != nil {
 		_ = os.RemoveAll(dir)
-		return nil, err
+		return err
 	}
-	return info, nil
+	return nil
+}
+
+// Repin atomically transfers slot's lease to the calling session,
+// provided it has not changed hands since expect was read
+// (nil expect: the record was absent or unreadable at entry).
+// It is the release-side half of the claim protocol: guards and
+// resets that run after a successful Repin cannot race a
+// concurrent Acquire, because the slot is now held live by the
+// releasing session itself — and should that session die
+// mid-release, its pin goes stale like any other lease.
+// A live lease other than the expected one returns *HeldError;
+// a stale or unreadable one is taken over regardless of expect,
+// since its holder is either provably dead or unprovable-and-
+// being-cleared on explicit user request.
+func Repin(leasesDir, slot, branch string, expect *Info) error {
+	if err := os.MkdirAll(leasesDir, 0o755); err != nil {
+		return err
+	}
+	unlock, err := lockExclusive(filepath.Join(leasesDir, ".acquire.lock"))
+	if err != nil {
+		return err
+	}
+	defer unlock()
+
+	dir := filepath.Join(leasesDir, slot)
+	current, rerr := readRecord(dir)
+	if rerr == nil && !current.same(expect) && !current.Stale() {
+		return &HeldError{Slot: slot, Info: current}
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return writeRecord(dir, branch)
 }
 
 // Release frees slot; releasing a free slot is not an error,
@@ -147,13 +179,31 @@ func (i *Info) Stale() bool {
 	return start != i.PIDStart
 }
 
-func writeRecord(dir, branch string) (*Info, error) {
+// same reports whether two records name the same claim.
+// ClaimedAt participates so a slot released and re-claimed by the
+// very same session still reads as having changed hands.
+func (i *Info) same(o *Info) bool {
+	return i != nil && o != nil &&
+		i.PID == o.PID && i.PIDStart == o.PIDStart &&
+		i.Hostname == o.Hostname && i.ClaimedAt.Equal(o.ClaimedAt)
+}
+
+func writeRecord(dir, branch string) error {
 	host, err := os.Hostname()
 	if err != nil {
-		return nil, err
+		return err
+	}
+	pid := os.Getppid()
+	if pid == 1 {
+		// The invoking session died before this claim finished and
+		// the process was reparented to init/launchd — whose PID
+		// would read live until reboot. Recording wt's own PID
+		// makes the lease go stale the moment wt exits, so an
+		// orphaned claim self-expires instead of wedging the slot.
+		pid = os.Getpid()
 	}
 	info := &Info{
-		PID:       os.Getppid(),
+		PID:       pid,
 		Hostname:  host,
 		Branch:    branch,
 		ClaimedAt: time.Now().UTC(),
@@ -163,12 +213,25 @@ func writeRecord(dir, branch string) (*Info, error) {
 	info.PIDStart, _ = processStart(info.PID)
 	raw, err := toml.Marshal(info)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if err := os.WriteFile(filepath.Join(dir, recordName), raw, 0o644); err != nil {
-		return nil, err
+	// Temp file + rename: a crash mid-write leaves a recordless
+	// directory — the state Acquire already reclaims — never a
+	// torn or empty record, which nothing could ever prove dead.
+	tmp, err := os.CreateTemp(dir, recordName+".tmp-*")
+	if err != nil {
+		return err
 	}
-	return info, nil
+	if _, err := tmp.Write(raw); err != nil {
+		_ = tmp.Close()
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(tmp.Name())
+		return err
+	}
+	return os.Rename(tmp.Name(), filepath.Join(dir, recordName))
 }
 
 func readRecord(dir string) (*Info, error) {
