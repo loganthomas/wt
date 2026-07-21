@@ -122,11 +122,14 @@ func detectDefaults(root string, tracked map[string]bool) detected {
 // layers, most explicit first: flags, then global defaults, then
 // what the scan proposes, so users confirm recognizable values
 // instead of inventing them. A changed flag wins even when its
-// value is empty, since under --yes an empty --refresh is the way
-// to decline a global or detected hook and zero values cannot stand
-// in for "unset". It returns the notes worth printing: only the
-// proposals that survived, because advertising a value that flags
-// or global config then beat would misstate what was configured.
+// value is empty, so an empty --refresh declines the scan's
+// proposal and keeps it out of the repo file. It cannot unset a
+// global default: by the layering contract an empty value never
+// overrides, so a global hook merges back in at load time and the
+// global config is where to remove it. It returns the notes worth
+// printing: only the proposals that survived, because advertising
+// a value that flags or global config then beat would misstate
+// what was configured.
 func applyDetected(
 	opts *initOptions, flags *pflag.FlagSet, seed config.Config, det detected,
 ) []string {
