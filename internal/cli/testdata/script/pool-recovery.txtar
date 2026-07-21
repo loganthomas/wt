@@ -1,7 +1,7 @@
-# A corrupt lease record must never wedge a slot for good:
-# claim refuses it (wt only steals what it can prove dead),
-# so `wt release pool-N` is the documented escape hatch and has
-# to work even when the record is unreadable and the slot parked.
+# Broken pool states must always have a way out (D15, R3):
+# wedged lease records clear via release, half-provisioned slots
+# reprovision themselves, and a guard-blocked slot never takes
+# the whole pool down.
 
 [!exec:git] skip 'git not on PATH'
 
@@ -47,6 +47,28 @@ exists ../acme.trees/pool-1/setup-ran
 # dirty guard still speaks for it on the way out
 rm ../acme.trees/pool-1/setup-ran
 exec wt done feat-c
+
+# a slot the guards refuse must not take the whole pool down:
+# the claim notes it, skips it, and uses the next slot
+exec wt pool resize 2
+stderr 'provisioned pool-2'
+exec wt claim feat-d
+stdout '[/\\]pool-1$'
+
+# strand an orphan commit in pool-1 and drop its lease by hand,
+# as a crashed session plus a reboot (PID reuse) would
+exec git -C ../acme.trees/pool-1 checkout -q --detach
+exec git -C ../acme.trees/pool-1 commit -q --allow-empty -m 'stranded'
+exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && rm -rf "$d/leases/pool-1"'
+
+exec wt claim feat-e
+stdout '[/\\]pool-2$'
+stderr 'skipping pool-1'
+stderr 'reachable only from its detached HEAD'
+
+# when nothing else is left, the claim surfaces the blockers
+exitcode 3 wt claim feat-f
+stderr 'blocked'
 
 -- hooked.toml --
 base = 'main'

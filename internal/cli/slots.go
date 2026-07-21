@@ -48,25 +48,43 @@ func poolOf(w *wtRepo) (*poolRepo, error) {
 // it, attach the branch, port the copy files, refresh behind the
 // lockfile gate. It returns the slot's path — the machine product
 // of every claim (D13). Any failure drops the lease again, so a
-// failed claim can never shrink the usable pool.
+// failed claim can never shrink the usable pool — and a slot the
+// guards refuse (say, stranded orphan commits) is skipped with a
+// notice rather than blocking every claim while healthy slots
+// sit free (R3).
 func (p *poolRepo) claimSlot(
 	ctx context.Context, branch, base string, chatter io.Writer,
-) (dest string, err error) {
-	slot, reclaimed, err := p.acquire(branch)
-	if err != nil {
-		return "", err
-	}
-	defer func() {
+) (string, error) {
+	skip := make(map[string]bool)
+	for {
+		slot, reclaimed, err := p.acquire(branch, skip)
 		if err != nil {
-			_ = lease.Release(p.state.LeasesDir(), slot)
+			return "", err
 		}
-	}()
-	if reclaimed != nil {
-		fmt.Fprintf(chatter, "reclaimed %s from a dead session (pid %d, was %s)\n",
-			slot, reclaimed.PID, reclaimed.Branch)
+		if reclaimed != nil {
+			fmt.Fprintf(chatter, "reclaimed %s from a dead session (pid %d, was %s)\n",
+				slot, reclaimed.PID, reclaimed.Branch)
+		}
+		dest, err := p.prepareSlot(ctx, slot, branch, base, chatter)
+		if err == nil {
+			fmt.Fprintf(chatter, "claimed %s for %s\n", slot, branch)
+			return dest, nil
+		}
+		_ = lease.Release(p.state.LeasesDir(), slot)
+		if exitCodeFor(err) != exitPrecondition {
+			return "", err
+		}
+		fmt.Fprintf(chatter, "skipping %s: %v\n", slot, err)
+		skip[slot] = true
 	}
+}
 
-	dest = filepath.Join(p.treesDir(), slot)
+// prepareSlot readies one leased slot for branch: provision or
+// reset, branch attach, copies, gated refresh.
+func (p *poolRepo) prepareSlot(
+	ctx context.Context, slot, branch, base string, chatter io.Writer,
+) (string, error) {
+	dest := filepath.Join(p.treesDir(), slot)
 	trees, err := p.g.Worktrees(ctx)
 	if err != nil {
 		return "", err
@@ -126,18 +144,20 @@ func (p *poolRepo) claimSlot(
 	if err := refreshTree(ctx, p.cfg, p.state, dest, slot, chatter); err != nil {
 		return "", err
 	}
-	fmt.Fprintf(chatter, "claimed %s for %s\n", slot, branch)
 	return dest, nil
 }
 
-// acquire leases the first available slot: free ones first, then
-// provably dead ones, so a crashed session's leftovers survive as
-// long as the pool has other room. It reports a stolen lease's
-// old record so the caller can say what was reclaimed.
-func (p *poolRepo) acquire(branch string) (string, *lease.Info, error) {
+// acquire leases the first available slot outside skip: free ones
+// first, then provably dead ones, so a crashed session's leftovers
+// survive as long as the pool has other room. It reports a stolen
+// lease's old record so the caller can say what was reclaimed.
+func (p *poolRepo) acquire(branch string, skip map[string]bool) (string, *lease.Info, error) {
 	leases := p.state.LeasesDir()
 	names := pool.Names(p.cfg.Pool.Size)
 	for _, slot := range names {
+		if skip[slot] {
+			continue
+		}
 		if held, err := lease.Get(leases, slot); err != nil || held != nil {
 			continue
 		}
@@ -147,6 +167,9 @@ func (p *poolRepo) acquire(branch string) (string, *lease.Info, error) {
 		// Lost the race for this slot; keep scanning.
 	}
 	for _, slot := range names {
+		if skip[slot] {
+			continue
+		}
 		old, err := lease.Get(leases, slot)
 		if err != nil || old == nil || !old.Stale() {
 			continue
@@ -156,6 +179,11 @@ func (p *poolRepo) acquire(branch string) (string, *lease.Info, error) {
 		}
 	}
 	size := p.cfg.Pool.Size
+	if len(skip) > 0 {
+		return "", nil, preconditionf(
+			"no usable slot in the pool of %d (%d blocked, reasons above) — "+
+				"resolve a blocked slot, or `wt pool resize %d`", size, len(skip), size+1)
+	}
 	return "", nil, preconditionf(
 		"no free slot in the pool of %d — `wt pool ls` shows the holders; "+
 			"`wt done` a finished one, or `wt pool resize %d`", size, size+1)
