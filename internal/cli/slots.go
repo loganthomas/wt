@@ -58,11 +58,13 @@ func poolOf(w *wtRepo) (*poolRepo, error) {
 // claimSlot runs a whole claim: lease a slot, provision or reset
 // it, attach the branch, port the copy files, refresh behind the
 // lockfile gate. It returns the slot's path, the machine product
-// of every claim (D13). Any failure drops the lease again, so a
-// failed claim can never shrink the usable pool, and a slot the
-// guards refuse (say, stranded orphan commits) is skipped with a
-// notice rather than blocking every claim while healthy slots
-// sit free (R3).
+// of every claim (D13). A failure drops the lease again, so a
+// failed claim does not shrink the usable pool, with one honest
+// exception: when even re-parking the slot fails, the lease is
+// kept on the session so the slot's condition stays visible. A
+// slot the guards refuse (say, stranded orphan commits) is
+// skipped with a notice rather than blocking every claim while
+// healthy slots sit free (R3).
 func (p *poolRepo) claimSlot(
 	ctx context.Context, branch, base string, chatter io.Writer,
 ) (string, error) {
