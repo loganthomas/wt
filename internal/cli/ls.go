@@ -53,29 +53,43 @@ func formatPorcelain(trees []gitx.Worktree) string {
 }
 
 // formatRows renders one aligned row per worktree.
-// Widths are computed by hand rather than with text/tabwriter:
-// padding must only ever sit between cells,
-// because trimming rendered lines would also strip
-// a path's own trailing spaces,
-// and stdout must stay exact for machine consumers (D13).
 func formatRows(trees []gitx.Worktree) string {
-	branchWidth, pathWidth := 0, 0
-	rows := make([][3]string, 0, len(trees))
+	rows := make([][]string, 0, len(trees))
 	for _, t := range trees {
-		row := [3]string{branchLabel(t), t.Path, stateLabel(t)}
-		rows = append(rows, row)
-		branchWidth = max(branchWidth, utf8.RuneCountInString(row[0]))
-		pathWidth = max(pathWidth, utf8.RuneCountInString(row[1]))
+		rows = append(rows, []string{branchLabel(t), t.Path, stateLabel(t)})
+	}
+	return alignRows(rows)
+}
+
+// alignRows renders rows in aligned columns, shared by every
+// tabular listing. Widths are computed by hand rather than with
+// text/tabwriter: padding must only ever sit between cells,
+// because trimming rendered lines would also strip a path's own
+// trailing spaces, and stdout must stay exact for machine
+// consumers (D13). Trailing empty cells drop their padding too,
+// so no line ever ends in spaces.
+func alignRows(rows [][]string) string {
+	var width []int
+	for _, row := range rows {
+		for i, cell := range row {
+			if i == len(width) {
+				width = append(width, 0)
+			}
+			width[i] = max(width[i], utf8.RuneCountInString(cell))
+		}
 	}
 	const gap = 2
 	var out strings.Builder
 	for _, row := range rows {
-		// fmt pads %s to a minimum rune count, matching the width math above.
-		if row[2] == "" {
-			fmt.Fprintf(&out, "%-*s%s\n", branchWidth+gap, row[0], row[1])
-		} else {
-			fmt.Fprintf(&out, "%-*s%-*s%s\n", branchWidth+gap, row[0], pathWidth+gap, row[1], row[2])
+		last := len(row) - 1
+		for last > 0 && row[last] == "" {
+			last--
 		}
+		for i := range last {
+			// fmt pads %s to a minimum rune count, matching the width math above.
+			fmt.Fprintf(&out, "%-*s", width[i]+gap, row[i])
+		}
+		fmt.Fprintln(&out, row[last])
 	}
 	return out.String()
 }

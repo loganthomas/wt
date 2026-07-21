@@ -7,9 +7,7 @@ import (
 	"io"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -53,65 +51,39 @@ func runPoolLs(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	var rows [][4]string
+	rows := make([][]string, 0, p.cfg.Pool.Size)
 	for _, slot := range pool.Names(p.cfg.Pool.Size) {
 		_, registered := findTree(trees, filepath.Join(p.treesDir(), slot))
 		held, err := lease.Get(p.state.LeasesDir(), slot)
 		rows = append(rows, slotRow(slot, registered, held, err))
 	}
-	_, err = fmt.Fprint(cmd.OutOrStdout(), formatSlotRows(rows))
+	_, err = fmt.Fprint(cmd.OutOrStdout(), alignRows(rows))
 	return err
 }
 
 // slotRow renders one slot's occupancy: slot, state, branch, detail.
-func slotRow(slot string, registered bool, held *lease.Info, err error) [4]string {
+func slotRow(slot string, registered bool, held *lease.Info, err error) []string {
 	switch {
 	case err != nil:
-		return [4]string{
+		return []string{
 			slot, "claimed", "?",
 			fmt.Sprintf("lease record unreadable — `wt release %s` clears it", slot),
 		}
 	case held == nil && !registered:
-		return [4]string{slot, "unprovisioned", "-", "provisions on first claim"}
+		return []string{slot, "unprovisioned", "-", "provisions on first claim"}
 	case held == nil:
-		return [4]string{slot, "free", "-", ""}
+		return []string{slot, "free", "-", ""}
 	case held.Stale():
-		return [4]string{
+		return []string{
 			slot, "stale", held.Branch,
 			fmt.Sprintf("dead pid %d — reclaimed on next claim", held.PID),
 		}
 	default:
-		return [4]string{
+		return []string{
 			slot, "claimed", held.Branch,
 			fmt.Sprintf("pid %d, claimed %s", held.PID, humanAge(held.ClaimedAt)),
 		}
 	}
-}
-
-// formatSlotRows aligns like wt ls: padding only ever sits
-// between cells so stdout stays exact for machine consumers (D13).
-func formatSlotRows(rows [][4]string) string {
-	var width [3]int
-	for _, row := range rows {
-		for i := range width {
-			width[i] = max(width[i], utf8.RuneCountInString(row[i]))
-		}
-	}
-	const gap = 2
-	var out strings.Builder
-	for _, row := range rows {
-		// Trailing empty cells drop their padding too, so no line
-		// ever ends in spaces.
-		last := len(row) - 1
-		for last > 0 && row[last] == "" {
-			last--
-		}
-		for i := 0; i < last; i++ {
-			fmt.Fprintf(&out, "%-*s", width[i]+gap, row[i])
-		}
-		fmt.Fprintln(&out, row[last])
-	}
-	return out.String()
 }
 
 // humanAge says how long ago t was, coarsely: pool occupancy is
