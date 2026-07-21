@@ -92,8 +92,17 @@ func (p *poolRepo) claimSlot(
 			return dest, nil
 		}
 		if rerr := p.reparkSlot(ctx, slot, branch, base); rerr != nil {
+			// The lease so far names wt itself and dies with it;
+			// only a repin to the session makes "keeps its claim"
+			// true past this process's exit.
+			if _, perr := lease.Repin(p.state.LeasesDir(), slot, branch, mine); perr != nil {
+				return "", fmt.Errorf(
+					"%w — re-parking also failed (%v); `wt release %s` clears the slot",
+					err, rerr, slot)
+			}
 			return "", fmt.Errorf(
-				"%w — the slot keeps its claim; `wt release %s` clears it", err, slot)
+				"%w — re-parking also failed (%v); the slot keeps its claim, "+
+					"`wt release %s` clears it", err, rerr, slot)
 		}
 		_ = lease.Release(p.state.LeasesDir(), slot, mine)
 		if exitCodeFor(err) != exitPrecondition {
@@ -111,8 +120,9 @@ func (p *poolRepo) claimSlot(
 // out" while concurrent claims silently reset the tree. Slots the
 // guards refused are left exactly as found — a forced detach
 // there would destroy the very state the guard protected. When
-// the re-park itself fails, the caller keeps the lease so the
-// slot's condition stays visible.
+// the re-park itself fails, the caller repins the lease to the
+// session so the slot's condition stays visibly claimed instead
+// of expiring with wt and being silently reset by the next claim.
 func (p *poolRepo) reparkSlot(ctx context.Context, slot, branch, base string) error {
 	dest := filepath.Join(p.treesDir(), slot)
 	trees, err := p.g.Worktrees(ctx)
@@ -408,10 +418,13 @@ func (p *poolRepo) releaseVacantSlot(slot string, chatter io.Writer) error {
 	if err != nil {
 		return err
 	}
-	if err := lease.Release(p.state.LeasesDir(), slot, pinned); err != nil {
+	// State goes while the pin still holds: dropped after the
+	// lease, it could race a fresh claim and delete the marker
+	// that claim just wrote.
+	if err := p.state.RemoveTree(slot); err != nil {
 		return err
 	}
-	if err := p.state.RemoveTree(slot); err != nil {
+	if err := lease.Release(p.state.LeasesDir(), slot, pinned); err != nil {
 		return err
 	}
 	fmt.Fprintf(chatter, "released %s\n", slot)
