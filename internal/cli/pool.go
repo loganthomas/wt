@@ -7,6 +7,7 @@ import (
 	"io"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -156,10 +157,11 @@ func (p *poolRepo) grow(ctx context.Context, from, to int, chatter io.Writer) er
 	return resizeHeld(p.provisionPool(ctx, from, to, chatter))
 }
 
-// resizeHeld maps a lease refusal during resize to exit 3 with
-// the honest way forward: a readable holder means a claim raced
-// and a rerun will succeed once it settles; an unreadable record
-// never resolves itself and only `wt release` clears it.
+// resizeHeld maps a lease refusal during pool provisioning to
+// exit 3 with the honest way forward: a readable holder means a
+// claim raced and a rerun will succeed once it settles; an
+// unreadable record never resolves itself and only `wt release`
+// clears it. Shared by resize and init, the two bulk provisioners.
 func resizeHeld(err error) error {
 	var held *lease.HeldError
 	if !errors.As(err, &held) {
@@ -168,7 +170,7 @@ func resizeHeld(err error) error {
 	if held.Info == nil {
 		return preconditionf("%v — `wt release %s` clears it", held, held.Slot)
 	}
-	return preconditionf("%v — a claim raced the resize; rerun it", held)
+	return preconditionf("%v — a concurrent claim holds it; rerun once it settles", held)
 }
 
 // shrink removes the top slots down to size. Claimed victims
@@ -186,6 +188,15 @@ func (p *poolRepo) shrink(ctx context.Context, from, to int, chatter io.Writer) 
 				"%s's lease record is unreadable — `wt release %s` clears it", slot, slot)
 		}
 		if held != nil && !held.Stale() {
+			// Internal leases — "(provisioning)", "(removing)",
+			// "(releasing)" — name no tree, so the wt done advice
+			// would be nonsense for them.
+			if strings.HasPrefix(held.Branch, "(") {
+				return preconditionf(
+					"%s is held by another wt operation %s — let it finish; "+
+						"if it crashed, `wt release %s` clears it",
+					slot, held.Branch, slot)
+			}
 			return preconditionf("%s is claimed for %s — `wt done %s` first",
 				slot, held.Branch, held.Branch)
 		}

@@ -127,7 +127,7 @@ func provisionInitialPool(ctx context.Context, r *repo.Repo, chatter io.Writer) 
 			"base %q not found — slots will be provisioned on first claim\n", merged.Base)
 		return nil
 	}
-	return p.provisionPool(ctx, 0, merged.Pool.Size, chatter)
+	return resizeHeld(p.provisionPool(ctx, 0, merged.Pool.Size, chatter))
 }
 
 // runInitForm collects the same values the flags cover,
