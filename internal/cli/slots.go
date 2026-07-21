@@ -285,6 +285,12 @@ func (p *poolRepo) resetSlot(
 func (p *poolRepo) releaseSlot(
 	ctx context.Context, t gitx.Worktree, slot string, deleteBranch bool, chatter io.Writer,
 ) error {
+	// Before the repin: an unresolvable base would otherwise fail
+	// deep in the reset with a raw git error, after the lease has
+	// already been rewritten onto this session.
+	if err := checkBase(ctx, p.g, p.cfg.Base); err != nil {
+		return err
+	}
 	leases := p.state.LeasesDir()
 	held, err := lease.Get(leases, slot)
 	// An unreadable record still occupies the slot — claim never
