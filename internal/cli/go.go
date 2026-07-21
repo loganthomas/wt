@@ -37,7 +37,7 @@ func runJump(cmd *cobra.Command, query string) error {
 	if err != nil {
 		return err
 	}
-	cands := jumpCandidates(trees, slotNamer(r))
+	cands := jumpCandidates(trees, slotTreesDir(r))
 	if query == "" {
 		return jumpInteractive(cmd, trees, cands)
 	}
@@ -80,13 +80,16 @@ func jumpInteractive(cmd *cobra.Command, trees []gitx.Worktree, cands []nav.Cand
 // one, and landing there would race the next claim's reset —
 // while claimed slots carry their address for display
 // ("branch → pool-3", PLAN.md Phase 4).
-func jumpCandidates(trees []gitx.Worktree, slotOf func(string) (string, bool)) []nav.Candidate {
+func jumpCandidates(trees []gitx.Worktree, treesDir string) []nav.Candidate {
 	cands := make([]nav.Candidate, 0, len(trees))
 	for _, t := range trees {
 		if t.Bare {
 			continue
 		}
-		slot, isSlot := slotOf(t.Path)
+		slot, isSlot := "", false
+		if treesDir != "" {
+			slot, isSlot = pool.SlotPath(treesDir, t.Path)
+		}
 		if isSlot && t.Branch == "" {
 			continue
 		}
@@ -95,14 +98,14 @@ func jumpCandidates(trees []gitx.Worktree, slotOf func(string) (string, bool)) [
 	return cands
 }
 
-// slotNamer maps tree paths to slot names, best-effort: config
-// trouble only costs the annotation, never the jump, matching
-// repoTrees' broken-config tolerance.
-func slotNamer(r *repo.Repo) func(string) (string, bool) {
+// slotTreesDir reports the container to annotate slots from, or
+// "" when pool mode is off — and on config trouble, which only
+// costs the annotation, never the jump, matching repoTrees'
+// broken-config tolerance.
+func slotTreesDir(r *repo.Repo) string {
 	cfg, err := loadMerged(r)
 	if err != nil || cfg.Pool == nil {
-		return func(string) (string, bool) { return "", false }
+		return ""
 	}
-	treesDir := r.TreesDir(cfg.TreesDir)
-	return func(path string) (string, bool) { return pool.SlotPath(treesDir, path) }
+	return r.TreesDir(cfg.TreesDir)
 }
