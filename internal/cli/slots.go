@@ -349,6 +349,12 @@ func (p *poolRepo) provisionSlot(
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
+	// A previous incarnation's recorded state must not leak into
+	// this tree: a leftover refresh hash would satisfy the gate and
+	// skip the very warm-up a cold tree exists to get.
+	if err := p.state.RemoveTree(slot); err != nil {
+		return err
+	}
 	if err := p.g.WorktreeAddDetach(ctx, dest, base); err != nil {
 		return err
 	}

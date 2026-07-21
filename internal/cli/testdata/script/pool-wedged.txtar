@@ -43,3 +43,26 @@ stderr 'not claimed'
 exec wt claim feat-b
 stderr 'provisioned pool-1'
 stdout '[/\\]pool-1$'
+exec wt release feat-b
+
+# a slot lost out of band must not inherit its predecessor's
+# refresh hash: the gate would skip the warm-up on a cold tree
+cp $WORK/refresh.toml .git/wt.toml
+exec wt claim feat-c
+stderr 'running refresh hook'
+exec wt release feat-c
+exec git worktree remove --force ../acme.trees/pool-1
+exec wt claim feat-d
+stderr 'provisioned pool-1'
+stderr 'running refresh hook'
+
+-- refresh.toml --
+base = 'main'
+trees_dir = '../acme.trees'
+
+[hooks]
+refresh = 'echo warmed'
+refresh_if_changed = ['dep-lock']
+
+[pool]
+size = 1
