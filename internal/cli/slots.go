@@ -30,6 +30,16 @@ type poolRepo struct {
 	state state.Dir
 }
 
+// openPool is the pool commands' shared preamble: resolve the
+// repo, then require pool mode.
+func openPool(ctx context.Context) (*poolRepo, error) {
+	w, err := openRepo(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return poolOf(w)
+}
+
 // poolOf upgrades an open repo to pool operations, or explains
 // why it cannot: the repo is fine, the mode is off (exit 3).
 func poolOf(w *wtRepo) (*poolRepo, error) {

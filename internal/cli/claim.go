@@ -30,15 +30,11 @@ func newClaimCmd() *cobra.Command {
 
 func runClaim(cmd *cobra.Command, branch, baseFlag string) error {
 	ctx := cmd.Context()
-	w, err := openRepo(ctx)
+	p, err := openPool(ctx)
 	if err != nil {
 		return err
 	}
-	p, err := poolOf(w)
-	if err != nil {
-		return err
-	}
-	base := cmp.Or(baseFlag, w.cfg.Base)
+	base := cmp.Or(baseFlag, p.cfg.Base)
 	if !p.g.ValidBranchName(ctx, branch) {
 		return usageError{fmt.Errorf("%q is not a valid branch name", branch)}
 	}
@@ -78,11 +74,7 @@ func newReleaseCmd() *cobra.Command {
 
 func runRelease(cmd *cobra.Command, name string) error {
 	ctx := cmd.Context()
-	w, err := openRepo(ctx)
-	if err != nil {
-		return err
-	}
-	p, err := poolOf(w)
+	p, err := openPool(ctx)
 	if err != nil {
 		return err
 	}

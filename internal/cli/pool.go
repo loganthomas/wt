@@ -39,11 +39,7 @@ func newPoolLsCmd() *cobra.Command {
 
 func runPoolLs(cmd *cobra.Command) error {
 	ctx := cmd.Context()
-	w, err := openRepo(ctx)
-	if err != nil {
-		return err
-	}
-	p, err := poolOf(w)
+	p, err := openPool(ctx)
 	if err != nil {
 		return err
 	}
@@ -121,11 +117,7 @@ func runPoolResize(cmd *cobra.Command, arg string) error {
 		return usageError{fmt.Errorf("pool size must be a whole number of at least 1, got %q", arg)}
 	}
 	ctx := cmd.Context()
-	w, err := openRepo(ctx)
-	if err != nil {
-		return err
-	}
-	p, err := poolOf(w)
+	p, err := openPool(ctx)
 	if err != nil {
 		return err
 	}
