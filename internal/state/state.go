@@ -43,6 +43,23 @@ func (d Dir) WriteRefreshHash(name, hash string) error {
 	return os.WriteFile(path, []byte(hash+"\n"), 0o644)
 }
 
+// MarkProvisioned records that tree name finished provisioning —
+// worktree, copies, setup hook, all of it. Written last, so its
+// absence on a registered slot proves the provision died midway.
+func (d Dir) MarkProvisioned(name string) error {
+	path := filepath.Join(d.treeDir(name), "provisioned")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, nil, 0o644)
+}
+
+// Provisioned reports whether tree name completed provisioning.
+func (d Dir) Provisioned(name string) bool {
+	_, err := os.Stat(filepath.Join(d.treeDir(name), "provisioned"))
+	return err == nil
+}
+
 // RemoveTree drops all recorded state for tree name;
 // absent state is not an error, so cleanup can run unconditionally.
 func (d Dir) RemoveTree(name string) error {

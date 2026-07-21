@@ -31,3 +31,29 @@ exec wt release pool-1
 stderr 'released pool-1'
 exec wt claim feat-b
 stdout '[/\\]pool-1$'
+
+# a provision killed between worktree-add and warm leaves a
+# registered but never-set-up slot; the next claim must redo the
+# provision, not silently skip the setup hook forever
+exec wt release feat-b
+cp $WORK/hooked.toml .git/wt.toml
+exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && rm -rf "$d/trees/pool-1" && rm -rf "$d/leases/pool-1"'
+exec wt claim feat-c
+stderr 'reprovisioning pool-1'
+stderr 'running setup hook'
+exists ../acme.trees/pool-1/setup-ran
+
+# the hook artifact is not gitignored in this fixture, so the
+# dirty guard still speaks for it on the way out
+rm ../acme.trees/pool-1/setup-ran
+exec wt done feat-c
+
+-- hooked.toml --
+base = 'main'
+trees_dir = '../acme.trees'
+
+[hooks]
+setup = 'touch setup-ran'
+
+[pool]
+size = 1

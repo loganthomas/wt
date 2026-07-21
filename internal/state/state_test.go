@@ -71,3 +71,25 @@ func TestRemoveTree(t *testing.T) {
 		t.Errorf("RemoveTree on absent state: %v", err)
 	}
 }
+
+func TestProvisionedMarker(t *testing.T) {
+	d := state.Dir(t.TempDir())
+	if d.Provisioned("pool-1") {
+		t.Error("Provisioned on fresh state = true, want false")
+	}
+	if err := d.MarkProvisioned("pool-1"); err != nil {
+		t.Fatal(err)
+	}
+	if !d.Provisioned("pool-1") {
+		t.Error("Provisioned after MarkProvisioned = false, want true")
+	}
+	if d.Provisioned("pool-2") {
+		t.Error("marker leaked across trees")
+	}
+	if err := d.RemoveTree("pool-1"); err != nil {
+		t.Fatal(err)
+	}
+	if d.Provisioned("pool-1") {
+		t.Error("Provisioned survived RemoveTree")
+	}
+}
