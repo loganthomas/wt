@@ -233,13 +233,8 @@ func (p *poolRepo) removeSlot(ctx context.Context, trees []gitx.Worktree, slot s
 	if !registered {
 		return p.state.RemoveTree(slot)
 	}
-	if t.Prunable {
-		return preconditionf(
-			"%s is gone from disk — `git worktree prune` clears the stale registration", dest,
-		)
-	}
-	if t.Locked {
-		return preconditionf("%s is locked — `git worktree unlock %s` first", dest, dest)
+	if err := checkRemovable(t); err != nil {
+		return err
 	}
 	if _, ok := pool.SlotPath(p.treesDir(), t.Path); !ok {
 		return fmt.Errorf("refusing to remove %s: not a pool slot under %s", t.Path, p.treesDir())

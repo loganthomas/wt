@@ -57,24 +57,8 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 			return p.releaseSlot(ctx, target, slot, !keepBranch, cmd.ErrOrStderr())
 		}
 	}
-	// Checked before the guards and the copy sweep: git would
-	// refuse the removal anyway, but only after wt had already
-	// deleted the planted copy files.
-	if target.Locked {
-		reason := ""
-		if target.LockedReason != "" {
-			reason = fmt.Sprintf(" (%s)", target.LockedReason)
-		}
-		return preconditionf("%s is locked%s — `git worktree unlock %s` first",
-			target.Path, reason, target.Path)
-	}
-	// A prunable tree's directory is already gone, so the guards
-	// (which run inside it) cannot vouch for anything; hand the
-	// cleanup to git rather than fail on a raw chdir error.
-	if target.Prunable {
-		return preconditionf(
-			"%s is gone from disk — `git worktree prune` clears the stale registration",
-			target.Path)
+	if err := checkRemovable(target); err != nil {
+		return err
 	}
 
 	// Guards before anything destructive (R2). The unpushed check
