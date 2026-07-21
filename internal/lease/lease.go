@@ -226,6 +226,18 @@ func (i *Info) Stale() bool {
 	if err != nil {
 		return false
 	}
+	if start == i.PIDStart {
+		return false
+	}
+	// A memoized token may prove liveness (a match) but never
+	// staleness: the pid could have been reused since it was
+	// cached, in which case the mismatch indicts the wrong
+	// process. Only a fresh query may condemn the holder.
+	startCache.Delete(i.PID)
+	start, err = processStart(i.PID)
+	if err != nil {
+		return false
+	}
 	return start != i.PIDStart
 }
 

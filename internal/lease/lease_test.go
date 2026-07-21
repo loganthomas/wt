@@ -199,6 +199,22 @@ func TestAcquireStealsDeadPID(t *testing.T) {
 	}
 }
 
+// TestStaleNeverTrustsACachedMismatch pins the pid-reuse hazard
+// of the start-token memo: a token cached for an earlier holder of
+// the same pid must not condemn the live process now wearing it —
+// only a fresh query may read as stale.
+func TestStaleNeverTrustsACachedMismatch(t *testing.T) {
+	// The record carries the real token; the cache then claims the
+	// pid started at some other time, as a reused pid's stale memo
+	// entry would.
+	info := live(t, "current-tenant")
+	startCache.Store(os.Getpid(), "a previous tenant of this pid")
+	defer startCache.Delete(os.Getpid())
+	if info.Stale() {
+		t.Error("Stale() condemned a live process on a cached token mismatch")
+	}
+}
+
 func TestAcquireStealsReusedPID(t *testing.T) {
 	dir := t.TempDir()
 	// A live PID whose recorded start time is someone else's:
