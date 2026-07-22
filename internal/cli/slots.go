@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/loganthomas/wt/internal/gitx"
@@ -294,8 +295,12 @@ func (p *poolRepo) acquire(
 // a detached slot's commits recoverable (R2). Everything else
 // uncommitted is discarded with notice: it belongs to no live
 // session, or its session already passed the release guards.
+// Entries named in tolerate are wt's own pristine plantings, already
+// vouched for by the caller's guards, so they are swept without being
+// announced as lost work; a caller that cannot vouch passes none and
+// every leftover is reported.
 func (p *poolRepo) resetSlot(
-	ctx context.Context, t gitx.Worktree, base string, chatter io.Writer,
+	ctx context.Context, t gitx.Worktree, base string, chatter io.Writer, tolerate ...string,
 ) error {
 	slot, err := p.requireSlot(t.Path, "reset")
 	if err != nil {
@@ -311,7 +316,11 @@ func (p *poolRepo) resetSlot(
 	if err != nil {
 		return err
 	}
+	discarded := 0
 	for _, e := range entries {
+		if e.Code != "??" || !slices.Contains(tolerate, e.Path) {
+			discarded++
+		}
 		// git status collapses an untracked nested repository to
 		// "dir/" even under -uall; its commits live only in that
 		// nested .git, invisible to the orphan guard, and the
@@ -326,9 +335,9 @@ func (p *poolRepo) resetSlot(
 					"history; move it out or delete it by hand", slot, e.Path)
 		}
 	}
-	if len(entries) > 0 {
+	if discarded > 0 {
 		fmt.Fprintf(chatter, "%s: discarding %d leftover uncommitted change(s)\n",
-			slot, len(entries))
+			slot, discarded)
 	}
 	if err := sg.CheckoutDetach(ctx, base); err != nil {
 		return err
@@ -363,7 +372,8 @@ func (p *poolRepo) releaseSlot(
 	}
 	leases := p.state.LeasesDir()
 
-	if _, err := finishGuards(ctx, p.repo.Root, t, p.cfg.Copy); err != nil {
+	pristine, err := finishGuards(ctx, p.repo.Root, t, p.cfg.Copy)
+	if err != nil {
 		return err
 	}
 	if deleteBranch && t.Branch != "" {
@@ -372,7 +382,7 @@ func (p *poolRepo) releaseSlot(
 		}
 	}
 
-	if err := p.resetSlot(ctx, t, p.cfg.Base, chatter); err != nil {
+	if err := p.resetSlot(ctx, t, p.cfg.Base, chatter, pristine...); err != nil {
 		return err
 	}
 	if err := lease.Release(leases, slot, pinned); err != nil {
