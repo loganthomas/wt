@@ -37,11 +37,10 @@ func runJump(cmd *cobra.Command, query string) error {
 	if err != nil {
 		return err
 	}
-	cands := jumpCandidates(trees, slotTreesDir(r))
 	if query == "" {
-		return jumpInteractive(cmd, trees, cands)
+		return jumpInteractive(cmd, r, trees)
 	}
-	winner, contenders := nav.Resolve(cands, query)
+	winner, contenders := nav.Resolve(jumpCandidates(trees, slotTreesDir(r)), query)
 	switch {
 	case winner != nil:
 		fmt.Fprintln(cmd.OutOrStdout(), winner.Path)
@@ -60,13 +59,15 @@ func runJump(cmd *cobra.Command, query string) error {
 
 // jumpInteractive opens the picker when a human is present;
 // otherwise it degrades to the porcelain listing so scripts and
-// agents never hang on a TUI (D12, R15).
-func jumpInteractive(cmd *cobra.Command, trees []gitx.Worktree, cands []nav.Candidate) error {
+// agents never hang on a TUI (D12, R15). Candidates are built past
+// the TTY gate: that listing needs none of them, and repoTrees
+// keeps read-only commands off the config on purpose.
+func jumpInteractive(cmd *cobra.Command, r *repo.Repo, trees []gitx.Worktree) error {
 	if !interactive() {
 		_, err := fmt.Fprint(cmd.OutOrStdout(), formatPorcelain(trees))
 		return err
 	}
-	choice, err := pickTree(cmd.Context(), cands)
+	choice, err := pickTree(cmd.Context(), jumpCandidates(trees, slotTreesDir(r)))
 	if err != nil {
 		return err
 	}
@@ -86,11 +87,11 @@ func jumpCandidates(trees []gitx.Worktree, treesDir string) []nav.Candidate {
 		if t.Bare {
 			continue
 		}
-		slot, isSlot := "", false
+		var slot string
 		if treesDir != "" {
-			slot, isSlot = pool.SlotPath(treesDir, t.Path)
+			slot, _ = pool.SlotPath(treesDir, t.Path)
 		}
-		if isSlot && t.Branch == "" {
+		if slot != "" && t.Branch == "" {
 			continue
 		}
 		cands = append(cands, nav.Candidate{Branch: t.Branch, Path: t.Path, Slot: slot})
