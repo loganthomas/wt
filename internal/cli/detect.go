@@ -59,15 +59,15 @@ type detected struct {
 // needs no copying).
 func detectDefaults(root string, tracked map[string]bool) detected {
 	var d detected
+	if tracked == nil {
+		return d
+	}
 	for _, e := range ecosystems {
-		if tracked == nil || !tracked[e.marker] || !present(root, e.marker) {
+		if !tracked[e.marker] || !present(root, e.marker) {
 			continue
 		}
 		d.marker, d.refresh = e.marker, e.hook
 		break
-	}
-	if tracked == nil {
-		return d
 	}
 	for _, name := range copyCandidates {
 		if !present(root, name) || tracked[name] {
