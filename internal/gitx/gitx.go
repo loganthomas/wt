@@ -116,6 +116,13 @@ func (g *Git) SwitchCreate(ctx context.Context, branch string) error {
 	return err
 }
 
+// HasBranch reports whether a local branch of that name exists.
+// The refs/heads/ prefix lives here rather than at the call sites:
+// ref-namespace spelling is this package's business.
+func (g *Git) HasBranch(ctx context.Context, branch string) bool {
+	return g.HasCommit(ctx, "refs/heads/"+branch)
+}
+
 // DeleteBranch deletes a local branch even if unmerged;
 // callers run the unpushed-commit guard first.
 func (g *Git) DeleteBranch(ctx context.Context, branch string) error {

@@ -42,7 +42,7 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	if !g.ValidBranchName(ctx, branch) {
 		return usageError{fmt.Errorf("%q is not a valid branch name", branch)}
 	}
-	if g.HasCommit(ctx, "refs/heads/"+branch) {
+	if g.HasBranch(ctx, branch) {
 		trees, err := g.Worktrees(ctx)
 		if err != nil {
 			return err

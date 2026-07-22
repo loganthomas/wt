@@ -149,6 +149,7 @@ func (p *poolRepo) prepareSlot(
 		return "", err
 	}
 	t, registered := findTree(trees, dest)
+	fresh := false
 	switch {
 	case registered && t.Prunable:
 		return "", preconditionf(
@@ -175,6 +176,7 @@ func (p *poolRepo) prepareSlot(
 		if err := p.provisionSlot(ctx, slot, base, chatter); err != nil {
 			return "", err
 		}
+		fresh = true
 	case registered:
 		if err := p.resetSlot(ctx, t, base, chatter); err != nil {
 			return "", err
@@ -190,20 +192,32 @@ func (p *poolRepo) prepareSlot(
 		if err := p.provisionSlot(ctx, slot, base, chatter); err != nil {
 			return "", err
 		}
+		fresh = true
 	}
 
 	sg := gitx.New(dest)
-	if p.g.HasCommit(ctx, "refs/heads/"+branch) {
-		err = sg.Switch(ctx, branch)
-	} else {
+	onBase := !p.g.HasBranch(ctx, branch)
+	if onBase {
 		// The slot is parked at base, so creating here branches
 		// off exactly what wt new promises.
 		err = sg.SwitchCreate(ctx, branch)
+	} else {
+		err = sg.Switch(ctx, branch)
 	}
 	if err != nil {
 		return "", err
 	}
 
+	// A slot provisioned just above is already warm, and a branch
+	// created here carries base's content unchanged, so the tree is
+	// exactly what warmSlot copied and warmed: repeating that work
+	// would re-plant every copy file and, with no refresh gate
+	// configured, run hooks.refresh a second time. Checking out an
+	// existing branch does change the content, so that case warms
+	// again for the branch it landed on.
+	if fresh && onBase {
+		return dest, nil
+	}
 	if err := copyFiles(ctx, p.repo.Root, dest, p.cfg.Copy, chatter); err != nil {
 		return "", err
 	}
