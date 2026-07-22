@@ -63,6 +63,12 @@ type HeldError struct {
 	Info *Info // nil when the record is missing or unreadable
 }
 
+// WtExitCode makes a held lease a precondition failure (D13): the
+// command was fine, the slot is busy. Declared here, as guard.Error
+// does, so a call site that forgets to wrap one cannot leak it as a
+// hard failure and the cli exit seam needs no special case.
+func (e *HeldError) WtExitCode() int { return 3 }
+
 func (e *HeldError) Error() string {
 	if e.Info == nil {
 		return fmt.Sprintf("%s is claimed (lease record unreadable)", e.Slot)
