@@ -96,13 +96,5 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 	}
 	chatter := cmd.ErrOrStderr()
 	fmt.Fprintf(chatter, "removed %s\n", target.Path)
-	if deleteBranch {
-		if err := g.DeleteBranch(ctx, target.Branch); err != nil {
-			return err
-		}
-		fmt.Fprintf(chatter, "deleted branch %s\n", target.Branch)
-	} else if target.Branch != "" {
-		fmt.Fprintf(chatter, "kept branch %s\n", target.Branch)
-	}
-	return nil
+	return finishBranch(ctx, g, target.Branch, deleteBranch, chatter)
 }

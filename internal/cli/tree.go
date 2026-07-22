@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/loganthomas/wt/internal/gitx"
 	"github.com/loganthomas/wt/internal/nav"
@@ -74,6 +75,37 @@ func checkRemovable(t gitx.Worktree) error {
 			"%s is gone from disk — `git worktree prune` clears the stale registration",
 			t.Path)
 	}
+	return nil
+}
+
+// findTree looks a path up in git's worktree list.
+func findTree(trees []gitx.Worktree, path string) (gitx.Worktree, bool) {
+	for _, t := range trees {
+		if t.Path == path {
+			return t, true
+		}
+	}
+	return gitx.Worktree{}, false
+}
+
+// finishBranch disposes of a finished tree's branch and says what
+// it did: the one spelling shared by wt done and slot release, so
+// the two cannot drift on the wording or on what a detached tree
+// (no branch to speak of) reports.
+func finishBranch(
+	ctx context.Context, g *gitx.Git, branch string, delete bool, chatter io.Writer,
+) error {
+	if branch == "" {
+		return nil
+	}
+	if !delete {
+		fmt.Fprintf(chatter, "kept branch %s\n", branch)
+		return nil
+	}
+	if err := g.DeleteBranch(ctx, branch); err != nil {
+		return err
+	}
+	fmt.Fprintf(chatter, "deleted branch %s\n", branch)
 	return nil
 }
 

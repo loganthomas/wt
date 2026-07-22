@@ -196,8 +196,8 @@ func (p *poolRepo) prepareSlot(
 	}
 
 	sg := gitx.New(dest)
-	onBase := !p.g.HasBranch(ctx, branch)
-	if onBase {
+	branchIsNew := !p.g.HasBranch(ctx, branch)
+	if branchIsNew {
 		// The slot is parked at base, so creating here branches
 		// off exactly what wt new promises.
 		err = sg.SwitchCreate(ctx, branch)
@@ -215,7 +215,7 @@ func (p *poolRepo) prepareSlot(
 	// configured, run hooks.refresh a second time. Checking out an
 	// existing branch does change the content, so that case warms
 	// again for the branch it landed on.
-	if fresh && onBase {
+	if fresh && branchIsNew {
 		return dest, nil
 	}
 	if err := copyFiles(ctx, p.repo.Root, dest, p.cfg.Copy, chatter); err != nil {
@@ -389,16 +389,7 @@ func (p *poolRepo) releaseSlot(
 		return err
 	}
 	fmt.Fprintf(chatter, "released %s\n", slot)
-	switch {
-	case deleteBranch && t.Branch != "":
-		if err := p.g.DeleteBranch(ctx, t.Branch); err != nil {
-			return err
-		}
-		fmt.Fprintf(chatter, "deleted branch %s\n", t.Branch)
-	case t.Branch != "":
-		fmt.Fprintf(chatter, "kept branch %s\n", t.Branch)
-	}
-	return nil
+	return finishBranch(ctx, p.g, t.Branch, deleteBranch, chatter)
 }
 
 // isHeld reports whether err is a lease refusal (the expected,
@@ -565,14 +556,4 @@ func (p *poolRepo) provisionPool(ctx context.Context, from, to int, chatter io.W
 		}
 	}
 	return nil
-}
-
-// findTree looks a path up in git's worktree list.
-func findTree(trees []gitx.Worktree, path string) (gitx.Worktree, bool) {
-	for _, t := range trees {
-		if t.Path == path {
-			return t, true
-		}
-	}
-	return gitx.Worktree{}, false
 }
