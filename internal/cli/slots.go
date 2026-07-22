@@ -342,9 +342,15 @@ func (p *poolRepo) resetSlot(
 func (p *poolRepo) releaseSlot(
 	ctx context.Context, t gitx.Worktree, slot string, deleteBranch bool, chatter io.Writer,
 ) error {
-	// Before the repin: an unresolvable base would otherwise fail
-	// deep in the reset with a raw git error, after the lease has
-	// already been rewritten onto this session.
+	// Before the repin: these would otherwise fail deep in the reset
+	// with a raw git error, after the lease has already been
+	// rewritten onto this session. A lock is the user's "leave this
+	// alone", and it binds a slot exactly as it binds a personal
+	// tree: releasing resets the tree, which is destructive enough
+	// to honour it.
+	if err := checkRemovable(t); err != nil {
+		return err
+	}
 	if err := checkBase(ctx, p.g, p.cfg.Base); err != nil {
 		return err
 	}
