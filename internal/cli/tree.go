@@ -93,12 +93,12 @@ func findTree(trees []gitx.Worktree, path string) (gitx.Worktree, bool) {
 // the two cannot drift on the wording or on what a detached tree
 // (no branch to speak of) reports.
 func finishBranch(
-	ctx context.Context, g *gitx.Git, branch string, delete bool, chatter io.Writer,
+	ctx context.Context, g *gitx.Git, branch string, deleteBranch bool, chatter io.Writer,
 ) error {
 	if branch == "" {
 		return nil
 	}
-	if !delete {
+	if !deleteBranch {
 		fmt.Fprintf(chatter, "kept branch %s\n", branch)
 		return nil
 	}
