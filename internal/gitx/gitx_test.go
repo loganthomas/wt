@@ -81,3 +81,82 @@ func TestRunScrubsRepoLocalEnv(t *testing.T) {
 		t.Errorf("TopLevel() = %q, want %q despite GIT_DIR pointing elsewhere", got, target)
 	}
 }
+
+// TestSlotLifecycleOperations walks the git operations a pool
+// slot goes through: provision detached, take a branch, reset
+// back to detached, clean untracked, with ignored files (the
+// warm caches pool mode exists for) surviving every reset.
+func TestSlotLifecycleOperations(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.TempDir(t)
+	main := gittest.Repo(t, filepath.Join(dir, "acme"))
+	gittest.WriteFile(t, main, ".gitignore", "node_modules/\n")
+	gittest.Run(t, main, "add", ".gitignore")
+	gittest.Run(t, main, "commit", "-q", "-m", "ignore")
+
+	slot := filepath.Join(dir, "acme.trees", "slot-1")
+	g := New(main)
+	if err := g.WorktreeAddDetach(t.Context(), slot, "main"); err != nil {
+		t.Fatal(err)
+	}
+	trees, err := g.Worktrees(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trees) != 2 || !trees[1].Detached {
+		t.Fatalf("after add --detach: trees = %+v, want a detached second tree", trees)
+	}
+
+	sg := New(slot)
+	if err := sg.SwitchCreate(t.Context(), "feat"); err != nil {
+		t.Fatal(err)
+	}
+	if out := gittest.Run(t, slot, "branch", "--show-current"); out != "feat" {
+		t.Errorf("after SwitchCreate: on %q, want feat", out)
+	}
+
+	gittest.WriteFile(t, slot, "scratch.txt", "leftover\n")
+	gittest.WriteFile(t, slot, "node_modules/dep.js", "cached\n")
+	gittest.Repo(t, filepath.Join(slot, "vendored"))
+	if err := sg.CheckoutDetach(t.Context(), "main"); err != nil {
+		t.Fatal(err)
+	}
+	if err := sg.CleanUntracked(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(slot, "scratch.txt")); err == nil {
+		t.Error("CleanUntracked left the untracked file behind")
+	}
+	// A single -f skips nested git repos yet exits 0; the reset
+	// must actually discard them or the next holder inherits dirt
+	// no guard lets them release.
+	if _, err := os.Stat(filepath.Join(slot, "vendored")); err == nil {
+		t.Error("CleanUntracked left a nested git repo behind")
+	}
+	// Never -x: gitignored caches are what keep slots warm (D14).
+	if _, err := os.Stat(filepath.Join(slot, "node_modules", "dep.js")); err != nil {
+		t.Error("CleanUntracked removed a gitignored file — slots would always be cold")
+	}
+	if out := gittest.Run(t, slot, "branch", "--show-current"); out != "" {
+		t.Errorf("after CheckoutDetach: still on branch %q", out)
+	}
+
+	if err := sg.Switch(t.Context(), "feat"); err != nil {
+		t.Fatal(err)
+	}
+	if out := gittest.Run(t, slot, "branch", "--show-current"); out != "feat" {
+		t.Errorf("after Switch: on %q, want feat", out)
+	}
+
+	// Removing a worktree holding ignored files needs force;
+	// wt's own guards have already vouched for it by then.
+	if err := sg.CheckoutDetach(t.Context(), "main"); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.WorktreeRemoveForce(t.Context(), slot); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(slot); err == nil {
+		t.Error("WorktreeRemoveForce left the slot directory behind")
+	}
+}

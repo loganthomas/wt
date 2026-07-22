@@ -323,7 +323,7 @@ the opt-in Claude Code hook adapter is a post-1.0 phase (Phase 8).
 **Decision:** default container is the sibling directory **`../<repo>.trees/`** —
 default-mode trees at `../<repo>.trees/<sanitized-branch>`
 (`/` → `-`; collision → explicit error with suggestion, never silent suffixing),
-pool slots at `../<repo>.trees/pool-1…N`.
+pool slots at `../<repo>.trees/slot-1…N`.
 Configurable via `trees_dir`.
 Siblings keep trees discoverable and on the same volume.
 
@@ -355,7 +355,7 @@ merged-branch slots, and `wt clean -n` previews every action.
 | Command                          | One-liner                                                                                                        |
 | -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `wt`                             | Interactive fuzzy picker over trees → cd. Non-TTY: porcelain list.                                               |
-| `wt init`                        | Interactive setup: base branch, trees dir, pool y/n + size, prompt indicator, copy list; writes `.git/wt.toml`.  |
+| `wt init`                        | Interactive setup: base branch, trees dir, pool y/n + size, prompt indicator, copy list; writes `.git/wt.toml`. Answers pre-filled from a repo-root scan. |
 | `wt new <branch> [--base <ref>]` | Default: create worktree + branch off base. Pool: claim a slot, reset, branch there. Prints tree path on stdout. |
 | `wt ls [--porcelain] [--json]`   | List trees: branch, path, age, ahead/behind base, dirty, slot/lease state.                                       |
 | `wt go [query]`                  | Fuzzy-jump: best match cd (with query) or picker (without).                                                      |
@@ -398,8 +398,9 @@ Merge order: built-in → global → repo.
 
 ```
 last_fetch                     # RFC3339 timestamp of last base fetch
-leases/pool-3/lease.toml       # atomic-mkdir lease: pid, pid_start, branch, claimed_at
+leases/slot-3/lease.toml       # atomic-mkdir lease: pid, pid_start, branch, claimed_at
 trees/<name>/refresh_hash      # SHA-256 of refresh_if_changed files at last refresh
+trees/<name>/provisioned       # marker: the slot's provisioning completed
 trees/<name>/last_used         # idle heuristics and picker ranking
 ```
 
@@ -526,7 +527,8 @@ and `wt done` points prunable trees at `git worktree prune`.
 - **Exit:** the eval line in `.zshrc` gives cd-on-select, completions,
   optional prompt. Tag `v0.1.0-alpha.3`.
 
-**Status (2026-07-20):** code complete, PR open against `dev`.
+**Status (2026-07-20): complete.**
+Merged to `main`; `v0.1.0-alpha.3` tagged and released.
 Two D12 refinements surfaced by implementation:
 the interactivity probe is **stdin + stderr**, never stdout —
 the shim captures stdout to implement the cd protocol,
@@ -545,30 +547,87 @@ The shim's cd set is bare `wt`, `wt go`, and `wt new`;
 Completions are bootstrapped via `eval "$(wt completion zsh)"`
 inside the shim rather than inlined,
 so they track the installed binary and golden files stay stable.
-Remaining before exit is met: merge, batch fragments,
-tag `v0.1.0-alpha.3`.
-Phase 4 (pool mode) is ready to be taken up once the tag is cut.
 
 ### Phase 4 — Pool mode (L)
 
-- [ ] `internal/lease`: atomic-mkdir lease + PID/start-time liveness —
+- [x] `internal/lease`: atomic-mkdir lease + PID/start-time liveness —
       TDD before claim exists
       (unit tests simulate a crash: lease held by a dead PID).
-- [ ] Slot provisioning: `wt init` pool path and `wt pool resize`
+- [x] Slot provisioning: `wt init` pool path and `wt pool resize`
       (grow runs the setup hook per slot; shrink refuses claimed slots).
-- [ ] Claim/reset semantics (from the reference tool):
-      `git fetch` (if stale) → `checkout -f --detach <base>` →
-      `clean -fd` (**never `-x`** — gitignored build artifacts keep slots warm) →
+- [x] Claim/reset semantics (from the reference tool):
+      `checkout -f --detach <base>` →
+      `clean -ffd` (**never `-x`** — gitignored build artifacts keep slots warm;
+      a nested git repo is refused, not destroyed) →
       refresh-hash gate → `hooks.refresh` if lockfiles changed → branch create.
-- [ ] Pattern guard: reset/release refuse any path not matching
-      `<trees_dir>/pool-N` — unit-tested with hostile inputs
+      (The `git fetch` (if stale) step is Phase 5's opportunistic fetch.)
+- [x] Pattern guard: reset/release refuse any path not matching
+      `<trees_dir>/slot-N` — unit-tested with hostile inputs
       (main checkout, personal tree, symlinks).
-- [ ] `wt new`/`done` dispatch on pool presence;
+- [x] `wt new`/`done` dispatch on pool presence;
       `wt claim`/`release` plumbing; `wt pool ls`.
-- [ ] Fuzzy matching over slots targets the _branch/ticket_, not `pool-3`
-      (picker shows `PROJ-123 → pool-3`).
+- [x] Fuzzy matching over slots targets the _branch/ticket_, not `slot-3`
+      (picker shows `PROJ-123 → slot-3`).
 - **Exit:** claim → work → release loop with crash-safe leases and
   warm-cache resets. Tag `v0.1.0-alpha.4`.
+
+**Status (2026-07-21):** code complete, PR open against `dev`.
+Design refinements surfaced by implementation:
+the lease is a **two-phase handoff**: a claim is held under wt's
+own PID while it provisions (a killed wt leaves a provably dead
+lease), then repinned to the session captured at startup — the
+shell, script, or agent doing the work — on success, with start
+time read via `ps -o lstart=` under a pinned TZ and locale;
+the concurrency soak test forced a short **flock** around the
+lease's check-steal-create section — rename-based stealing raced —
+while the mkdir'd directory remains the persistent, crash-surviving
+claim, and the kernel drops the flock with its holder,
+so the serialization cannot wedge (D15 intact: liveness, not
+wall clock, decides staleness).
+A lease directory left recordless by a crash is provably dead
+under that lock and reclaimed instead of wedging the slot.
+Claims take free slots before provably-dead ones,
+so crash leftovers survive while the pool has room,
+and a missing slot is provisioned on demand,
+which makes init/resize crashes and hand-edited sizes self-heal.
+`wt release` keeps the branch (plumbing hands it to the PR flow);
+`wt done` deletes it, symmetric with default mode.
+`hooks.refresh` also runs behind the same hash gate on
+default-mode `wt new`, so the two modes share one mechanism:
+a fresh tree or slot warms up exactly once —
+the setup hook when configured (recording the hash it satisfied),
+the gated refresh otherwise.
+An adversarial review pass then hardened the loop:
+lease records land atomically (a crash can leave a reclaimable
+recordless directory, never an unprovable torn record),
+release repins the lease to its own session before guards and
+reset run (closing a race where a concurrent claim's steal could
+put two sessions in one slot),
+a durable provisioned marker makes killed provisions redo
+themselves instead of silently skipping setup forever,
+and claims skip guard-blocked slots with a notice rather than
+letting one bad slot fail the whole pool.
+`slot-N` became reserved vocabulary in the process: a personal
+tree wearing that name would turn silently resettable the day
+pool mode is switched on, so `wt new` refuses it, case-folded
+because macOS filesystems are.
+Two additions beyond the checklist, both serving D5's
+"users must not have to invent hook values":
+`wt init` now pre-fills its answers from a repo-root scan
+(the first *tracked* lockfile proposes a refresh hook gated on
+itself; *untracked* `.env`/`.envrc` propose a copy list; flags
+and global config both beat the scan, and `hooks.setup` is never
+guessed) — documented under "Detected defaults" in
+`docs/configuration.md`;
+and one aligner renders every tabular listing, so `wt ls` and
+`wt pool ls` cannot drift on spacing or trailing whitespace (D13).
+A simplification pass then removed what the hardening had
+over-built: a memo over `ps` start tokens that saved a handful of
+subprocesses and cost a PID-reuse hazard, and a layer of derived
+helpers around the init scan's notes.
+Remaining before exit is met: merge, batch fragments,
+tag `v0.1.0-alpha.4`.
+Phase 5 (sync & freshness) is ready once the tag is cut.
 
 ### Phase 5 — Sync & freshness (M)
 
@@ -625,8 +684,10 @@ stays short):
     resize, worked example with real hook config.
   - `docs/configuration.md` — full config reference
     (every key, default, and merge order), state-dir layout.
-  - `docs/recipes.md` — per-ecosystem examples
-    (Go, pnpm, npm/yarn, direnv, `.env` porting, port-per-slot pattern).
+  - `docs/recipes.md` — the shared-vs-per-tree cache model and
+    per-ecosystem examples (Bazel, Go, pnpm, npm/yarn, direnv,
+    `.env` porting, port-per-slot pattern).
+    _(First version landed with Phase 4; Phase 7 edits it.)_
   - `docs/shell.md` — shim internals, prompt indicator, starship segment,
     completions.
   - `docs/agents.md` — machine contract: stdout/stderr rules, exit codes,

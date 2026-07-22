@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/loganthomas/wt/internal/gitx"
+	"github.com/loganthomas/wt/internal/pool"
 	"github.com/loganthomas/wt/internal/repo"
 )
 
@@ -41,27 +42,57 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	if !g.ValidBranchName(ctx, branch) {
 		return usageError{fmt.Errorf("%q is not a valid branch name", branch)}
 	}
-	if g.HasCommit(ctx, "refs/heads/"+branch) {
+	if g.HasBranch(ctx, branch) {
 		trees, err := g.Worktrees(ctx)
 		if err != nil {
 			return err
 		}
 		// R4: when the branch lives in some tree already,
 		// the error must point straight at it.
-		for _, t := range trees {
-			if t.Branch == branch {
-				return preconditionf("branch %q is already checked out in %s", branch, t.Path)
-			}
+		if t, ok := treeHoldingBranch(trees, branch); ok {
+			return preconditionf("branch %q is already checked out in %s", branch, t.Path)
+		}
+		// In pool mode the natural resume for an existing branch,
+		// say one left by a claim that failed after its branch
+		// create, is a claim, and the advice must say so.
+		if w.cfg.Pool != nil {
+			return preconditionf(
+				"branch %q already exists — `wt claim %s` resumes it in a slot, "+
+					"or pick another name", branch, branch)
 		}
 		return preconditionf(
 			"branch %q already exists — pick another name, or delete the branch first", branch)
 	}
-	if !g.HasCommit(ctx, base) {
-		return preconditionf(
-			"base %q does not resolve to a commit — fetch it, or set base in wt.toml", base)
+	if err := checkBase(ctx, g, base); err != nil {
+		return err
+	}
+	chatter := cmd.ErrOrStderr()
+
+	// Pool mode: the same intent lands in a claimed slot instead
+	// of a fresh tree (D3: the [pool] table is the dispatch).
+	if w.cfg.Pool != nil {
+		p, err := poolOf(w)
+		if err != nil {
+			return err
+		}
+		dest, err := p.claimSlot(ctx, branch, base, chatter)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), dest)
+		return nil
 	}
 
-	dest := filepath.Join(w.treesDir(), repo.SanitizeBranch(branch))
+	// slot-N names are pool property (D14): a personal tree wearing
+	// one would become silently resettable the day pool mode is
+	// switched on, and its uncommitted work fair game for a claim.
+	name := repo.SanitizeBranch(branch)
+	if pool.CollidesWithSlotName(name) {
+		return preconditionf(
+			"branch %q would take the tree name %s, which is reserved for pool slots — "+
+				"pick another name", branch, name)
+	}
+	dest := filepath.Join(w.treesDir(), name)
 	if _, err := os.Stat(dest); err == nil {
 		return preconditionf(
 			"%s already exists (branch names flatten '/' to '-') — pick another name", dest)
@@ -73,17 +104,17 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	if err := g.WorktreeAdd(ctx, dest, branch, base); err != nil {
 		return err
 	}
-	chatter := cmd.ErrOrStderr()
 	fmt.Fprintf(chatter, "created %s (branch %s off %s)\n", dest, branch, base)
 
 	if err := copyFiles(ctx, w.repo.Root, dest, w.cfg.Copy, chatter); err != nil {
 		return fmt.Errorf("%w — the tree remains at %s", err, dest)
 	}
-	if setup := w.cfg.Hooks.Setup; setup != "" {
-		fmt.Fprintf(chatter, "running setup hook: %s\n", setup)
-		if err := runHook(ctx, dest, setup, chatter); err != nil {
-			return fmt.Errorf("setup hook failed: %w — the tree remains at %s", err, dest)
-		}
+	st, err := w.stateDir()
+	if err != nil {
+		return err
+	}
+	if err := finishFresh(ctx, w.cfg, st, dest, name, chatter); err != nil {
+		return fmt.Errorf("%w — the tree remains at %s", err, dest)
 	}
 
 	// The tree path is the machine-facing product (D13);

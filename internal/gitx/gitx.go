@@ -66,6 +66,63 @@ func (g *Git) WorktreeRemove(ctx context.Context, path string) error {
 	return err
 }
 
+// WorktreeRemoveForce removes the worktree at path even when it
+// holds untracked or ignored files. Only for trees wt's own
+// guards have already vouched for: pool slots keep gitignored
+// warm caches that git would otherwise refuse to remove.
+func (g *Git) WorktreeRemoveForce(ctx context.Context, path string) error {
+	_, err := g.run(ctx, "worktree", "remove", "--force", path)
+	return err
+}
+
+// WorktreeAddDetach creates a worktree at path with a detached
+// HEAD at ref, the parked state of a pool slot.
+func (g *Git) WorktreeAddDetach(ctx context.Context, path, ref string) error {
+	_, err := g.run(ctx, "worktree", "add", "--quiet", "--detach", path, ref)
+	return err
+}
+
+// CheckoutDetach forcibly detaches HEAD at ref, discarding local
+// modifications to tracked files. This is the destructive half of
+// a pool slot reset; callers run the pattern and orphan guards
+// first (D14).
+func (g *Git) CheckoutDetach(ctx context.Context, ref string) error {
+	_, err := g.run(ctx, "checkout", "--quiet", "--force", "--detach", ref)
+	return err
+}
+
+// CleanUntracked removes untracked files and directories.
+// Never -x: gitignored build artifacts are what keep pool slots
+// warm (D14), so ignored files always survive a reset.
+// Double -f because a single one skips untracked nested git repos
+// while still exiting 0; a reset that reported success would
+// leave them to fail the next holder's guards, with no wt command
+// able to clear them.
+func (g *Git) CleanUntracked(ctx context.Context) error {
+	_, err := g.run(ctx, "clean", "-q", "-ffd")
+	return err
+}
+
+// Switch checks out an existing branch.
+func (g *Git) Switch(ctx context.Context, branch string) error {
+	_, err := g.run(ctx, "switch", "--quiet", branch)
+	return err
+}
+
+// SwitchCreate creates branch at the current HEAD and checks it
+// out.
+func (g *Git) SwitchCreate(ctx context.Context, branch string) error {
+	_, err := g.run(ctx, "switch", "--quiet", "-c", branch)
+	return err
+}
+
+// HasBranch reports whether a local branch of that name exists.
+// The refs/heads/ prefix lives here rather than at the call sites:
+// ref-namespace spelling is this package's business.
+func (g *Git) HasBranch(ctx context.Context, branch string) bool {
+	return g.HasCommit(ctx, "refs/heads/"+branch)
+}
+
 // DeleteBranch deletes a local branch even if unmerged;
 // callers run the unpushed-commit guard first.
 func (g *Git) DeleteBranch(ctx context.Context, branch string) error {

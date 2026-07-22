@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 
 	"github.com/loganthomas/wt/internal/gitx"
+	"github.com/loganthomas/wt/internal/guard"
 )
 
 // copyFiles ports the configured untracked files from the main
@@ -69,6 +70,35 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	return os.WriteFile(dst, data, info.Mode().Perm())
+}
+
+// finishGuards is the one safety sequence in front of every
+// finishing action (remove, release, or shrink; R2): the planted
+// copies are split, an edited one refuses (it is user data the
+// action would destroy, invisible to git status when ignored),
+// then the dirty and orphaned-commit guards speak. Returns the
+// pristine copies for callers that must sweep them.
+func finishGuards(
+	ctx context.Context, srcRoot string, t gitx.Worktree, copies []string,
+) ([]string, error) {
+	pristine, edited, err := splitCopies(ctx, srcRoot, t.Path, copies)
+	if err != nil {
+		return nil, err
+	}
+	if len(edited) > 0 {
+		return nil, preconditionf(
+			"%s: the planted copy %s no longer matches the main checkout — "+
+				"back it up, or make the two match first", t.Path, edited[0])
+	}
+	if err := guard.CheckDirty(ctx, t.Path, pristine...); err != nil {
+		return nil, err
+	}
+	if t.Detached {
+		if err := guard.CheckOrphans(ctx, t.Path); err != nil {
+			return nil, err
+		}
+	}
+	return pristine, nil
 }
 
 // splitCopies partitions the configured copy files found untracked

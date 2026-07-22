@@ -12,7 +12,7 @@ func candidates() []Candidate {
 		{Branch: "main", Path: "/repos/acme"},
 		{Branch: "feature/login", Path: "/repos/acme.trees/feature-login"},
 		{Branch: "feature/logout", Path: "/repos/acme.trees/feature-logout"},
-		{Branch: "", Path: "/repos/acme.trees/pool-3"},
+		{Branch: "", Path: "/repos/acme.trees/slot-3"},
 	}
 }
 
@@ -31,9 +31,9 @@ func TestResolveExactSanitizedBranchWins(t *testing.T) {
 }
 
 func TestResolveExactBasenameWinsForDetachedTrees(t *testing.T) {
-	winner, _ := Resolve(candidates(), "pool-3")
-	if winner == nil || winner.Path != "/repos/acme.trees/pool-3" {
-		t.Fatalf("Resolve() winner = %v; want the pool-3 tree", winner)
+	winner, _ := Resolve(candidates(), "slot-3")
+	if winner == nil || winner.Path != "/repos/acme.trees/slot-3" {
+		t.Fatalf("Resolve() winner = %v; want the slot-3 tree", winner)
 	}
 }
 
@@ -66,9 +66,9 @@ func TestResolveIsCaseInsensitive(t *testing.T) {
 }
 
 func TestResolveMatchesDirectoryBasename(t *testing.T) {
-	winner, _ := Resolve(candidates(), "pool")
-	if winner == nil || winner.Path != "/repos/acme.trees/pool-3" {
-		t.Fatalf("Resolve() winner = %v; want the pool-3 tree", winner)
+	winner, _ := Resolve(candidates(), "slot")
+	if winner == nil || winner.Path != "/repos/acme.trees/slot-3" {
+		t.Fatalf("Resolve() winner = %v; want the slot-3 tree", winner)
 	}
 }
 
@@ -179,8 +179,33 @@ func TestDisplayPrefersBranch(t *testing.T) {
 }
 
 func TestDisplayFallsBackToBasename(t *testing.T) {
-	c := Candidate{Path: "/trees/pool-3"}
-	if got := c.Display(); got != "pool-3 (detached)" {
-		t.Errorf("Display() = %q, want 'pool-3 (detached)'", got)
+	c := Candidate{Path: "/trees/slot-3"}
+	if got := c.Display(); got != "slot-3 (detached)" {
+		t.Errorf("Display() = %q, want 'slot-3 (detached)'", got)
+	}
+}
+
+// A claimed slot is presented by what the user is working on,
+// never by its slot number (PLAN.md Phase 4): the branch is the
+// identity, the slot is the address.
+func TestDisplayShowsSlotAddress(t *testing.T) {
+	c := Candidate{Branch: "PROJ-123", Path: "/r/acme.trees/slot-3", Slot: "slot-3"}
+	if got := c.Display(); got != "PROJ-123 → slot-3" {
+		t.Errorf("Display() = %q, want %q", got, "PROJ-123 → slot-3")
+	}
+}
+
+func TestResolveTargetsSlotBranch(t *testing.T) {
+	cands := []Candidate{
+		{Branch: "main", Path: "/r/acme"},
+		{Branch: "PROJ-123", Path: "/r/acme.trees/slot-3", Slot: "slot-3"},
+	}
+	winner, _ := Resolve(cands, "PROJ")
+	if winner == nil || winner.Slot != "slot-3" {
+		t.Fatalf("Resolve(PROJ) = %+v, want the claimed slot", winner)
+	}
+	// The slot address itself still works as an exact spelling.
+	if w := ResolveExact(cands, "slot-3"); w == nil || w.Branch != "PROJ-123" {
+		t.Errorf("ResolveExact(slot-3) = %+v, want the claimed slot", w)
 	}
 }

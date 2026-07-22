@@ -1,0 +1,106 @@
+# Pool mode: the claim, work, release loop (PLAN.md Phase 4).
+# wt new and wt done dispatch on pool presence; claim/release are
+# the plumbing spellings; slots reset instead of being removed.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes --pool-size 2
+stderr 'pool mode, 2 slots'
+stderr 'provisioned slot-1'
+stderr 'provisioned slot-2'
+
+# slots are parked: detached at base, no branch
+exec git -C ../acme.trees/slot-1 branch --show-current
+! stdout .
+
+# wt new claims a slot instead of creating a personal tree
+exec wt new feat-a
+stdout '[/\\]acme\.trees[/\\]slot-1$'
+stderr 'claimed slot-1'
+exec git -C ../acme.trees/slot-1 branch --show-current
+stdout '^feat-a$'
+
+exec wt new feat-b
+stdout '[/\\]slot-2$'
+
+# pool exhausted: precondition, not a crash
+exitcode 3 wt new feat-c
+stderr 'no free slot'
+! stdout .
+
+# slot-centric view
+exec wt pool ls
+stdout 'slot-1\s+claimed\s+feat-a'
+stdout 'slot-2\s+claimed\s+feat-b'
+
+# navigation targets the branch; the slot name still resolves
+exec wt go feat-a
+stdout '[/\\]slot-1$'
+exec wt path slot-2
+stdout '[/\\]slot-2$'
+
+# done on a slot releases it: reset + branch delete, tree remains
+exec wt done feat-a
+stderr 'released slot-1'
+stderr 'deleted branch feat-a'
+exec git -C ../acme.trees/slot-1 branch --show-current
+! stdout .
+exec git -C ../acme.trees/slot-1 status --porcelain
+! stdout .
+exec wt pool ls
+stdout 'slot-1\s+free'
+
+# a released slot is claimable again; claim prints the slot path
+exec wt claim feat-c
+stdout '[/\\]slot-1$'
+
+# release is the branch-keeping plumbing counterpart of done
+exec wt release feat-c
+stderr 'released slot-1'
+exec git branch --list feat-c
+stdout 'feat-c'
+
+# claiming an existing branch checks it out instead of failing
+exec wt claim feat-c
+stdout '[/\\]slot-1$'
+exec git -C ../acme.trees/slot-1 branch --show-current
+stdout '^feat-c$'
+
+# wt new refuses the existing branch even in pool mode (R4)
+exitcode 3 wt new feat-b
+stderr 'already checked out in .*[/\\]slot-2'
+exitcode 3 wt new feat-c
+stderr 'already checked out'
+
+# a branch claimed in another slot cannot be claimed twice
+exitcode 3 wt claim feat-b
+stderr 'already checked out in .*[/\\]slot-2'
+
+# guards hold on release: uncommitted work blocks it,
+# and the blocked slot stays claimed for its branch
+cp $WORK/junk.txt ../acme.trees/slot-1/junk.txt
+exitcode 3 wt done feat-c
+stderr 'uncommitted changes'
+exec wt pool ls
+stdout 'slot-1\s+claimed\s+feat-c'
+rm ../acme.trees/slot-1/junk.txt
+exec wt done feat-c
+stderr 'released slot-1'
+
+# releasing a parked slot is a no-op with a clear message
+exitcode 3 wt release slot-1
+stderr 'not claimed'
+
+# a personal tree created outside the pool is still removed the
+# default way; the release path only ever touches slots
+exec git worktree add -q ../acme.trees/personal -b personal main
+exec wt done personal
+stderr 'removed .*[/\\]personal'
+stderr 'deleted branch personal'
+exists ../acme.trees/slot-1
+
+-- junk.txt --
+junk

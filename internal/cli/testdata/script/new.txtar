@@ -40,6 +40,16 @@ stderr 'feature-login'
 exitcode 2 wt new 'bad..name'
 stderr 'not a valid branch name'
 
+# slot-shaped names belong to the pool even in default mode: such
+# a tree would become resettable the day a [pool] table is added
+exitcode 3 wt new slot-1
+stderr 'reserved for pool slots'
+! stdout .
+
+# and case-folded, because the filesystem folds it too
+exitcode 3 wt new Slot-2
+stderr 'reserved for pool slots'
+
 # an unresolvable base is caught before git creates anything
 exitcode 3 wt new doomed --base no-such-ref
 stderr 'no-such-ref'
