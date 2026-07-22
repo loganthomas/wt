@@ -318,7 +318,8 @@ func (p *poolRepo) resetSlot(
 	}
 	discarded := 0
 	for _, e := range entries {
-		if e.Code != "??" || !slices.Contains(tolerate, e.Path) {
+		planted := e.Code == "??" && slices.Contains(tolerate, e.Path)
+		if !planted {
 			discarded++
 		}
 		// git status collapses an untracked nested repository to
