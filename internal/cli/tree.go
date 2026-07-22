@@ -18,10 +18,8 @@ func resolveTree(ctx context.Context, trees []gitx.Worktree, name string) (gitx.
 		if err != nil {
 			return gitx.Worktree{}, err
 		}
-		for _, t := range trees {
-			if t.Path == top {
-				return t, nil
-			}
+		if t, ok := findTree(trees, top); ok {
+			return t, nil
 		}
 		return gitx.Worktree{}, fmt.Errorf("git does not list the current tree %s", top)
 	}
@@ -33,10 +31,8 @@ func resolveTree(ctx context.Context, trees []gitx.Worktree, name string) (gitx.
 		cands[i] = nav.Candidate{Branch: t.Branch, Path: t.Path}
 	}
 	if winner := nav.ResolveExact(cands, name); winner != nil {
-		for _, t := range trees {
-			if t.Path == winner.Path {
-				return t, nil
-			}
+		if t, ok := findTree(trees, winner.Path); ok {
+			return t, nil
 		}
 	}
 	return gitx.Worktree{}, errNoTreeMatches(name)

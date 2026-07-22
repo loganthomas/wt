@@ -113,7 +113,7 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 	if err != nil {
 		return err
 	}
-	if err := finishFresh(ctx, w.cfg, st, dest, filepath.Base(dest), chatter); err != nil {
+	if err := finishFresh(ctx, w.cfg, st, dest, name, chatter); err != nil {
 		return fmt.Errorf("%w — the tree remains at %s", err, dest)
 	}
 
