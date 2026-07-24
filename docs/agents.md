@@ -46,6 +46,7 @@ then retry", never "wt is broken".
 | `wt config` | Merged config as TOML; the two config file paths ride along as `#` comments, so the whole document stays parseable TOML. |
 | `wt init`   | Nothing (chatter on stderr). Non-interactive use requires `--yes` plus value flags; without a TTY, prompting is refused (exit 2) rather than hanging. |
 | `wt done`   | Nothing (chatter on stderr).                  |
+| `wt sync`   | Nothing (fetch, fast-forward, and per-tree behind report all ride stderr). |
 | `wt claim`  | The claimed slot's absolute path, one line. No free slot: exit 3. |
 | `wt release` | Nothing (chatter on stderr). Not a slot / not claimed: exit 3. |
 | `wt pool ls` | One aligned row per slot: slot, state (`free`, `claimed`, `stale`, `unprovisioned`), branch, detail. |

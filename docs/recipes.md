@@ -138,3 +138,50 @@ case "$PWD" in *slot-[0-9]*) export PORT=$((3000 + slot)) ;; esac
 ```
 
 wt has no port machinery on purpose; the pattern is one line.
+
+### Scheduled sync (launchd)
+
+`wt` never fetches in the background on its own (PLAN.md D7). If you
+want a warm, current pool every morning, schedule `wt sync --all`
+with launchd — opt-in, and yours to remove.
+
+Save this as `~/Library/LaunchAgents/dev.wt.sync.plist`, editing the
+program path (`which wt`) and the working directory to your repo:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>            <string>dev.wt.sync</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/wt</string>
+    <string>sync</string>
+    <string>--all</string>
+  </array>
+  <key>WorkingDirectory</key> <string>/Users/you/code/acme</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>   <integer>8</integer>
+    <key>Minute</key> <integer>45</integer>
+  </dict>
+  <key>StandardOutPath</key>  <string>/tmp/wt-sync.log</string>
+  <key>StandardErrorPath</key><string>/tmp/wt-sync.log</string>
+</dict>
+</plist>
+```
+
+Load it (once, and after any edit):
+
+```sh
+launchctl unload ~/Library/LaunchAgents/dev.wt.sync.plist 2>/dev/null
+launchctl load   ~/Library/LaunchAgents/dev.wt.sync.plist
+```
+
+It runs `wt sync --all` at 08:45 daily and logs to `/tmp/wt-sync.log`.
+Remove it by unloading the agent and deleting the plist. Because
+`wt sync` fast-forwards only and never rewrites a branch with your
+commits, a missed or overlapping run is harmless — the next one
+catches up.
