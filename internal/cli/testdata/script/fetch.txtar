@@ -1,0 +1,42 @@
+# Opportunistic base fetch on wt new (PLAN.md D7): a stale base is
+# fetched once, with a one-line notice, and --no-fetch opts out. The
+# fetch only updates remote-tracking refs — it never fast-forwards
+# the local base, so the notice points at wt sync. wt ls then shows
+# the fetch age without ever touching the network.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main origin
+exec git -C origin commit -q --allow-empty -m initial
+exec git clone -q origin acme
+cd acme
+cp $WORK/wt.toml .git/wt.toml
+
+# The base moves upstream, but the clone doesn't know yet.
+exec git -C $WORK/origin commit -q --allow-empty -m 'upstream advance'
+
+# --no-fetch branches off the local base and stays offline.
+exec wt new early --no-fetch
+! stderr 'fetching'
+! stderr 'behind'
+
+# Without it, a base wt has never fetched is stale: fetch once, then
+# point at wt sync since the local base now trails upstream.
+exec wt new later
+stderr 'base main not yet fetched — fetching origin'
+stderr 'main is 1 commit behind origin/main — `wt sync` to fast-forward'
+
+# wt ls reports the fetch age on stderr; stdout stays the machine
+# contract. Fresh from the fetch just now, so no stale marker.
+exec wt ls
+stdout 'main\s'
+stderr 'base main fetched'
+! stderr 'stale'
+
+# Porcelain output is for scripts: the human note is suppressed.
+exec wt ls --porcelain
+! stderr .
+
+-- wt.toml --
+base = 'main'
+trees_dir = '../acme.trees'
