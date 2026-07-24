@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.0-alpha.4 - 2026-07-24
+
+### Enhancements
+
+- Pool mode is here: `wt init` provisions a pool of pre-warmed `slot-N` worktrees, `wt new`/`wt done` claim and release them with crash-safe leases, `wt claim`/`wt release` expose the plumbing, and `wt pool ls`/`wt pool resize` manage the pool; separately, `wt init` now pre-fills its answers in any repo by scanning the root, where a tracked lockfile proposes a hash-gated refresh hook and untracked `.env` files propose a copy list. (#11)
+
+### Documentation
+
+- New docs/pool-mode.md explains slots, the claim/release loop, leases, and the refresh gate, new docs/recipes.md explains how caches are shared across trees, with per-ecosystem setups (Bazel, npm/pnpm/yarn, Go, direnv, ports), and docs/configuration.md gains a "Detected defaults" reference for what `wt init` proposes from a repo-root scan. (#11)
+
 ## v0.1.0-alpha.3 - 2026-07-20
 
 ### Enhancements

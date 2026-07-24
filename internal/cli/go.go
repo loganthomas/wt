@@ -8,6 +8,8 @@ import (
 
 	"github.com/loganthomas/wt/internal/gitx"
 	"github.com/loganthomas/wt/internal/nav"
+	"github.com/loganthomas/wt/internal/pool"
+	"github.com/loganthomas/wt/internal/repo"
 )
 
 func newGoCmd() *cobra.Command {
@@ -31,14 +33,14 @@ func newGoCmd() *cobra.Command {
 // `wt go`, and `wt go <query>`: it ends with a single tree path
 // on stdout, which the shell shim turns into a cd (D11).
 func runJump(cmd *cobra.Command, query string) error {
-	trees, err := repoTrees(cmd.Context())
+	r, trees, err := repoTrees(cmd.Context())
 	if err != nil {
 		return err
 	}
 	if query == "" {
-		return jumpInteractive(cmd, trees)
+		return jumpInteractive(cmd, r, trees)
 	}
-	winner, contenders := nav.Resolve(jumpCandidates(trees), query)
+	winner, contenders := nav.Resolve(jumpCandidates(trees, slotTreesDir(r)), query)
 	switch {
 	case winner != nil:
 		fmt.Fprintln(cmd.OutOrStdout(), winner.Path)
@@ -57,13 +59,15 @@ func runJump(cmd *cobra.Command, query string) error {
 
 // jumpInteractive opens the picker when a human is present;
 // otherwise it degrades to the porcelain listing so scripts and
-// agents never hang on a TUI (D12, R15).
-func jumpInteractive(cmd *cobra.Command, trees []gitx.Worktree) error {
+// agents never hang on a TUI (D12, R15). Candidates are built past
+// the TTY gate: that listing needs none of them, and repoTrees
+// keeps read-only commands off the config on purpose.
+func jumpInteractive(cmd *cobra.Command, r *repo.Repo, trees []gitx.Worktree) error {
 	if !interactive() {
 		_, err := fmt.Fprint(cmd.OutOrStdout(), formatPorcelain(trees))
 		return err
 	}
-	choice, err := pickTree(cmd.Context(), jumpCandidates(trees))
+	choice, err := pickTree(cmd.Context(), jumpCandidates(trees, slotTreesDir(r)))
 	if err != nil {
 		return err
 	}
@@ -73,13 +77,36 @@ func jumpInteractive(cmd *cobra.Command, trees []gitx.Worktree) error {
 
 // jumpCandidates converts worktrees into jump targets.
 // Bare entries are dropped: they have no checkout to land in.
-func jumpCandidates(trees []gitx.Worktree) []nav.Candidate {
+// Parked slots are dropped too: there is nothing to work on in
+// one, and landing there would race the next claim's reset.
+// Claimed slots carry their address for display
+// ("branch → slot-3", PLAN.md Phase 4).
+func jumpCandidates(trees []gitx.Worktree, treesDir string) []nav.Candidate {
 	cands := make([]nav.Candidate, 0, len(trees))
 	for _, t := range trees {
 		if t.Bare {
 			continue
 		}
-		cands = append(cands, nav.Candidate{Branch: t.Branch, Path: t.Path})
+		var slot string
+		if treesDir != "" {
+			slot, _ = pool.SlotPath(treesDir, t.Path)
+		}
+		if slot != "" && t.Branch == "" {
+			continue
+		}
+		cands = append(cands, nav.Candidate{Branch: t.Branch, Path: t.Path, Slot: slot})
 	}
 	return cands
+}
+
+// slotTreesDir reports the container to annotate slots from, or
+// "" when pool mode is off, and on config trouble, which only
+// costs the annotation, never the jump, matching repoTrees'
+// broken-config tolerance.
+func slotTreesDir(r *repo.Repo) string {
+	cfg, err := loadMerged(r)
+	if err != nil || cfg.Pool == nil {
+		return ""
+	}
+	return r.TreesDir(cfg.TreesDir)
 }

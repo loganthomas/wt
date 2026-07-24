@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -31,6 +32,9 @@ func TestScript(t *testing.T) {
 			// repo discovery inside the work dir even when the system
 			// temp dir sits under some git checkout.
 			env.Setenv("GIT_CEILING_DIRECTORIES", env.WorkDir)
+			// Leases and refresh hashes must land in the script's
+			// world, not the developer's real state dir.
+			env.Setenv("XDG_STATE_HOME", filepath.Join(env.WorkDir, ".state"))
 			for _, kv := range gittest.BaseEnv() {
 				name, value, _ := strings.Cut(kv, "=")
 				env.Setenv(name, value)

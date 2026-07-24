@@ -22,10 +22,16 @@ const maxContenders = 5
 type Candidate struct {
 	Branch string // checked-out branch; empty when detached
 	Path   string // absolute tree root
+	Slot   string // pool slot name when the tree is a claimed slot
 }
 
 // Display names the candidate for human-facing lists.
+// A claimed slot leads with the branch: the work is the identity,
+// the slot is only its current address (PLAN.md Phase 4).
 func (c Candidate) Display() string {
+	if c.Branch != "" && c.Slot != "" {
+		return c.Branch + " → " + c.Slot
+	}
 	if c.Branch != "" {
 		return c.Branch
 	}

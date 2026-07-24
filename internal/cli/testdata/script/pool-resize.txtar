@@ -1,0 +1,57 @@
+# wt pool resize: grow provisions and warms new slots,
+# shrink refuses claimed slots and removes only free ones,
+# and the config always reflects the surviving pool.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes --pool-size 1
+stderr 'provisioned slot-1'
+
+exec wt pool resize 3
+stderr 'provisioned slot-2'
+stderr 'provisioned slot-3'
+grep 'size = 3' .git/wt.toml
+exec wt pool ls
+stdout 'slot-2\s+free'
+stdout 'slot-3\s+free'
+
+# a claimed slot blocks any shrink that would remove it
+exec wt claim feat-a
+stdout '[/\\]slot-1$'
+exec wt new feat-b
+stdout '[/\\]slot-2$'
+exitcode 3 wt pool resize 1
+stderr 'slot-2 is claimed'
+grep 'size = 3' .git/wt.toml
+
+# free slots shrink away: trees, state, and config all follow
+exec wt done feat-b
+exec wt pool resize 1
+stderr 'removed slot-2'
+stderr 'removed slot-3'
+! exists ../acme.trees/slot-2
+! exists ../acme.trees/slot-3
+grep 'size = 1' .git/wt.toml
+exec wt pool ls
+stdout 'slot-1\s+claimed\s+feat-a'
+! stdout 'slot-2'
+
+# the surviving claim is untouched
+exec git -C ../acme.trees/slot-1 branch --show-current
+stdout '^feat-a$'
+
+# garbage sizes are usage errors
+exitcode 2 wt pool resize 0
+exitcode 2 wt pool resize banana
+
+# resizing outside pool mode is a precondition failure
+cd ..
+exec git init -q -b main plain
+cd plain
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+exitcode 3 wt pool resize 2
+stderr 'pool mode is not enabled'
