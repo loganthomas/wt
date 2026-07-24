@@ -639,6 +639,15 @@ Phase 5 (sync & freshness) is ready once the tag is cut.
       Testscript: a local "origin" fixture advanced by the test;
       assert slots re-park and a slot with user commits is untouched.
 - [ ] Docs: opt-in launchd plist recipe.
+- [ ] Deferred claim-path optimization (surfaced in Phase 4 review):
+      the steady-state reset runs `rev-list`, `status`, `checkout -f`,
+      and `clean -ffd` unconditionally, but a slot already detached at
+      base with a clean status makes all four no-ops. Skipping them
+      keys on `t.Head` (already parsed) and the base SHA (which
+      `checkBase` resolves and discards). Hundreds of ms on the big
+      repos pool mode targets. Caveat before taking it: `clean -ffd`
+      removes empty untracked directories that `status` never reports,
+      so the `clean` skip is a real behavior delta, not a pure no-op.
 - **Exit:** the 24h freshness window holds with zero daemons.
   Tag `v0.1.0-alpha.5`.
 

@@ -98,6 +98,10 @@ func (g *Git) CheckoutDetach(ctx context.Context, ref string) error {
 // while still exiting 0; a reset that reported success would
 // leave them to fail the next holder's guards, with no wt command
 // able to clear them.
+// Runs unconditionally, even when git status came back empty:
+// status never reports an empty untracked directory, but this
+// removes one, so a future claim-path optimization that skips the
+// reset on a clean status would leave those dirs behind.
 func (g *Git) CleanUntracked(ctx context.Context) error {
 	_, err := g.run(ctx, "clean", "-q", "-ffd")
 	return err
