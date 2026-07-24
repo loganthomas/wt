@@ -46,9 +46,20 @@ then retry", never "wt is broken".
 | `wt config` | Merged config as TOML; the two config file paths ride along as `#` comments, so the whole document stays parseable TOML. |
 | `wt init`   | Nothing (chatter on stderr). Non-interactive use requires `--yes` plus value flags; without a TTY, prompting is refused (exit 2) rather than hanging. |
 | `wt done`   | Nothing (chatter on stderr).                  |
+| `wt claim`  | The claimed slot's absolute path, one line. No free slot: exit 3. |
+| `wt release` | Nothing (chatter on stderr). Not a slot / not claimed: exit 3. |
+| `wt pool ls` | One aligned row per slot: slot, state (`free`, `claimed`, `stale`, `unprovisioned`), branch, detail. |
 
-`--json` on `ls`/`status`/`doctor` and the pool plumbing
-(`wt claim` / `wt release`) land in later phases.
+The claim/release loop for agents
+(see [pool-mode.md](pool-mode.md)):
+
+```sh
+slot="$(wt claim "$TICKET")"       # a warm slot in seconds
+cd "$slot" && …work…
+wt release "$TICKET"               # branch survives for the PR flow
+```
+
+`--json` on `ls`/`status`/`doctor` lands in a later phase.
 
 A porcelain line looks like:
 

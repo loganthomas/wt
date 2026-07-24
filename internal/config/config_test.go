@@ -297,3 +297,33 @@ func TestGlobalPath(t *testing.T) {
 		}
 	})
 }
+
+// LoadRepo feeds read-modify-write flows (wt pool resize):
+// it must return exactly what the repo file says (no defaults,
+// no global merge), so saving it back never smuggles in values
+// the user never wrote.
+func TestLoadRepo(t *testing.T) {
+	dir := t.TempDir()
+	path := writeOptional(t, dir, "wt.toml", "trees_dir = '../x.trees'\n\n[pool]\nsize = 4\n")
+
+	cfg, err := LoadRepo(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Base != "" {
+		t.Errorf("Base = %q, want empty (no defaults merged)", cfg.Base)
+	}
+	if cfg.TreesDir != "../x.trees" {
+		t.Errorf("TreesDir = %q, want ../x.trees", cfg.TreesDir)
+	}
+	if cfg.Pool == nil || cfg.Pool.Size != 4 {
+		t.Errorf("Pool = %+v, want size 4", cfg.Pool)
+	}
+}
+
+func TestLoadRepoMissingFile(t *testing.T) {
+	_, err := LoadRepo(filepath.Join(t.TempDir(), "wt.toml"))
+	if err == nil {
+		t.Fatal("LoadRepo on a missing file: want an error, got nil")
+	}
+}

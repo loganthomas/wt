@@ -19,7 +19,7 @@ func newPathCmd() *cobra.Command {
 
 func runPath(cmd *cobra.Command, name string) error {
 	ctx := cmd.Context()
-	trees, err := repoTrees(ctx)
+	_, trees, err := repoTrees(ctx)
 	if err != nil {
 		return err
 	}
