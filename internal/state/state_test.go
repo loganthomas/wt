@@ -4,9 +4,52 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/loganthomas/wt/internal/state"
 )
+
+func TestLastFetchRoundTrip(t *testing.T) {
+	d := state.Dir(t.TempDir())
+
+	if got, ok := d.LastFetch(); ok {
+		t.Errorf("LastFetch on fresh state = (%v, true), want (_, false)", got)
+	}
+
+	// Sub-second precision is dropped: the stamp round-trips through
+	// RFC3339 seconds, which is all a 24h staleness window needs.
+	want := time.Date(2026, 7, 24, 9, 30, 0, 0, time.UTC)
+	if err := d.WriteLastFetch(want); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := d.LastFetch()
+	if !ok {
+		t.Fatal("LastFetch after write = (_, false), want (_, true)")
+	}
+	if !got.Equal(want) {
+		t.Errorf("LastFetch = %v, want %v", got, want)
+	}
+
+	// The on-disk location is part of the documented state layout
+	// (PLAN.md, State layout): last_fetch at the state root.
+	onDisk := filepath.Join(string(d), "last_fetch")
+	if _, err := os.Stat(onDisk); err != nil {
+		t.Errorf("timestamp not at the documented layout path: %v", err)
+	}
+}
+
+func TestLastFetchIgnoresGarbage(t *testing.T) {
+	d := state.Dir(t.TempDir())
+	path := filepath.Join(string(d), "last_fetch")
+	if err := os.WriteFile(path, []byte("not-a-time\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// An unparseable stamp reads as "never fetched": the worst
+	// consequence is one extra fetch, always safe.
+	if got, ok := d.LastFetch(); ok {
+		t.Errorf("LastFetch on garbage = (%v, true), want (_, false)", got)
+	}
+}
 
 func TestLeasesDir(t *testing.T) {
 	d := state.Dir(filepath.Join("some", "root"))

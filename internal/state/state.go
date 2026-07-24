@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // Dir is one repository's state root,
@@ -19,6 +20,38 @@ type Dir string
 // manages its contents.
 func (d Dir) LeasesDir() string {
 	return filepath.Join(string(d), "leases")
+}
+
+// lastFetchFile records when wt last fetched the base (PLAN.md D7),
+// a repo-wide fact and so a single file at the state root rather
+// than a per-tree one.
+const lastFetchFile = "last_fetch"
+
+// LastFetch returns when wt last fetched the base, and whether any
+// fetch is on record. A missing or unparseable stamp reads as
+// "never fetched": the worst consequence is one extra fetch, always
+// safe, and the same fail-open rule the refresh hash follows.
+func (d Dir) LastFetch() (time.Time, bool) {
+	raw, err := os.ReadFile(filepath.Join(string(d), lastFetchFile))
+	if err != nil {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(time.RFC3339, strings.TrimSpace(string(raw)))
+	if err != nil {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
+// WriteLastFetch records t as the base's last fetch time, creating
+// the state root as needed. Stored to RFC3339 seconds, all a
+// staleness window in hours ever needs.
+func (d Dir) WriteLastFetch(t time.Time) error {
+	if err := os.MkdirAll(string(d), 0o755); err != nil {
+		return err
+	}
+	stamp := t.UTC().Format(time.RFC3339) + "\n"
+	return os.WriteFile(filepath.Join(string(d), lastFetchFile), []byte(stamp), 0o644)
 }
 
 // The per-tree files. Named once: this package's whole job is
