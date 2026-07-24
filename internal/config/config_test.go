@@ -165,6 +165,72 @@ color = "never"
 	}
 }
 
+func TestLoadStalenessHours(t *testing.T) {
+	tests := []struct {
+		name    string
+		global  string
+		repo    string
+		want    int
+		wantErr string
+	}{
+		// Unset stays the struct zero: the 24h default is applied at
+		// the use-site (via DefaultStalenessHours), never baked into
+		// the loaded config, so a repo can still narrow a global one.
+		{name: "unset stays zero", want: 0},
+		{name: "repo sets it", repo: "staleness_hours = 48\n", want: 48},
+		{
+			name:   "repo overrides global",
+			global: "[defaults]\nstaleness_hours = 12\n",
+			repo:   "staleness_hours = 6\n",
+			want:   6,
+		},
+		{
+			name:   "global applies when repo is silent",
+			global: "[defaults]\nstaleness_hours = 12\n",
+			want:   12,
+		},
+		{name: "negative rejected", repo: "staleness_hours = -1\n", wantErr: "staleness_hours"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			globalPath := writeOptional(t, dir, "config.toml", tt.global)
+			repoPath := writeOptional(t, dir, "wt.toml", tt.repo)
+
+			got, err := Load(globalPath, repoPath)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("Load() error = %v, want it to contain %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Load() error: %v", err)
+			}
+			if got.StalenessHours != tt.want {
+				t.Errorf("StalenessHours = %d, want %d", got.StalenessHours, tt.want)
+			}
+		})
+	}
+}
+
+func TestStalenessHoursRoundTrips(t *testing.T) {
+	// A repo that set staleness_hours must keep it through a
+	// read-modify-write (e.g. wt pool resize), which re-marshals via
+	// Save: an omitted field there would silently drop the setting.
+	path := filepath.Join(t.TempDir(), "wt.toml")
+	if err := Save(path, Config{Base: "main", StalenessHours: 48}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := Load(filepath.Join(t.TempDir(), "absent"), path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.StalenessHours != 48 {
+		t.Errorf("StalenessHours after round-trip = %d, want 48", got.StalenessHours)
+	}
+}
+
 // writeOptional writes content under dir and returns its path.
 // Empty content returns a path to a file that does not exist,
 // exercising the missing-file branches of Load.

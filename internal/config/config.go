@@ -15,12 +15,22 @@ import (
 	"slices"
 )
 
+// DefaultStalenessHours is the base-fetch staleness window applied
+// when a repo sets none (PLAN.md D7). Kept out of Default() so a
+// loaded Config mirrors its files exactly (a zero means "unset",
+// which merge needs to let a repo narrow a global value); callers
+// fold it in at the point of use.
+const DefaultStalenessHours = 24
+
 // Config is the merged, validated configuration for one repository.
 type Config struct {
 	Base     string   `toml:"base"`
 	TreesDir string   `toml:"trees_dir"`
 	Copy     []string `toml:"copy"`
-	Hooks    Hooks    `toml:"hooks"`
+	// StalenessHours is the base-fetch staleness window; zero means
+	// unset, so read it through DefaultStalenessHours (see above).
+	StalenessHours int   `toml:"staleness_hours"`
+	Hooks          Hooks `toml:"hooks"`
 	// Pool being non-nil is what puts a repo in pool mode (D3);
 	// there is no separate mode setting.
 	Pool *Pool `toml:"pool"`
@@ -131,6 +141,9 @@ func merge(cfg *Config, layer Config) {
 	if layer.TreesDir != "" {
 		cfg.TreesDir = layer.TreesDir
 	}
+	if layer.StalenessHours != 0 {
+		cfg.StalenessHours = layer.StalenessHours
+	}
 	if layer.Copy != nil {
 		cfg.Copy = layer.Copy
 	}
@@ -153,6 +166,9 @@ var uiColors = []string{"auto", "always", "never"}
 func validate(cfg Config) error {
 	if cfg.Pool != nil && cfg.Pool.Size < 1 {
 		return fmt.Errorf("pool.size must be at least 1, got %d", cfg.Pool.Size)
+	}
+	if cfg.StalenessHours < 0 {
+		return fmt.Errorf("staleness_hours must not be negative, got %d", cfg.StalenessHours)
 	}
 	if err := validateTreeLocal("copy", cfg.Copy); err != nil {
 		return err

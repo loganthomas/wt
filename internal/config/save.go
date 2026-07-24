@@ -12,11 +12,12 @@ import (
 // zero value should omit the whole table, omitempty elsewhere,
 // so a fresh config stays as small as what the user chose.
 type repoFile struct {
-	Base     string   `toml:"base,omitempty"`
-	TreesDir string   `toml:"trees_dir,omitempty"`
-	Copy     []string `toml:"copy,omitempty"`
-	Hooks    *Hooks   `toml:"hooks,omitempty"`
-	Pool     *Pool    `toml:"pool,omitempty"`
+	Base           string   `toml:"base,omitempty"`
+	TreesDir       string   `toml:"trees_dir,omitempty"`
+	Copy           []string `toml:"copy,omitempty"`
+	StalenessHours int      `toml:"staleness_hours,omitempty"`
+	Hooks          *Hooks   `toml:"hooks,omitempty"`
+	Pool           *Pool    `toml:"pool,omitempty"`
 }
 
 // renderFile is the effective-config shape printed by Render:
@@ -26,9 +27,13 @@ type renderFile struct {
 	Base     string   `toml:"base"`
 	TreesDir string   `toml:"trees_dir"`
 	Copy     []string `toml:"copy"`
-	Hooks    *Hooks   `toml:"hooks,omitempty"`
-	Pool     *Pool    `toml:"pool,omitempty"`
-	UI       UI       `toml:"ui"`
+	// Shown only when the repo set it: an unset window renders
+	// nothing rather than a bare 0, which would misstate the real
+	// default (DefaultStalenessHours) that applies in its absence.
+	StalenessHours int    `toml:"staleness_hours,omitempty"`
+	Hooks          *Hooks `toml:"hooks,omitempty"`
+	Pool           *Pool  `toml:"pool,omitempty"`
+	UI             UI     `toml:"ui"`
 }
 
 // Save validates cfg and writes its repo-file keys to path.
@@ -46,11 +51,12 @@ func Save(path string, cfg Config) error {
 		return err
 	}
 	file := repoFile{
-		Base:     cfg.Base,
-		TreesDir: cfg.TreesDir,
-		Copy:     cfg.Copy,
-		Hooks:    nilIfZero(cfg.Hooks),
-		Pool:     cfg.Pool,
+		Base:           cfg.Base,
+		TreesDir:       cfg.TreesDir,
+		Copy:           cfg.Copy,
+		StalenessHours: cfg.StalenessHours,
+		Hooks:          nilIfZero(cfg.Hooks),
+		Pool:           cfg.Pool,
 	}
 	raw, err := toml.Marshal(file)
 	if err != nil {
@@ -94,12 +100,13 @@ func writeAtomic(path string, raw []byte) (err error) {
 // Render returns the merged config as TOML for `wt config`.
 func Render(cfg Config) (string, error) {
 	file := renderFile{
-		Base:     cfg.Base,
-		TreesDir: cfg.TreesDir,
-		Copy:     orEmpty(cfg.Copy),
-		Hooks:    nilIfZero(cfg.Hooks),
-		Pool:     cfg.Pool,
-		UI:       cfg.UI,
+		Base:           cfg.Base,
+		TreesDir:       cfg.TreesDir,
+		Copy:           orEmpty(cfg.Copy),
+		StalenessHours: cfg.StalenessHours,
+		Hooks:          nilIfZero(cfg.Hooks),
+		Pool:           cfg.Pool,
+		UI:             cfg.UI,
 	}
 	raw, err := toml.Marshal(file)
 	if err != nil {
