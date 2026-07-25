@@ -631,14 +631,18 @@ Phase 5 (sync & freshness) is ready once the tag is cut.
 
 ### Phase 5 — Sync & freshness (M)
 
-- [ ] `last_fetch` staleness core; display in `ls`/`status`.
-- [ ] Opportunistic fetch on `new`/claim with stderr notice;
+- [x] `last_fetch` staleness core; display in `ls`.
+      (`internal/state` records the stamp, `internal/freshness` owns
+      the pure staleness policy, `wt ls` shows the fetch age on
+      stderr. `wt status` itself is Phase 6; the core it will show
+      is in place.)
+- [x] Opportunistic fetch on `new`/claim with stderr notice;
       `--no-fetch` escape hatch.
-- [ ] `wt sync [--all]`: fetch, ff-only base update,
+- [x] `wt sync [--all]`: fetch, ff-only base update,
       re-park idle slots with gated refresh, behind-count report.
       Testscript: a local "origin" fixture advanced by the test;
       assert slots re-park and a slot with user commits is untouched.
-- [ ] Docs: opt-in launchd plist recipe.
+- [x] Docs: opt-in launchd plist recipe.
 - [ ] Deferred claim-path optimization (surfaced in Phase 4 review):
       the steady-state reset runs `rev-list`, `status`, `checkout -f`,
       and `clean -ffd` unconditionally, but a slot already detached at
@@ -648,8 +652,38 @@ Phase 5 (sync & freshness) is ready once the tag is cut.
       repos pool mode targets. Caveat before taking it: `clean -ffd`
       removes empty untracked directories that `status` never reports,
       so the `clean` skip is a real behavior delta, not a pure no-op.
+      **Still deferred:** a perf-only change with a genuine behavior
+      delta and no benchmark yet justifying the risk — it fails the
+      "no premature optimization" bar. Revisit once `wt status`
+      (Phase 6) can measure a real steady-state claim on a big repo.
 - **Exit:** the 24h freshness window holds with zero daemons.
   Tag `v0.1.0-alpha.5`.
+
+**Status (2026-07-24): code complete, PR open against `dev`.**
+Design decisions and refinements surfaced by implementation:
+the opportunistic fetch on `wt new`/`wt claim` is deliberately
+**non-invasive** — it updates remote-tracking refs and notes when
+the base now trails upstream, but never fast-forwards a branch or
+mutates a working tree; the fast-forward is the explicit `wt sync`'s
+job (D7 to the letter). `wt sync` is the fast, safe command
+(fetch, ff-only base, behind report); `wt sync --all` gates the
+heavier, mutating step of re-parking idle slots onto the new tip
+(git-town's current-vs-all convention), so the frequent command
+never pays for the pool-wide reset it doesn't need. Re-park touches
+only free, detached slots, each under its own lease so a racing
+claim can't collide, with the orphan guard still protecting stranded
+commits; a claimed slot — branch and work intact — is skipped. The
+staleness default (24h) lives at the use-site, not in `config.Default()`,
+so a loaded config still mirrors its files exactly and a repo can
+narrow a global window. The behind-count report re-lists worktrees
+after the fast-forward, so the base's own checkout never reads as
+trailing itself. `wt ls`'s staleness note is best-effort and silent
+until wt has a fetch on record: it never touches the network and
+never regresses the config-free listing. One dedupe landed too:
+`freshness.Age` now backs both the fetch note and pool `ls`'s
+claim-age column, so the two coarse formatters can't drift.
+Remaining before exit: merge, batch fragments, tag `v0.1.0-alpha.5`.
+Phase 6 (doctor, clean, status) is ready once the tag is cut.
 
 ### Phase 6 — Doctor, clean, status (M)
 

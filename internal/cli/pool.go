@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/loganthomas/wt/internal/config"
+	"github.com/loganthomas/wt/internal/freshness"
 	"github.com/loganthomas/wt/internal/gitx"
 	"github.com/loganthomas/wt/internal/lease"
 	"github.com/loganthomas/wt/internal/pool"
@@ -77,24 +78,8 @@ func slotRow(slot string, registered bool, held *lease.Info, err error) []string
 	default:
 		return []string{
 			slot, "claimed", held.Branch,
-			fmt.Sprintf("pid %d, claimed %s", held.PID, humanAge(held.ClaimedAt)),
+			fmt.Sprintf("pid %d, claimed %s", held.PID, freshness.Age(time.Since(held.ClaimedAt))),
 		}
-	}
-}
-
-// humanAge says how long ago t was, coarsely: pool occupancy is
-// read at a glance, not billed by the second.
-func humanAge(t time.Time) string {
-	d := time.Since(t)
-	switch {
-	case d < time.Minute:
-		return "just now"
-	case d < time.Hour:
-		return fmt.Sprintf("%dm ago", int(d.Minutes()))
-	case d < 24*time.Hour:
-		return fmt.Sprintf("%dh ago", int(d.Hours()))
-	default:
-		return fmt.Sprintf("%dd ago", int(d.Hours()/24))
 	}
 }
 

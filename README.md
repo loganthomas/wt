@@ -52,6 +52,7 @@ Details in [docs/shell.md](docs/shell.md).
 | `wt ls [--porcelain]`            | List worktrees: branch, path, state.                                          |
 | `wt go [query]`                  | Fuzzy-jump: best match cds (with a query) or picker (without).                |
 | `wt done [name] [--keep-branch]` | Finish a tree: safety checks, remove it, delete its branch. Alias: `wt rm`.   |
+| `wt sync [--all]`                | Fetch the base, fast-forward it (ff-only), report tree staleness; `--all` re-parks idle [pool](docs/pool-mode.md#staying-fresh) slots onto the new tip. |
 | `wt claim <branch>`              | Pool mode: claim a slot for a branch; slot path on stdout (plumbing).         |
 | `wt release [name]`              | Pool mode: park a slot back on the base, keeping its branch (plumbing).       |
 | `wt pool ls`                     | Pool mode: slot-centric view — free, claimed, by whom.                        |
@@ -61,7 +62,7 @@ Details in [docs/shell.md](docs/shell.md).
 | `wt shell-init zsh [--prompt]`   | Emit the shim, completions, and optional prompt hook for eval in `.zshrc`.    |
 | `wt --version`                   | Version, commit, build date.                                                  |
 
-The full surface (`sync`, `clean`, `status`, …)
+The full surface (`clean`, `status`, `doctor`, …)
 lands phase by phase; see [PLAN.md](PLAN.md).
 Monorepo pool mode: [docs/pool-mode.md](docs/pool-mode.md).
 Configuration reference: [docs/configuration.md](docs/configuration.md).

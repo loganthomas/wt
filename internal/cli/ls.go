@@ -27,7 +27,7 @@ func newLsCmd() *cobra.Command {
 }
 
 func runLs(cmd *cobra.Command, porcelain bool) error {
-	_, trees, err := repoTrees(cmd.Context())
+	r, trees, err := repoTrees(cmd.Context())
 	if err != nil {
 		return err
 	}
@@ -35,8 +35,17 @@ func runLs(cmd *cobra.Command, porcelain bool) error {
 	if porcelain {
 		format = formatPorcelain
 	}
-	_, err = fmt.Fprint(cmd.OutOrStdout(), format(trees))
-	return err
+	if _, err := fmt.Fprint(cmd.OutOrStdout(), format(trees)); err != nil {
+		return err
+	}
+	// A human staleness note on stderr, so stdout stays the machine
+	// contract (D13). Porcelain callers are scripts: no chatter for
+	// them. Best-effort, and silent until wt has a fetch on record,
+	// so it never touches the network or disturbs the listing.
+	if !porcelain {
+		noteFetchStaleness(r, cmd.ErrOrStderr())
+	}
+	return nil
 }
 
 // formatPorcelain renders the stable machine format:

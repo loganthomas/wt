@@ -1,0 +1,84 @@
+# wt sync fetches the base, fast-forwards it (ff-only), and reports
+# how far each tree trails it; --all re-parks idle pool slots onto
+# the new tip while leaving a claimed slot — carrying user commits —
+# untouched (PLAN.md Phase 5, D7).
+
+[!exec:git] skip 'git not on PATH'
+
+# An origin the test can advance, and a working clone of it whose
+# main tracks origin/main.
+exec git init -q -b main origin
+exec git -C origin commit -q --allow-empty -m initial
+exec git clone -q origin acme
+cd acme
+cp $WORK/pool.toml .git/wt.toml
+
+# slot-1: claimed for feat with a commit of the user's own, which
+# the sync must never discard.
+exec wt claim feat
+exec git -C ../acme.trees/slot-1 commit -q --allow-empty -m 'user work'
+
+# slot-2: provisioned then released, so it sits idle and detached on
+# the (soon to be old) base — exactly what a re-park brings forward.
+exec wt claim parked
+exec wt release parked
+
+# The base moves upstream.
+exec git -C $WORK/origin commit -q --allow-empty -m 'upstream advance'
+
+exec wt sync --all
+stderr 'fetched origin'
+stderr 'main fast-forwarded 1 commit to origin/main'
+# the base's own checkout reads current after its fast-forward,
+# never as trailing itself
+stderr 'acme\s+main\s+up to date'
+stderr 're-parked slot-2 onto main'
+! stderr 're-parked slot-1'
+! stdout .
+
+# The local base caught up to origin.
+exec git rev-list --count main..origin/main
+stdout '^0$'
+
+# slot-1 is untouched: still on feat, user commit intact.
+exec git -C ../acme.trees/slot-1 branch --show-current
+stdout '^feat$'
+exec git -C ../acme.trees/slot-1 log -1 --format=%s
+stdout '^user work$'
+
+# slot-2 was re-parked onto the new base: detached, zero behind.
+exec git -C ../acme.trees/slot-2 rev-list --count HEAD..main
+stdout '^0$'
+
+# A free slot holding uncommitted scratch is left for its owner, not
+# wiped, even by an unattended sync --all.
+exec git -C $WORK/origin commit -q --allow-empty -m 'yet another advance'
+cp $WORK/scratch.txt ../acme.trees/slot-2/scratch.txt
+exec wt sync --all
+stderr 'skipping slot-2'
+! stderr 're-parked slot-2'
+exists ../acme.trees/slot-2/scratch.txt
+
+# Bare sync (no --all) fetches and reports but re-parks nothing.
+exec git -C $WORK/origin commit -q --allow-empty -m 'another advance'
+exec wt sync
+stderr 'fetched origin'
+stderr 'main fast-forwarded'
+! stderr 're-parked'
+
+# A diverged base cannot fast-forward: sync says so and exits 3
+# (a precondition, D13), never rewriting the branch.
+exec git commit -q --allow-empty -m 'local-only'
+exec git -C $WORK/origin commit -q --allow-empty -m 'remote-only'
+exitcode 3 wt sync
+stderr 'could not fast-forward'
+
+-- scratch.txt --
+work in progress
+
+-- pool.toml --
+base = 'main'
+trees_dir = '../acme.trees'
+
+[pool]
+size = 2

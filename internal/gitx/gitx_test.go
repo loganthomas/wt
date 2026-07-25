@@ -160,3 +160,113 @@ func TestSlotLifecycleOperations(t *testing.T) {
 		t.Error("WorktreeRemoveForce left the slot directory behind")
 	}
 }
+
+// TestFetchAndFastForward exercises the freshness primitives against
+// a local origin clone: upstream discovery, a fetch that advances
+// the remote-tracking ref, and an ff-only merge that catches the
+// local base up. A local clone is enough — no bare repo needed —
+// because the origin's main is only ever advanced by this test.
+func TestFetchAndFastForward(t *testing.T) {
+	gittest.Scrub(t)
+	root := gittest.TempDir(t)
+	origin := gittest.Repo(t, filepath.Join(root, "origin"))
+	clone := filepath.Join(root, "clone")
+	gittest.Run(t, root, "clone", "-q", origin, clone)
+
+	ctx := t.Context()
+	g := New(clone)
+
+	up, err := g.Upstream(ctx, "main")
+	if err != nil {
+		t.Fatalf("Upstream: %v", err)
+	}
+	if up != "origin/main" {
+		t.Errorf("Upstream = %q, want origin/main", up)
+	}
+	remote, err := g.UpstreamRemote(ctx, "main")
+	if err != nil {
+		t.Fatalf("UpstreamRemote: %v", err)
+	}
+	if remote != "origin" {
+		t.Errorf("UpstreamRemote = %q, want origin", remote)
+	}
+
+	gittest.WriteFile(t, origin, "new.txt", "hi\n")
+	gittest.Run(t, origin, "add", "new.txt")
+	gittest.Run(t, origin, "commit", "-q", "-m", "advance")
+
+	if err := g.Fetch(ctx, remote); err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+	behind, err := g.CommitCount(ctx, "main.."+up)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if behind != 1 {
+		t.Errorf("behind after fetch = %d, want 1", behind)
+	}
+
+	if err := g.MergeFFOnly(ctx, up); err != nil {
+		t.Fatalf("MergeFFOnly: %v", err)
+	}
+	behind, err = g.CommitCount(ctx, "main.."+up)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if behind != 0 {
+		t.Errorf("behind after fast-forward = %d, want 0", behind)
+	}
+}
+
+// TestUpstreamAbsent reports no upstream as an error, the signal
+// that there is nothing to fetch or be stale against.
+func TestUpstreamAbsent(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	if _, err := New(dir).Upstream(t.Context(), "main"); err == nil {
+		t.Error("Upstream on a remoteless repo = nil error, want failure")
+	}
+}
+
+// TestFetchLocalFF fast-forwards a base that is checked out in no
+// worktree — the default-mode case where the main checkout sits on
+// a feature branch. git refuses to fetch into a checked-out branch,
+// so this local-ref path is what advances the base there.
+func TestFetchLocalFF(t *testing.T) {
+	gittest.Scrub(t)
+	root := gittest.TempDir(t)
+	origin := gittest.Repo(t, filepath.Join(root, "origin"))
+	clone := filepath.Join(root, "clone")
+	gittest.Run(t, root, "clone", "-q", origin, clone)
+
+	ctx := t.Context()
+	g := New(clone)
+	// Move off main so it is checked out nowhere in the clone.
+	gittest.Run(t, clone, "switch", "-q", "-c", "feature")
+
+	gittest.WriteFile(t, origin, "new.txt", "hi\n")
+	gittest.Run(t, origin, "add", "new.txt")
+	gittest.Run(t, origin, "commit", "-q", "-m", "advance")
+
+	remote, err := g.UpstreamRemote(ctx, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := g.Fetch(ctx, remote); err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+	up, err := g.Upstream(ctx, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := g.FetchLocalFF(ctx, up, "main"); err != nil {
+		t.Fatalf("FetchLocalFF: %v", err)
+	}
+	behind, err := g.CommitCount(ctx, "main.."+up)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if behind != 0 {
+		t.Errorf("behind after local fast-forward = %d, want 0", behind)
+	}
+}

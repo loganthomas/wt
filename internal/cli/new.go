@@ -18,19 +18,21 @@ import (
 
 func newNewCmd() *cobra.Command {
 	var base string
+	var noFetch bool
 	cmd := &cobra.Command{
 		Use:   "new <branch>",
 		Short: "Create a worktree on a new branch off the base",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runNew(cmd, args[0], base)
+			return runNew(cmd, args[0], base, noFetch)
 		},
 	}
 	cmd.Flags().StringVar(&base, "base", "", "ref to branch from (default: the configured base)")
+	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "skip the opportunistic fetch of a stale base")
 	return cmd
 }
 
-func runNew(cmd *cobra.Command, branch, baseFlag string) error {
+func runNew(cmd *cobra.Command, branch, baseFlag string, noFetch bool) error {
 	ctx := cmd.Context()
 	w, err := openRepo(ctx)
 	if err != nil {
@@ -67,6 +69,16 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 		return err
 	}
 	chatter := cmd.ErrOrStderr()
+
+	// Freshness before either mode branches: a stale base is fetched
+	// once here so both a new tree and a claimed slot start current
+	// (D7). Best-effort and network-only — it never moves the local
+	// base, so the branch-off below is unchanged.
+	st, err := w.stateDir()
+	if err != nil {
+		return err
+	}
+	maybeFetchBase(ctx, g, w.cfg, st, base, noFetch, chatter)
 
 	// Pool mode: the same intent lands in a claimed slot instead
 	// of a fresh tree (D3: the [pool] table is the dispatch).
@@ -108,10 +120,6 @@ func runNew(cmd *cobra.Command, branch, baseFlag string) error {
 
 	if err := copyFiles(ctx, w.repo.Root, dest, w.cfg.Copy, chatter); err != nil {
 		return fmt.Errorf("%w — the tree remains at %s", err, dest)
-	}
-	st, err := w.stateDir()
-	if err != nil {
-		return err
 	}
 	if err := finishFresh(ctx, w.cfg, st, dest, name, chatter); err != nil {
 		return fmt.Errorf("%w — the tree remains at %s", err, dest)

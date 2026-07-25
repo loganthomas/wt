@@ -37,13 +37,15 @@ const (
 	Provisioning = "(provisioning)"
 	Removing     = "(removing)"
 	Releasing    = "(releasing)"
+	Reparking    = "(reparking)"
 )
 
 // IsInternal reports whether branch is one of wt's own operation
 // labels. Exact matches only: parentheses are legal in git branch
 // names, so a user branch called "(wip)" must not read as wt's.
 func IsInternal(branch string) bool {
-	return branch == Provisioning || branch == Removing || branch == Releasing
+	return branch == Provisioning || branch == Removing ||
+		branch == Releasing || branch == Reparking
 }
 
 // Info is the record inside a lease directory.
