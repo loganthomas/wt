@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -264,14 +265,21 @@ func checkBranchDuplicates(trees []gitx.Worktree) checkResult {
 			seen[t.Branch]++
 		}
 	}
+	// Sorted, and all of them: a machine consumer diffing doctor
+	// output must never see the symptom churn between runs (D13).
+	var dups []string
 	for branch, n := range seen {
 		if n > 1 {
-			c.Status = "fail"
-			c.Symptom = fmt.Sprintf("branch %s is checked out in %d trees", branch, n)
-			c.Cause = "two trees on one branch silently diverge each other's HEAD"
-			c.Fix = "`git worktree list` shows both — remove one of them"
-			return c
+			dups = append(dups, fmt.Sprintf("%s (%d trees)", branch, n))
 		}
+	}
+	if len(dups) > 0 {
+		slices.Sort(dups)
+		c.Status = "fail"
+		c.Symptom = "checked out in more than one tree: " + strings.Join(dups, ", ")
+		c.Cause = "two trees on one branch silently diverge each other's HEAD"
+		c.Fix = "`git worktree list` shows them — remove the extras"
+		return c
 	}
 	c.Status, c.Symptom = "ok", "no branch is checked out twice"
 	return c

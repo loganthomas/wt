@@ -64,13 +64,17 @@ func TestCheckBranchDuplicates(t *testing.T) {
 	if got := checkBranchDuplicates(clean); got.Status != "ok" {
 		t.Errorf("checkBranchDuplicates(clean) = %q, want ok", got.Status)
 	}
-	dup := append(clean, gitx.Worktree{Branch: "feat", Path: "/elsewhere/feat"})
+	dup := append(clean, gitx.Worktree{Branch: "feat", Path: "/elsewhere/feat"},
+		gitx.Worktree{Branch: "main", Path: "/elsewhere/main"})
 	got := checkBranchDuplicates(dup)
 	if got.Status != "fail" {
 		t.Errorf("checkBranchDuplicates(dup).Status = %q, want fail", got.Status)
 	}
-	if !strings.Contains(got.Symptom, "feat") {
-		t.Errorf("checkBranchDuplicates(dup).Symptom = %q, want the branch named", got.Symptom)
+	// Every duplicated branch, in sorted order, so the symptom is
+	// deterministic for machine consumers.
+	if !strings.Contains(got.Symptom, "feat (2 trees), main (2 trees)") {
+		t.Errorf("checkBranchDuplicates(dup).Symptom = %q, want both branches sorted",
+			got.Symptom)
 	}
 }
 
