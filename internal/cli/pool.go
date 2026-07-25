@@ -16,6 +16,7 @@ import (
 	"github.com/loganthomas/wt/internal/gitx"
 	"github.com/loganthomas/wt/internal/lease"
 	"github.com/loganthomas/wt/internal/pool"
+	"github.com/loganthomas/wt/internal/render"
 )
 
 func newPoolCmd() *cobra.Command {
@@ -54,7 +55,7 @@ func runPoolLs(cmd *cobra.Command) error {
 		held, err := lease.Get(p.state.LeasesDir(), slot)
 		rows = append(rows, slotRow(slot, registered, held, err))
 	}
-	_, err = fmt.Fprint(cmd.OutOrStdout(), alignRows(rows))
+	_, err = fmt.Fprint(cmd.OutOrStdout(), render.Align(rows))
 	return err
 }
 
