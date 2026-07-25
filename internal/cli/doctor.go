@@ -410,6 +410,11 @@ func checkUpdate(ctx context.Context, version string, offline bool) checkResult 
 		return c
 	}
 	latest, err := fetchLatestRelease(ctx)
+	if errors.Is(err, errNoStableRelease) {
+		c.Status = "info"
+		c.Symptom = fmt.Sprintf("no stable release published yet (running %s)", version)
+		return c
+	}
 	if err != nil {
 		c.Status, c.Symptom = "info", fmt.Sprintf("check failed (%v)", err)
 		return c
@@ -429,6 +434,11 @@ func checkUpdate(ctx context.Context, version string, offline bool) checkResult 
 	return c
 }
 
+// errNoStableRelease is the releases API's 404: the endpoint
+// excludes prereleases, so a project that has only ever tagged
+// alphas has no "latest release" — a fact, not a failure.
+var errNoStableRelease = errors.New("no stable release published")
+
 func fetchLatestRelease(ctx context.Context) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, releasesURL, nil)
 	if err != nil {
@@ -440,6 +450,9 @@ func fetchLatestRelease(ctx context.Context) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close() //nolint:errcheck // read-only body
+	if resp.StatusCode == http.StatusNotFound {
+		return "", errNoStableRelease
+	}
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("HTTP %d from the releases API", resp.StatusCode)
 	}

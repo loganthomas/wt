@@ -155,6 +155,24 @@ func TestCheckUpdate(t *testing.T) {
 	}
 }
 
+// Until the first stable release ships, /releases/latest 404s for
+// every alpha install; that is a fact to report, not a failure.
+func TestCheckUpdateReportsNoStableRelease(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+	old := releasesURL
+	releasesURL = srv.URL
+	defer func() { releasesURL = old }()
+
+	got := checkUpdate(t.Context(), "0.1.0-alpha.6", false)
+	if got.Status != "info" || !strings.Contains(got.Symptom, "no stable release") {
+		t.Errorf("checkUpdate(404) = %q %q, want the no-stable-release note",
+			got.Status, got.Symptom)
+	}
+}
+
 func TestCheckUpdateSurvivesAPIFailure(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "rate limited", http.StatusForbidden)
