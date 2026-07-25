@@ -100,29 +100,32 @@ func (c *cleaner) act(format string, args ...any) {
 
 // pruneWorktrees clears registrations whose directories are gone
 // from disk and returns the surviving trees. git's own prunable
-// flag is the source of truth; wt only reports what git will do.
+// flag is the source of truth; wt only reports what git has done.
+// The survivors exclude pruned registrations in the dry run too,
+// so the preview of every later step sees the same post-prune
+// world a real run would.
 func (c *cleaner) pruneWorktrees(ctx context.Context) ([]gitx.Worktree, error) {
 	trees, err := c.g.Worktrees(ctx)
 	if err != nil {
 		return nil, err
 	}
-	pruned := false
+	if !slices.ContainsFunc(trees, func(t gitx.Worktree) bool { return t.Prunable }) {
+		return trees, nil
+	}
+	if !c.dry {
+		if err := c.g.WorktreePrune(ctx); err != nil {
+			return nil, err
+		}
+	}
 	for _, t := range trees {
 		if !t.Prunable {
 			continue
 		}
-		pruned = true
 		if c.dry {
 			c.act("would prune %s (gone from disk)", t.Path)
 		} else {
 			c.act("pruned %s (gone from disk)", t.Path)
 		}
-	}
-	if !pruned || c.dry {
-		return trees, nil
-	}
-	if err := c.g.WorktreePrune(ctx); err != nil {
-		return nil, err
 	}
 	return slices.DeleteFunc(trees, func(t gitx.Worktree) bool { return t.Prunable }), nil
 }
@@ -179,37 +182,40 @@ func (c *cleaner) reapIfMerged(
 	if err != nil || !merged {
 		return false, err
 	}
-	if c.dry {
-		c.act("would remove %s (branch %s is merged into %s)", t.Path, t.Branch, base)
-		return true, nil
-	}
-	if err := c.removeMerged(ctx, t, base); err != nil {
+	reaped, err := c.reapMergedTree(ctx, t, base)
+	if err != nil {
 		if exitCodeFor(err) != exitPrecondition {
 			return false, err
 		}
 		c.act("skipping %s: %v", t.Path, err)
 		return false, nil
 	}
-	return true, nil
+	return reaped, nil
 }
 
-// removeMerged runs the wt done sequence on one merged tree. The
+// reapMergedTree runs the wt done sequence on one merged tree. The
 // unpushed-commit guard is deliberately absent: every commit on the
 // branch is reachable from the base — that is what merged means —
-// so deleting the branch strands nothing (R2).
-func (c *cleaner) removeMerged(ctx context.Context, t gitx.Worktree, base string) error {
+// so deleting the branch strands nothing (R2). The other guards run
+// in previews too: they are read-only, and -n must promise only
+// what a real run would do — a dirty merged tree is skipped in both.
+func (c *cleaner) reapMergedTree(ctx context.Context, t gitx.Worktree, base string) (bool, error) {
 	if err := checkRemovable(t); err != nil {
-		return err
+		return false, err
 	}
 	pristine, err := finishGuards(ctx, c.repo.Root, t, c.cfg.Copy)
 	if err != nil {
-		return err
+		return false, err
+	}
+	if c.dry {
+		c.act("would remove %s (branch %s is merged into %s)", t.Path, t.Branch, base)
+		return true, nil
 	}
 	c.acted = true
 	if err := c.removeTree(ctx, c.g, t, pristine, c.chatter); err != nil {
-		return err
+		return false, err
 	}
-	return finishBranch(ctx, c.g, t.Branch, true, c.chatter)
+	return true, finishBranch(ctx, c.g, t.Branch, true, c.chatter)
 }
 
 // reapDeadLeases frees slots whose leases are provably dead (D15):

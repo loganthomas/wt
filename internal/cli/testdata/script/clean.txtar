@@ -23,10 +23,14 @@ exec git -C ../acme.trees/feat-dirty commit -q --allow-empty -m 'work'
 exec git merge -q --no-ff -m 'merge feat-dirty' feat-dirty
 exec sh -c 'echo scratch > ../acme.trees/feat-dirty/notes.txt'
 
-# the dry run reports the merged reap without performing it,
-# and stdout stays empty: clean has no machine output (D13)
+# the dry run reports the merged reap without performing it, and
+# stdout stays empty: clean has no machine output (D13). The
+# preview runs the same guards as the real run, so the dirty
+# merged tree previews as a skip, never as a promised removal.
 exec wt clean -n
 stderr 'would remove .*[/\\]feat-merged'
+stderr 'skipping .*[/\\]feat-dirty'
+! stderr 'would remove .*[/\\]feat-dirty'
 ! stderr 'feat-open'
 ! stdout .
 exists ../acme.trees/feat-merged
@@ -70,20 +74,28 @@ exists ../acme.trees/feat-fresh
 exec wt done feat-fresh
 
 # a tree deleted out of band leaves a prunable registration and
-# an orphaned state record; one clean drops both. The refresh
-# hook config makes wt record per-tree state worth orphaning.
+# an orphaned state record; one clean drops both, and the dry run
+# previews exactly that — prune plus state drop, never a second
+# "would remove" for a registration the prune already covers,
+# even when its branch is merged. The refresh hook config makes
+# wt record per-tree state worth orphaning.
 cp $WORK/hooked.toml .git/wt.toml
 exec sh -c 'echo v1 > dep-lock'
 exec git add dep-lock
 exec git commit -q -m 'lockfile'
 exec wt new feat-gone
+exec git -C ../acme.trees/feat-gone commit -q --allow-empty -m 'work'
+exec git merge -q --no-ff -m 'merge feat-gone' feat-gone
 exec sh -c 'rm -rf ../acme.trees/feat-gone'
 exec wt clean -n
 stderr 'would prune .*[/\\]feat-gone'
+stderr 'would drop stale state for feat-gone'
+! stderr 'would remove .*[/\\]feat-gone'
 exists ../acme.trees/feat-open
 exec wt clean
 stderr 'pruned .*[/\\]feat-gone'
 stderr 'dropped stale state for feat-gone'
+exec git branch -q -D feat-gone
 exec git -C . worktree list
 ! stdout 'feat-gone'
 
