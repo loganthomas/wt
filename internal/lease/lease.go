@@ -21,6 +21,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
@@ -38,6 +39,7 @@ const (
 	Removing     = "(removing)"
 	Releasing    = "(releasing)"
 	Reparking    = "(reparking)"
+	Cleaning     = "(cleaning)"
 )
 
 // IsInternal reports whether branch is one of wt's own operation
@@ -45,7 +47,29 @@ const (
 // names, so a user branch called "(wip)" must not read as wt's.
 func IsInternal(branch string) bool {
 	return branch == Provisioning || branch == Removing ||
-		branch == Releasing || branch == Reparking
+		branch == Releasing || branch == Reparking || branch == Cleaning
+}
+
+// Slots lists every slot with a lease directory, sorted, so
+// cleanup can find leases the configured pool no longer covers.
+// Only directories count: the acquire lock file lives alongside
+// them and is not a lease.
+func Slots(leasesDir string) ([]string, error) {
+	entries, err := os.ReadDir(leasesDir)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var slots []string
+	for _, e := range entries {
+		if e.IsDir() {
+			slots = append(slots, e.Name())
+		}
+	}
+	slices.Sort(slots)
+	return slots, nil
 }
 
 // Info is the record inside a lease directory.

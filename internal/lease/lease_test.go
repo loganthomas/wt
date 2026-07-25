@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -515,5 +516,48 @@ func TestAcquireRefusesARepinnedSlot(t *testing.T) {
 	var held *HeldError
 	if !errors.As(err, &held) {
 		t.Fatalf("Acquire over a repinned slot error = %v, want *HeldError", err)
+	}
+}
+
+func TestSlotsListsLeaseDirectories(t *testing.T) {
+	dir := t.TempDir()
+
+	slots, err := Slots(dir)
+	if err != nil {
+		t.Fatalf("Slots on fresh dir: %v", err)
+	}
+	if len(slots) != 0 {
+		t.Errorf("Slots on fresh dir = %v, want none", slots)
+	}
+
+	// Acquire also plants the .acquire.lock file next to the lease
+	// directories; Slots must list only the directories.
+	for _, slot := range []string{"slot-2", "slot-1"} {
+		if _, err := Acquire(dir, slot, "feature/x"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	slots, err = Slots(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"slot-1", "slot-2"}; !slices.Equal(slots, want) {
+		t.Errorf("Slots() = %v, want %v (sorted, directories only)", slots, want)
+	}
+}
+
+func TestSlotsMissingDirIsEmpty(t *testing.T) {
+	slots, err := Slots(filepath.Join(t.TempDir(), "never-created"))
+	if err != nil {
+		t.Fatalf("Slots on missing dir: %v", err)
+	}
+	if len(slots) != 0 {
+		t.Errorf("Slots on missing dir = %v, want none", slots)
+	}
+}
+
+func TestCleaningIsInternal(t *testing.T) {
+	if !IsInternal(Cleaning) {
+		t.Error("IsInternal(Cleaning) = false, want true")
 	}
 }
