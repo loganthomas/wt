@@ -37,7 +37,7 @@ func TestCheckShim(t *testing.T) {
 		wantIn     string
 	}{
 		{"absent", "", "warn", "not active"},
-		{"stale", "deadbeefdead", "warn", "older wt"},
+		{"stale", "deadbeefdead", "warn", "different wt builds"},
 		{"current", shimSig(), "ok", ""},
 	}
 	for _, tt := range tests {

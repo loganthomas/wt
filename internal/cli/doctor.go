@@ -95,9 +95,10 @@ func runDoctor(cmd *cobra.Command, info BuildInfo, jsonOut, offline bool) error 
 	} else if _, err := fmt.Fprint(out, formatDoctor(view)); err != nil {
 		return err
 	}
+	// No locational claim in the message: under --json the fixes are
+	// in the payload, not "above".
 	if view.Issues > 0 {
-		return preconditionf("%d %s found — the fixes are listed above",
-			view.Issues, plural(view.Issues, "issue"))
+		return preconditionf("%d %s found", view.Issues, plural(view.Issues, "issue"))
 	}
 	return nil
 }
@@ -206,10 +207,12 @@ func checkShim(sig string) checkResult {
 		c.Cause = "the eval line is missing from ~/.zshrc, or this is a non-interactive shell"
 		c.Fix = `add eval "$(wt shell-init zsh)" to ~/.zshrc, then restart the shell`
 	default:
+		// The mismatch points either way: a shell older than the
+		// binary, or a stale binary shadowing the upgraded one.
 		c.Status = "warn"
-		c.Symptom = "emitted by an older wt"
-		c.Cause = "this shell started before wt was upgraded"
-		c.Fix = "restart the shell — `exec zsh`"
+		c.Symptom = "shim and binary are from different wt builds"
+		c.Cause = "the shell predates an upgrade, or another wt on PATH shadows the new one"
+		c.Fix = "restart the shell (`exec zsh`); if it persists, `which -a wt`"
 	}
 	return c
 }

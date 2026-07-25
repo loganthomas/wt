@@ -21,10 +21,11 @@ stdout 'warn\s+shell-shim'
 stdout 'update .*skipped'
 ! stderr .
 
-# a shim from an older wt is told to restart the shell
+# a shim/binary signature mismatch is told to restart the shell
+# (the mismatch can point either way, so the wording blames neither)
 env WT_SHIM_SIG=deadbeefdead
 exec wt doctor --offline
-stdout 'warn\s+shell-shim\s+.*older wt'
+stdout 'warn\s+shell-shim\s+.*different wt builds'
 stdout 'restart'
 env WT_SHIM_SIG=
 
