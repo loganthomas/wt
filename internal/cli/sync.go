@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/loganthomas/wt/internal/gitx"
+	"github.com/loganthomas/wt/internal/guard"
 	"github.com/loganthomas/wt/internal/lease"
 	"github.com/loganthomas/wt/internal/pool"
 )
@@ -180,11 +181,12 @@ func reportBehind(
 
 // reparkIdleSlots resets every idle slot onto the new base and runs
 // the gated refresh, so a later claim lands warm and current (D7).
-// Only free, detached slots are touched: a claimed slot (its branch
-// checked out, or its lease live) carries work and is skipped, and
-// the orphan guard inside the reset still protects any stranded
-// commits. Each slot is re-parked under its own lease so a
-// concurrent claim can never race in mid-reset.
+// Only free, detached, clean slots are touched: a claimed slot (its
+// branch checked out, or its lease live) carries work and is skipped,
+// a slot holding uncommitted scratch is left for its owner rather
+// than wiped, and the orphan guard inside the reset still protects
+// any stranded commits. Each slot is re-parked under its own lease
+// so a concurrent claim can never race in mid-reset.
 func reparkIdleSlots(ctx context.Context, p *poolRepo, base string, chatter io.Writer) error {
 	leases := p.state.LeasesDir()
 	trees, err := p.g.Worktrees(ctx)
@@ -207,7 +209,8 @@ func reparkIdleSlots(ctx context.Context, p *poolRepo, base string, chatter io.W
 			}
 			return err
 		}
-		if err := p.reparkOne(ctx, dest, slot, base, chatter); err != nil {
+		parked, err := p.reparkOne(ctx, dest, slot, base, chatter)
+		if err != nil {
 			_ = lease.Release(leases, slot, mine)
 			if exitCodeFor(err) == exitPrecondition {
 				fmt.Fprintf(chatter, "skipping %s: %v\n", slot, err)
@@ -218,27 +221,40 @@ func reparkIdleSlots(ctx context.Context, p *poolRepo, base string, chatter io.W
 		if err := lease.Release(leases, slot, mine); err != nil {
 			return err
 		}
-		fmt.Fprintf(chatter, "re-parked %s onto %s\n", slot, base)
+		if parked {
+			fmt.Fprintf(chatter, "re-parked %s onto %s\n", slot, base)
+		}
 	}
 	return nil
 }
 
 // reparkOne resets one leased slot back onto base and refreshes it
-// behind the lockfile gate. It re-reads the tree under the lease:
-// a claim that came and went since the listing may have changed it.
+// behind the lockfile gate, reporting whether it actually did so. It
+// re-reads the tree under the lease: a claim that came and went since
+// the listing may have changed it, in which case there is nothing to
+// re-park. A slot holding uncommitted work is refused (a precondition
+// the caller turns into a skip notice): a scheduled `wt sync --all`
+// must not silently discard scratch left in a free slot. wt's own
+// planted copy files are tolerated, as everywhere else.
 func (p *poolRepo) reparkOne(
 	ctx context.Context, dest, slot, base string, chatter io.Writer,
-) error {
+) (bool, error) {
 	trees, err := p.g.Worktrees(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 	t, registered := findTree(trees, dest)
 	if !registered || !t.Detached {
-		return nil
+		return false, nil
+	}
+	if err := guard.CheckDirty(ctx, dest, p.cfg.Copy...); err != nil {
+		return false, err
 	}
 	if err := p.resetSlot(ctx, t, base, chatter); err != nil {
-		return err
+		return false, err
 	}
-	return refreshTree(ctx, p.cfg, p.state, dest, slot, chatter)
+	if err := refreshTree(ctx, p.cfg, p.state, dest, slot, chatter); err != nil {
+		return false, err
+	}
+	return true, nil
 }

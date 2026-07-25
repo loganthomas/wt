@@ -200,7 +200,10 @@ the same `refresh_if_changed` hash as a claim. A **claimed** slot is
 left alone: its branch and work are untouched. Each re-park runs
 under the slot's own lease, so a claim racing in mid-sync can't
 collide with it, and the orphan guard still protects any stranded
-commits.
+commits. A free slot that still holds **uncommitted** scratch is
+skipped with a notice rather than reset — so even an unattended,
+scheduled `wt sync --all` never discards work in progress; commit,
+stash, or discard it and the next sync re-parks the slot.
 
 There is no daemon and no background fetching. To sync on a
 schedule, wire up the opt-in launchd recipe in
