@@ -83,9 +83,7 @@ func runDoctor(cmd *cobra.Command, info BuildInfo, jsonOut, offline bool) error 
 	v, verr := gitx.New("").Version(ctx)
 	add(checkGitVersion(v, verr))
 	add(checkShim(os.Getenv(shimSigEnv)))
-	if err := repoChecks(ctx, add); err != nil {
-		return err
-	}
+	repoChecks(ctx, add)
 	add(checkUpdate(ctx, info.Version, offline))
 
 	out := cmd.OutOrStdout()
@@ -105,21 +103,36 @@ func runDoctor(cmd *cobra.Command, info BuildInfo, jsonOut, offline bool) error 
 
 // repoChecks runs the diagnostics that only mean something inside
 // a repository; outside one they are simply absent, not failures.
-// A broken config is itself a finding, so the checks that need
-// config are skipped rather than aborted when it will not load.
-func repoChecks(ctx context.Context, add func(checkResult)) error {
+// Everything that breaks in here becomes a finding, never an
+// abort: doctor renders whatever it managed to learn — a corrupt
+// repository or an unrunnable git is precisely when the report is
+// needed most. A broken config is likewise itself a finding, so
+// the checks that need config values are skipped, not aborted.
+func repoChecks(ctx context.Context, add func(checkResult)) {
 	r, err := repo.Find(ctx, "")
 	var notRepo *repo.NotARepoError
 	if errors.As(err, &notRepo) {
-		return nil
+		return
 	}
 	if err != nil {
-		return err
+		add(checkResult{
+			Name: "repo", Status: "fail",
+			Symptom: err.Error(),
+			Cause:   "wt cannot resolve the repository around this directory",
+			Fix:     "`git status` shows git's own view of it",
+		})
+		return
 	}
 	g := gitx.New(r.Root)
 	trees, err := g.Worktrees(ctx)
 	if err != nil {
-		return err
+		add(checkResult{
+			Name: "worktrees", Status: "fail",
+			Symptom: err.Error(),
+			Cause:   "git could not list this repository's worktrees",
+			Fix:     "git worktree list",
+		})
+		return
 	}
 	cfg, cfgErr := loadMerged(r)
 	add(checkConfig(cfgErr))
@@ -129,17 +142,21 @@ func repoChecks(ctx context.Context, add func(checkResult)) error {
 	hooksPath, hooksErr := g.ConfigGet(ctx, "core.hooksPath")
 	add(checkHooksPath(hooksPath, hooksErr))
 	if cfgErr != nil {
-		return nil
+		return
 	}
 	add(checkTreesVolume(r.Root, r.TreesDir(cfg.TreesDir)))
-	if cfg.Pool != nil {
-		sd, err := r.StateDir()
-		if err != nil {
-			return err
-		}
-		add(checkLeases(state.Dir(sd)))
+	if cfg.Pool == nil {
+		return
 	}
-	return nil
+	sd, err := r.StateDir()
+	if err != nil {
+		add(checkResult{
+			Name: "leases", Status: "info",
+			Symptom: fmt.Sprintf("state directory unavailable (%v)", err),
+		})
+		return
+	}
+	add(checkLeases(state.Dir(sd)))
 }
 
 func checkGitVersion(v string, err error) checkResult {

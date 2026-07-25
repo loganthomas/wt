@@ -67,6 +67,18 @@ exec wt doctor --offline
 stdout 'ok\s+git'
 ! stdout 'config'
 
+# a repository git itself chokes on (corrupt .git/config) still
+# gets a rendered report: the breakage becomes the repo finding,
+# every portable check still prints, and the run exits 3
+mkdir broken
+cd broken
+exec git init -q -b main .
+exec sh -c 'echo "[core" >> .git/config'
+exitcode 3 wt doctor --offline
+stdout 'ok\s+git'
+stdout 'fail\s+repo\s+.*bad config'
+stdout 'fix:'
+
 -- broken.toml --
 base = 'main'
 trees_dir = '../acme.trees'
