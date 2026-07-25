@@ -276,21 +276,24 @@ func (g *Git) WorktreePrune(ctx context.Context) error {
 	return err
 }
 
-// IsAncestor reports whether ancestor is reachable from descendant,
-// the check behind "is this branch merged into the base". git
-// answers on the exit code: 0 yes, 1 no, anything else (a ref that
-// does not resolve) is a real error. The -- keeps a dash-prefixed
-// ref (creatable via update-ref) a rev, never an option.
-func (g *Git) IsAncestor(ctx context.Context, ancestor, descendant string) (bool, error) {
-	_, err := g.run(ctx, "merge-base", "--is-ancestor", "--", ancestor, descendant)
-	if err == nil {
-		return true, nil
+// MergedBranches lists the local branches whose tips are reachable
+// from rev, keyed for membership checks: one subprocess answers
+// "is this branch merged" for every branch at once. The rev rides
+// inside --merged=, so even a dash-prefixed name stays an option
+// value, and branch names come back as data, never options.
+func (g *Git) MergedBranches(ctx context.Context, rev string) (map[string]bool, error) {
+	out, err := g.run(ctx,
+		"for-each-ref", "--format=%(refname:short)", "--merged="+rev, "refs/heads/")
+	if err != nil {
+		return nil, err
 	}
-	var exit *exec.ExitError
-	if errors.As(err, &exit) && exit.ExitCode() == 1 {
-		return false, nil
+	merged := make(map[string]bool)
+	for name := range strings.Lines(string(out)) {
+		if name = strings.TrimSpace(name); name != "" {
+			merged[name] = true
+		}
 	}
-	return false, err
+	return merged, nil
 }
 
 // Version returns the running git's version number, e.g. "2.39.3".

@@ -303,7 +303,7 @@ func TestWorktreePruneClearsStaleRegistrations(t *testing.T) {
 	}
 }
 
-func TestIsAncestorDistinguishesMergedFromDiverged(t *testing.T) {
+func TestMergedBranchesDistinguishesMergedFromDiverged(t *testing.T) {
 	gittest.Scrub(t)
 	dir := gittest.Repo(t, gittest.TempDir(t))
 	gittest.Run(t, dir, "switch", "-q", "-c", "merged")
@@ -313,35 +313,43 @@ func TestIsAncestorDistinguishesMergedFromDiverged(t *testing.T) {
 	gittest.Run(t, dir, "commit", "-q", "--allow-empty", "-m", "own work")
 	gittest.Run(t, dir, "switch", "-q", "main")
 
-	ctx := t.Context()
-	g := New(dir)
-	tests := []struct {
-		name, ancestor, descendant string
-		want                       bool
-	}{
-		{"branch at base's history is merged", "merged", "main", true},
-		{"base is not behind its own past", "main", "merged", false},
-		{"diverged branch is not merged", "diverged", "main", false},
+	merged, err := New(dir).MergedBranches(t.Context(), "main")
+	if err != nil {
+		t.Fatalf("MergedBranches: %v", err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := g.IsAncestor(ctx, tt.ancestor, tt.descendant)
-			if err != nil {
-				t.Fatalf("IsAncestor(%s, %s): %v", tt.ancestor, tt.descendant, err)
-			}
-			if got != tt.want {
-				t.Errorf("IsAncestor(%s, %s) = %v, want %v",
-					tt.ancestor, tt.descendant, got, tt.want)
-			}
-		})
+	for branch, want := range map[string]bool{
+		"merged":   true,  // at a commit in main's history
+		"main":     true,  // trivially reachable from itself
+		"diverged": false, // carries its own commit
+	} {
+		if merged[branch] != want {
+			t.Errorf("MergedBranches(main)[%s] = %v, want %v", branch, merged[branch], want)
+		}
 	}
 }
 
-func TestIsAncestorSurfacesBadRefsAsErrors(t *testing.T) {
+func TestMergedBranchesSurfacesBadRevsAsErrors(t *testing.T) {
 	gittest.Scrub(t)
 	dir := gittest.Repo(t, gittest.TempDir(t))
-	if _, err := New(dir).IsAncestor(t.Context(), "no-such-ref", "main"); err == nil {
-		t.Error("IsAncestor(no-such-ref, main) = nil error, want the git failure")
+	if _, err := New(dir).MergedBranches(t.Context(), "no-such-ref"); err == nil {
+		t.Error("MergedBranches(no-such-ref) = nil error, want the git failure")
+	}
+}
+
+// git blocks creating dash-prefixed branches via `git branch`, but
+// update-ref can make one; both as the rev (inside --merged=) and
+// as a listed branch it must stay data, never an option.
+func TestMergedBranchesSurvivesDashPrefixedRefs(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.Run(t, dir, "update-ref", "refs/heads/-foo", "HEAD")
+
+	merged, err := New(dir).MergedBranches(t.Context(), "-foo")
+	if err != nil {
+		t.Fatalf("MergedBranches(-foo): %v", err)
+	}
+	if !merged["-foo"] || !merged["main"] {
+		t.Errorf("MergedBranches(-foo) = %v, want -foo and main both merged", merged)
 	}
 }
 
@@ -376,22 +384,5 @@ func TestConfigGetReadsSetKeysAndReportsUnsetAsEmpty(t *testing.T) {
 	}
 	if got != "" {
 		t.Errorf("ConfigGet(unset key) = %q, want empty", got)
-	}
-}
-
-// git blocks creating dash-prefixed branches via `git branch`, but
-// update-ref can make one; it must reach merge-base as a rev, not
-// be parsed as an option that aborts the caller.
-func TestIsAncestorSurvivesDashPrefixedRefs(t *testing.T) {
-	gittest.Scrub(t)
-	dir := gittest.Repo(t, gittest.TempDir(t))
-	gittest.Run(t, dir, "update-ref", "refs/heads/-foo", "HEAD")
-
-	got, err := New(dir).IsAncestor(t.Context(), "-foo", "main")
-	if err != nil {
-		t.Fatalf("IsAncestor(-foo, main): %v", err)
-	}
-	if !got {
-		t.Error("IsAncestor(-foo, main) = false, want true (same tip)")
 	}
 }
