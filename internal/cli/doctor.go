@@ -8,6 +8,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
@@ -341,12 +342,10 @@ func checkTreesVolume(root, treesDir string) checkResult {
 		c.Status, c.Symptom = statusInfo, "could not stat the repo root"
 		return c
 	}
-	probe := treesDir
-	treesDev, ok := deviceOf(probe)
+	treesDev, ok := deviceOf(treesDir)
 	if !ok {
 		// Not created yet: judge by where it would be created.
-		probe = filepath.Dir(treesDir)
-		if treesDev, ok = deviceOf(probe); !ok {
+		if treesDev, ok = deviceOf(filepath.Dir(treesDir)); !ok {
 			c.Status = statusInfo
 			c.Symptom = fmt.Sprintf("trees dir %s does not exist yet", treesDir)
 			return c
@@ -518,10 +517,12 @@ func parseRelease(tag string) (release, bool) {
 // numbers a full release outranks a prerelease of itself, which
 // is exactly the alpha-to-release upgrade moment.
 func newerRelease(latest, current release) bool {
-	l := [3]int{latest.major, latest.minor, latest.patch}
-	c := [3]int{current.major, current.minor, current.patch}
-	if l != c {
-		return l[0] > c[0] || (l[0] == c[0] && (l[1] > c[1] || (l[1] == c[1] && l[2] > c[2])))
+	if d := cmp.Or(
+		cmp.Compare(latest.major, current.major),
+		cmp.Compare(latest.minor, current.minor),
+		cmp.Compare(latest.patch, current.patch),
+	); d != 0 {
+		return d > 0
 	}
 	return current.pre && !latest.pre
 }
