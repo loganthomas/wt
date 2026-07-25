@@ -228,7 +228,7 @@ func (c *cleaner) reapDeadLeases(ctx context.Context) error {
 			// Through act, not raw chatter: a run whose only event is
 			// this notice must not also claim there was nothing to
 			// clean.
-			c.act("%s lease record unreadable — `wt release %s` clears it", slot, slot)
+			c.act("%s %s", slot, unreadableLeaseAdvice(slot))
 			continue
 		}
 		if held == nil || !held.Stale() {

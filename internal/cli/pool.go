@@ -92,10 +92,7 @@ type slotView struct {
 func newSlotView(slot string, registered bool, held *lease.Info, err error) slotView {
 	switch {
 	case err != nil:
-		return slotView{
-			Slot: slot, State: "claimed", Branch: "?",
-			Note: fmt.Sprintf("lease record unreadable — `wt release %s` clears it", slot),
-		}
+		return slotView{Slot: slot, State: "claimed", Branch: "?", Note: unreadableLeaseAdvice(slot)}
 	case held == nil && !registered:
 		return slotView{Slot: slot, State: "unprovisioned", Note: "provisions on first claim"}
 	case held == nil:
@@ -119,6 +116,13 @@ func newSlotView(slot string, registered bool, held *lease.Info, err error) slot
 // slot, state, branch, detail.
 func slotRow(v slotView) []string {
 	return []string{v.Slot, v.State, cmp.Or(v.Branch, "-"), v.Note}
+}
+
+// unreadableLeaseAdvice is the one spelling of the escape hatch
+// for a lease record wt cannot read and so never clears on a
+// guess (D15): shared by pool ls and wt clean.
+func unreadableLeaseAdvice(slot string) string {
+	return fmt.Sprintf("lease record unreadable — `wt release %s` clears it", slot)
 }
 
 func newPoolResizeCmd() *cobra.Command {
