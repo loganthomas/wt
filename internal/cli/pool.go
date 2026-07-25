@@ -18,6 +18,7 @@ import (
 	"github.com/loganthomas/wt/internal/lease"
 	"github.com/loganthomas/wt/internal/pool"
 	"github.com/loganthomas/wt/internal/render"
+	"github.com/loganthomas/wt/internal/state"
 )
 
 func newPoolCmd() *cobra.Command {
@@ -51,7 +52,7 @@ func runPoolLs(cmd *cobra.Command) error {
 		return err
 	}
 	rows := make([][]string, 0, p.cfg.Pool.Size)
-	for _, view := range slotViews(p, trees) {
+	for _, view := range slotViews(p.wtRepo, p.state, trees) {
 		rows = append(rows, slotRow(view))
 	}
 	_, err = fmt.Fprint(cmd.OutOrStdout(), render.Align(rows))
@@ -59,12 +60,14 @@ func runPoolLs(cmd *cobra.Command) error {
 }
 
 // slotViews builds every configured slot's occupancy view, in
-// slot order.
-func slotViews(p *poolRepo, trees []gitx.Worktree) []slotView {
-	views := make([]slotView, 0, p.cfg.Pool.Size)
-	for _, slot := range pool.Names(p.cfg.Pool.Size) {
-		_, registered := findTree(trees, filepath.Join(p.treesDir(), slot))
-		held, err := lease.Get(p.state.LeasesDir(), slot)
+// slot order. It takes the bare repo seams rather than a
+// poolRepo, so wt status can feed it without re-deriving what it
+// already holds.
+func slotViews(w *wtRepo, st state.Dir, trees []gitx.Worktree) []slotView {
+	views := make([]slotView, 0, w.cfg.Pool.Size)
+	for _, slot := range pool.Names(w.cfg.Pool.Size) {
+		_, registered := findTree(trees, filepath.Join(w.treesDir(), slot))
+		held, err := lease.Get(st.LeasesDir(), slot)
 		views = append(views, newSlotView(slot, registered, held, err))
 	}
 	return views

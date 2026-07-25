@@ -73,10 +73,7 @@ func runStatus(cmd *cobra.Command, jsonOut bool) error {
 	if err != nil {
 		return err
 	}
-	view, err := buildStatusView(ctx, w, st, trees, time.Now())
-	if err != nil {
-		return err
-	}
+	view := buildStatusView(ctx, w, st, trees, time.Now())
 	if jsonOut {
 		return render.JSON(cmd.OutOrStdout(), view)
 	}
@@ -86,7 +83,7 @@ func runStatus(cmd *cobra.Command, jsonOut bool) error {
 
 func buildStatusView(
 	ctx context.Context, w *wtRepo, st state.Dir, trees []gitx.Worktree, now time.Time,
-) (statusView, error) {
+) statusView {
 	view := statusView{
 		Mode: "default",
 		Base: baseFreshness(w.cfg.Base, w.cfg.StalenessWindow(), st, now),
@@ -101,16 +98,11 @@ func buildStatusView(
 		}
 		view.Trees = append(view.Trees, ts)
 	}
-	if w.cfg.Pool == nil {
-		return view, nil
+	if w.cfg.Pool != nil {
+		view.Mode = "pool"
+		view.Pool = &poolStatus{Size: w.cfg.Pool.Size, Slots: slotViews(w, st, trees)}
 	}
-	view.Mode = "pool"
-	p, err := poolOf(w)
-	if err != nil {
-		return statusView{}, err
-	}
-	view.Pool = &poolStatus{Size: w.cfg.Pool.Size, Slots: slotViews(p, trees)}
-	return view, nil
+	return view
 }
 
 // baseFreshness reads the base's fetch record without touching
@@ -199,11 +191,11 @@ func formatStatus(view statusView) string {
 	if view.Pool == nil {
 		return out
 	}
-	rows = rows[:0]
+	slotRows := make([][]string, 0, len(view.Pool.Slots))
 	for _, s := range view.Pool.Slots {
-		rows = append(rows, slotRow(s))
+		slotRows = append(slotRows, slotRow(s))
 	}
-	return out + "\n" + render.Align(rows)
+	return out + "\n" + render.Align(slotRows)
 }
 
 func baseLine(b baseView) string {
