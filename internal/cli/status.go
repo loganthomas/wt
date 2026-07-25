@@ -198,12 +198,16 @@ func formatStatus(view statusView) string {
 	return out + "\n" + render.Align(slotRows)
 }
 
+// baseLine phrases the base's fetch age through lastFetchPhrase,
+// the same spelling the opportunistic-fetch notice uses, so the
+// two cannot drift on how an age reads.
 func baseLine(b baseView) string {
-	if b.LastFetch == nil {
-		return b.Name + " — not yet fetched"
+	var last time.Time
+	if b.LastFetch != nil {
+		last = *b.LastFetch
 	}
-	line := fmt.Sprintf("%s — last fetched %s", b.Name, freshness.Age(time.Since(*b.LastFetch)))
-	if b.Stale {
+	line := b.Name + " — " + lastFetchPhrase(last)
+	if b.Stale && b.LastFetch != nil {
 		line += " (stale — `wt sync` to refresh)"
 	}
 	return line
