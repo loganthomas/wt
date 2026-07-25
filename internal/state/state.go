@@ -6,8 +6,10 @@
 package state
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -90,6 +92,91 @@ func (d Dir) MarkProvisioned(name string) error {
 func (d Dir) Provisioned(name string) bool {
 	_, err := os.Stat(d.treeFile(name, provisionedFile))
 	return err == nil
+}
+
+// TreeNames lists every tree with recorded state, sorted, so
+// cleanup can reconcile the records against git's live worktree
+// list (R8). Only directories count: a stray file under trees/
+// is not a tree's state.
+func (d Dir) TreeNames() ([]string, error) {
+	entries, err := os.ReadDir(filepath.Join(string(d), "trees"))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, e := range entries {
+		if e.IsDir() {
+			names = append(names, e.Name())
+		}
+	}
+	slices.Sort(names)
+	return names, nil
+}
+
+// DiskUsage is one measured tree size, cached so wt status does
+// not rerun du over a 750k-file tree on every invocation.
+type DiskUsage struct {
+	KB         int64
+	MeasuredAt time.Time
+}
+
+// The du cache files: per tree under its state directory, and at
+// the state root for the main checkout, which is repo-wide like
+// last_fetch.
+const (
+	duFile     = "du"
+	rootDuFile = "root_du"
+)
+
+// TreeDiskUsage returns the cached size of tree name, and whether
+// one is on record. A missing or corrupt cache reads as "never
+// measured": the worst consequence is one fresh du run, always safe.
+func (d Dir) TreeDiskUsage(name string) (DiskUsage, bool) {
+	return readDiskUsage(d.treeFile(name, duFile))
+}
+
+// WriteTreeDiskUsage caches tree name's measured size.
+func (d Dir) WriteTreeDiskUsage(name string, u DiskUsage) error {
+	return d.writeTreeFile(name, duFile, formatDiskUsage(u))
+}
+
+// RootDiskUsage returns the main checkout's cached size, and
+// whether one is on record.
+func (d Dir) RootDiskUsage() (DiskUsage, bool) {
+	return readDiskUsage(filepath.Join(string(d), rootDuFile))
+}
+
+// WriteRootDiskUsage caches the main checkout's measured size,
+// creating the state root as needed.
+func (d Dir) WriteRootDiskUsage(u DiskUsage) error {
+	if err := os.MkdirAll(string(d), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(string(d), rootDuFile), formatDiskUsage(u), 0o644)
+}
+
+func readDiskUsage(path string) (DiskUsage, bool) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return DiskUsage{}, false
+	}
+	var kb int64
+	var stamp string
+	if _, err := fmt.Sscanf(strings.TrimSpace(string(raw)), "%d %s", &kb, &stamp); err != nil {
+		return DiskUsage{}, false
+	}
+	at, err := time.Parse(time.RFC3339, stamp)
+	if err != nil {
+		return DiskUsage{}, false
+	}
+	return DiskUsage{KB: kb, MeasuredAt: at}, true
+}
+
+func formatDiskUsage(u DiskUsage) []byte {
+	return fmt.Appendf(nil, "%d %s\n", u.KB, u.MeasuredAt.UTC().Format(time.RFC3339))
 }
 
 // RemoveTree drops all recorded state for tree name;

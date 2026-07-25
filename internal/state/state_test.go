@@ -3,6 +3,7 @@ package state_test
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -134,5 +135,124 @@ func TestProvisionedMarker(t *testing.T) {
 	}
 	if d.Provisioned("slot-1") {
 		t.Error("Provisioned survived RemoveTree")
+	}
+}
+
+func TestTreeNamesListsRecordedTrees(t *testing.T) {
+	d := state.Dir(t.TempDir())
+
+	names, err := d.TreeNames()
+	if err != nil {
+		t.Fatalf("TreeNames on fresh state: %v", err)
+	}
+	if len(names) != 0 {
+		t.Errorf("TreeNames on fresh state = %v, want none", names)
+	}
+
+	for _, name := range []string{"slot-2", "feature-x", "slot-1"} {
+		if err := d.WriteRefreshHash(name, "abc"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	names, err = d.TreeNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"feature-x", "slot-1", "slot-2"}
+	if !slices.Equal(names, want) {
+		t.Errorf("TreeNames() = %v, want %v (sorted)", names, want)
+	}
+}
+
+func TestTreeNamesSkipsStrayFiles(t *testing.T) {
+	d := state.Dir(t.TempDir())
+	if err := d.WriteRefreshHash("real", "abc"); err != nil {
+		t.Fatal(err)
+	}
+	stray := filepath.Join(string(d), "trees", ".DS_Store")
+	if err := os.WriteFile(stray, []byte("junk"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	names, err := d.TreeNames()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"real"}; !slices.Equal(names, want) {
+		t.Errorf("TreeNames() = %v, want %v (directories only)", names, want)
+	}
+}
+
+func TestTreeDiskUsageRoundTrip(t *testing.T) {
+	d := state.Dir(t.TempDir())
+
+	if got, ok := d.TreeDiskUsage("feature-x"); ok {
+		t.Errorf("TreeDiskUsage on fresh state = (%+v, true), want (_, false)", got)
+	}
+
+	want := state.DiskUsage{
+		KB:         123456,
+		MeasuredAt: time.Date(2026, 7, 25, 9, 30, 0, 0, time.UTC),
+	}
+	if err := d.WriteTreeDiskUsage("feature-x", want); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := d.TreeDiskUsage("feature-x")
+	if !ok {
+		t.Fatal("TreeDiskUsage after write = (_, false), want (_, true)")
+	}
+	if got.KB != want.KB || !got.MeasuredAt.Equal(want.MeasuredAt) {
+		t.Errorf("TreeDiskUsage = %+v, want %+v", got, want)
+	}
+
+	// The on-disk location is part of the documented state layout
+	// (PLAN.md, State layout): trees/<name>/du.
+	onDisk := filepath.Join(string(d), "trees", "feature-x", "du")
+	if _, err := os.Stat(onDisk); err != nil {
+		t.Errorf("du cache not at the documented layout path: %v", err)
+	}
+}
+
+func TestRootDiskUsageRoundTrip(t *testing.T) {
+	d := state.Dir(t.TempDir())
+
+	if got, ok := d.RootDiskUsage(); ok {
+		t.Errorf("RootDiskUsage on fresh state = (%+v, true), want (_, false)", got)
+	}
+
+	want := state.DiskUsage{
+		KB:         9,
+		MeasuredAt: time.Date(2026, 7, 25, 9, 30, 0, 0, time.UTC),
+	}
+	if err := d.WriteRootDiskUsage(want); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := d.RootDiskUsage()
+	if !ok {
+		t.Fatal("RootDiskUsage after write = (_, false), want (_, true)")
+	}
+	if got.KB != want.KB || !got.MeasuredAt.Equal(want.MeasuredAt) {
+		t.Errorf("RootDiskUsage = %+v, want %+v", got, want)
+	}
+
+	// A repo-wide fact lives at the state root, like last_fetch.
+	onDisk := filepath.Join(string(d), "root_du")
+	if _, err := os.Stat(onDisk); err != nil {
+		t.Errorf("root du cache not at the documented layout path: %v", err)
+	}
+}
+
+func TestDiskUsageIgnoresGarbage(t *testing.T) {
+	d := state.Dir(t.TempDir())
+	if err := d.WriteRefreshHash("feature-x", "abc"); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(string(d), "trees", "feature-x", "du")
+	if err := os.WriteFile(path, []byte("banana\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A corrupt cache reads as "never measured": the worst
+	// consequence is one fresh du run, always safe.
+	if got, ok := d.TreeDiskUsage("feature-x"); ok {
+		t.Errorf("TreeDiskUsage on garbage = (%+v, true), want (_, false)", got)
 	}
 }
