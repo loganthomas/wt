@@ -328,6 +328,26 @@ func TestMergedBranchesDistinguishesMergedFromDiverged(t *testing.T) {
 	}
 }
 
+// A tag sharing a branch's name makes %(refname:short) print
+// "heads/x" for disambiguation; the keys must stay the worktree
+// list's bare spelling regardless.
+func TestMergedBranchesKeysStayBareUnderTagShadow(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.Run(t, dir, "switch", "-q", "-c", "release")
+	gittest.Run(t, dir, "switch", "-q", "main")
+	gittest.Run(t, dir, "tag", "release")
+
+	merged, err := New(dir).MergedBranches(t.Context(), "main")
+	if err != nil {
+		t.Fatalf("MergedBranches: %v", err)
+	}
+	if !merged["release"] {
+		t.Errorf("MergedBranches(main) = %v, want the bare key %q despite the tag shadow",
+			merged, "release")
+	}
+}
+
 func TestMergedBranchesSurfacesBadRevsAsErrors(t *testing.T) {
 	gittest.Scrub(t)
 	dir := gittest.Repo(t, gittest.TempDir(t))

@@ -281,9 +281,12 @@ func (g *Git) WorktreePrune(ctx context.Context) error {
 // "is this branch merged" for every branch at once. The rev rides
 // inside --merged=, so even a dash-prefixed name stays an option
 // value, and branch names come back as data, never options.
+// lstrip=2, not :short — short-form disambiguation prints
+// "heads/x" whenever a tag shares the branch's name, which would
+// silently miss the worktree list's bare spelling.
 func (g *Git) MergedBranches(ctx context.Context, rev string) (map[string]bool, error) {
 	out, err := g.run(ctx,
-		"for-each-ref", "--format=%(refname:short)", "--merged="+rev, "refs/heads/")
+		"for-each-ref", "--format=%(refname:lstrip=2)", "--merged="+rev, "refs/heads/")
 	if err != nil {
 		return nil, err
 	}
