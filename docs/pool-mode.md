@@ -48,17 +48,9 @@ A slot is a long-lived worktree that cycles between two resting
 states, keeping its warm caches the whole way around:
 
 ```
- provision
-     │
-     ▼
-┌─────────────────┐   claim    ┌──────────────────────┐
-│  free / parked  │ ─────────► │  claimed             │
-│  detached @ base│            │  your branch, working│
-└─────────────────┘ ◄───────── └──────────────────────┘
-     ▲                release
-     │
-     └── gitignored caches (node_modules, build output) survive
-         every reset — that is the entire point of the pool
+provision ──► [free: detached @ base] ──claim──► [working on PROJ-123] ──release──► [free: detached @ base]
+                     ▲                                                                      │
+                     └──────────────────────── warm caches survive ────────────────────────┘
 ```
 
 - **Unprovisioned** — configured but not yet on disk; the first
