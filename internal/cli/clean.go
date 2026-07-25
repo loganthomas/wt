@@ -227,8 +227,10 @@ func (c *cleaner) reapDeadLeases(ctx context.Context) error {
 	for _, slot := range slots {
 		held, err := lease.Get(leases, slot)
 		if err != nil {
-			fmt.Fprintf(c.chatter,
-				"%s lease record unreadable — `wt release %s` clears it\n", slot, slot)
+			// Through act, not raw chatter: a run whose only event is
+			// this notice must not also claim there was nothing to
+			// clean.
+			c.act("%s lease record unreadable — `wt release %s` clears it", slot, slot)
 			continue
 		}
 		if held == nil || !held.Stale() {

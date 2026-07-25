@@ -36,10 +36,13 @@ stdout 'slot-1\s+claimed\s+feat-live'
 stdout 'slot-2\s+free'
 
 # an unreadable record proves nothing and is never cleared on a
-# guess; clean points at the documented escape hatch
+# guess; clean points at the documented escape hatch, and a run
+# whose only event is that notice does not also claim there was
+# nothing to clean
 exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/slot-2" && printf "not = [toml" > "$d/leases/slot-2/lease.toml"'
 exec wt clean
 stderr 'slot-2 lease record unreadable'
+! stderr 'nothing to clean'
 exec wt pool ls
 stdout 'slot-2\s+claimed\s+\?'
 
