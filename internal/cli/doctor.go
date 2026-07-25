@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -470,7 +471,10 @@ func fetchLatestRelease(ctx context.Context) (string, error) {
 	var release struct {
 		TagName string `json:"tag_name"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+	// Capped: a proxy or a compromised endpoint must not be able to
+	// balloon doctor's memory with one giant token; a real release
+	// object is a few KB.
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&release); err != nil {
 		return "", err
 	}
 	return release.TagName, nil
