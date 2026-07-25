@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.0-alpha.5 - 2026-07-25
+
+### Enhancements
+
+- `wt sync` fetches the base, fast-forwards it (ff-only), and reports how far each tree trails it; `--all` re-parks idle pool slots onto the new tip, and `wt new`/`wt claim` now fetch a stale base opportunistically (`--no-fetch` opts out) while `wt ls` shows the fetch age. (#14)
+
+### Documentation
+
+- docs/pool-mode.md gains a slot-lifecycle diagram and a "staying fresh" guide, docs/recipes.md adds a launchd recipe for scheduled `wt sync --all`, and docs/configuration.md documents `staleness_hours`. (#14)
+
 ## v0.1.0-alpha.4 - 2026-07-24
 
 ### Enhancements
