@@ -12,24 +12,32 @@ import (
 )
 
 func newLsCmd() *cobra.Command {
-	var porcelain bool
+	var porcelain, jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List worktrees",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runLs(cmd, porcelain)
+			return runLs(cmd, porcelain, jsonOut)
 		},
 	}
 	cmd.Flags().BoolVar(&porcelain, "porcelain", false,
 		"stable tab-separated output for scripts")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "machine-readable output")
 	return cmd
 }
 
-func runLs(cmd *cobra.Command, porcelain bool) error {
+func runLs(cmd *cobra.Command, porcelain, jsonOut bool) error {
+	if porcelain && jsonOut {
+		return usageError{fmt.Errorf("--porcelain and --json are two spellings " +
+			"of the machine listing — choose one")}
+	}
 	r, trees, err := repoTrees(cmd.Context())
 	if err != nil {
 		return err
+	}
+	if jsonOut {
+		return render.JSON(cmd.OutOrStdout(), treeViews(trees))
 	}
 	format := formatRows
 	if porcelain {
@@ -46,6 +54,38 @@ func runLs(cmd *cobra.Command, porcelain bool) error {
 		noteFetchStaleness(r, cmd.ErrOrStderr())
 	}
 	return nil
+}
+
+// treeView is one worktree in ls --json: git's facts, spelled
+// stably for machine consumers (D13).
+type treeView struct {
+	Branch         string `json:"branch,omitempty"`
+	Path           string `json:"path"`
+	Head           string `json:"head,omitempty"`
+	Bare           bool   `json:"bare,omitempty"`
+	Detached       bool   `json:"detached,omitempty"`
+	Locked         bool   `json:"locked,omitempty"`
+	LockedReason   string `json:"locked_reason,omitempty"`
+	Prunable       bool   `json:"prunable,omitempty"`
+	PrunableReason string `json:"prunable_reason,omitempty"`
+}
+
+func treeViews(trees []gitx.Worktree) []treeView {
+	views := make([]treeView, 0, len(trees))
+	for _, t := range trees {
+		views = append(views, treeView{
+			Branch:         t.Branch,
+			Path:           t.Path,
+			Head:           t.Head,
+			Bare:           t.Bare,
+			Detached:       t.Detached,
+			Locked:         t.Locked,
+			LockedReason:   t.LockedReason,
+			Prunable:       t.Prunable,
+			PrunableReason: t.PrunableReason,
+		})
+	}
+	return views
 }
 
 // formatPorcelain renders the stable machine format:
