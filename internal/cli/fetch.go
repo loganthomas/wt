@@ -7,7 +7,6 @@
 package cli
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"io"
@@ -19,13 +18,6 @@ import (
 	"github.com/loganthomas/wt/internal/repo"
 	"github.com/loganthomas/wt/internal/state"
 )
-
-// staleWindow is the effective staleness window: the repo's setting,
-// or DefaultStalenessHours when it set none (D7). One spelling, so
-// the fetch decision and the ls note can never disagree.
-func staleWindow(cfg config.Config) int {
-	return cmp.Or(cfg.StalenessHours, config.DefaultStalenessHours)
-}
 
 // maybeFetchBase fetches base's remote when the last fetch has aged
 // past the staleness window, unless noFetch is set. It is
@@ -46,7 +38,7 @@ func maybeFetchBase(
 		return
 	}
 	last, _ := st.LastFetch()
-	if !freshness.Stale(last, staleWindow(cfg), time.Now()) {
+	if !freshness.Stale(last, cfg.StalenessWindow(), time.Now()) {
 		return
 	}
 	fmt.Fprintf(chatter, "base %s %s — fetching %s\n", base, lastFetchPhrase(last), remote)
@@ -108,7 +100,7 @@ func noteFetchStaleness(r *repo.Repo, chatter io.Writer) {
 	}
 	now := time.Now()
 	msg := fmt.Sprintf("base %s fetched %s", cfg.Base, freshness.Age(now.Sub(last)))
-	if freshness.Stale(last, staleWindow(cfg), now) {
+	if freshness.Stale(last, cfg.StalenessWindow(), now) {
 		msg += " — stale, `wt sync` to refresh"
 	}
 	fmt.Fprintln(chatter, msg)

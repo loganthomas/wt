@@ -8,6 +8,7 @@
 package config
 
 import (
+	"cmp"
 	"fmt"
 	"os"
 	"path"
@@ -59,6 +60,14 @@ type UI struct {
 // Default is the built-in configuration every merge starts from.
 func Default() Config {
 	return Config{Base: "main", UI: UI{Color: "auto"}}
+}
+
+// StalenessWindow is the effective base-fetch window in hours: the
+// configured value, or DefaultStalenessHours when unset (zero). The
+// default lives here beside the field it completes, so every
+// consumer resolves it identically.
+func (c Config) StalenessWindow() int {
+	return cmp.Or(c.StalenessHours, DefaultStalenessHours)
 }
 
 // globalFile is the shape of ~/.config/wt/config.toml.
