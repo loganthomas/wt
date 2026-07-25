@@ -177,7 +177,9 @@ fetches it once, prints a one-line notice, and — when your local
 base now trails its upstream — points you at `wt sync`. The fetch
 only updates remote-tracking refs; it never fast-forwards a branch
 or touches a working tree, so the branch you create is exactly what
-you'd expect. Pass `--no-fetch` to stay offline.
+you'd expect. It fetches the base's own configured remote, honoring
+your git config exactly as a manual `git fetch` would; pass
+`--no-fetch` to stay offline.
 
 **`wt sync`.** The explicit maintenance command:
 
