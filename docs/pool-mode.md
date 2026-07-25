@@ -42,6 +42,31 @@ the setup hook run,
 and the `refresh_if_changed` hash recorded.
 That's the slow part, paid once.
 
+## Slot lifecycle
+
+A slot is a long-lived worktree that cycles between two resting
+states, keeping its warm caches the whole way around:
+
+```
+provision ──► [free: detached @ base] ──claim──► [working on PROJ-123] ──release──► [free: detached @ base]
+                     ▲                                                                      │
+                     └──────────────────────── warm caches survive ────────────────────────┘
+```
+
+- **Unprovisioned** — configured but not yet on disk; the first
+  claim materializes it.
+- **Free / parked** — a real worktree at a detached HEAD on the
+  base tip, warm caches intact, no lease. Its resting state.
+- **Claimed** — `wt new` / `wt claim` took its lease and checked
+  out your branch. You work here.
+- **Released** — `wt done` / `wt release` reset it back onto the
+  base (discarding uncommitted scratch, keeping the warm caches)
+  and dropped the lease, returning it to *free*.
+
+A free slot stays parked on whatever the base pointed at when it
+was last reset, so as the base moves upstream a slot goes stale;
+[staying fresh](#staying-fresh) below is how it catches up.
+
 ## The loop
 
 ```sh
@@ -131,3 +156,49 @@ Two guards make resets structurally safe (PLAN.md D14):
 - **Orphan guard** — no reset proceeds while a detached HEAD
   holds commits nothing else can reach;
   wt tells you how to rescue them instead.
+
+## Staying fresh
+
+A branch cut off a stale base starts life behind, so `wt` keeps the
+base current — without ever surprising you with network I/O or a
+moved working tree.
+
+**On `wt new` and `wt claim`.** If the base hasn't been fetched
+within the staleness window (`staleness_hours`, default 24), wt
+fetches it once, prints a one-line notice, and — when your local
+base now trails its upstream — points you at `wt sync`. The fetch
+only updates remote-tracking refs; it never fast-forwards a branch
+or touches a working tree, so the branch you create is exactly what
+you'd expect. It fetches the base's own configured remote, honoring
+your git config exactly as a manual `git fetch` would; pass
+`--no-fetch` to stay offline.
+
+**`wt sync`.** The explicit maintenance command:
+
+```sh
+wt sync         # fetch the base, fast-forward it (ff-only), report
+                # how far each tree trails it
+wt sync --all   # …and re-park every idle slot onto the new base tip,
+                # running the gated refresh, so the next claim is warm
+```
+
+`wt sync` fetches the base's remote, fast-forwards your local base
+(refusing anything that isn't a pure fast-forward — a diverged or
+busy base is reported and left untouched), and lists each tree's
+distance behind. It never rewrites a branch that carries your
+commits.
+
+`--all` adds the heavier step: it walks the pool and re-parks every
+**idle** slot — free and detached — onto the fresh base, gated by
+the same `refresh_if_changed` hash as a claim. A **claimed** slot is
+left alone: its branch and work are untouched. Each re-park runs
+under the slot's own lease, so a claim racing in mid-sync can't
+collide with it, and the orphan guard still protects any stranded
+commits. A free slot that still holds **uncommitted** scratch is
+skipped with a notice rather than reset — so even an unattended,
+scheduled `wt sync --all` never discards work in progress; commit,
+stash, or discard it and the next sync re-parks the slot.
+
+There is no daemon and no background fetching. To sync on a
+schedule, wire up the opt-in launchd recipe in
+[recipes.md](recipes.md#scheduled-sync-launchd).

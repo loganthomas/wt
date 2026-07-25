@@ -29,9 +29,10 @@ from a scan of the repo root — see
 [detected defaults](#detected-defaults) below.
 
 ```toml
-base      = "main"                 # branch new trees start from
-trees_dir = "../acme.trees"        # container for wt-managed trees
-copy      = [".env", ".envrc"]     # untracked files copied into new trees
+base            = "main"           # branch new trees start from
+trees_dir       = "../acme.trees"  # container for wt-managed trees
+copy            = [".env", ".envrc"] # untracked files copied into new trees
+staleness_hours = 24               # refetch the base once it's older than this
 
 [hooks]
 setup              = "make bootstrap"   # runs once, inside each new tree/slot
@@ -47,6 +48,7 @@ size = 6
 | `base`                     | `main`             | Base branch `wt new` branches off (override per call with `--base`).                                                          |
 | `trees_dir`                | `../<repo>.trees`  | Container for managed trees. Relative paths anchor at the main checkout, so they mean the same thing from any worktree.       |
 | `copy`                     | `[]`               | Untracked files ported (copied, never symlinked) from the main checkout into each new tree. Entries must stay inside the tree. |
+| `staleness_hours`          | `24`               | How old the last base fetch may get before `wt new`/`wt claim` refetch it (one notice, `--no-fetch` to skip) and `wt ls` marks it stale. `0` or unset both mean this default — there is no always-fetch knob; run `wt sync` to force one. Never triggers a network call in `wt ls`. See [pool mode → staying fresh](pool-mode.md#staying-fresh). |
 | `hooks.setup`              | —                  | Command run once inside a freshly created tree or provisioned slot, via `sh -c`. Its output goes to stderr.                   |
 | `hooks.refresh`            | —                  | Command run on every claim, and on `wt new` when no setup hook is configured (setup is presumed to leave the tree fully built). Gated by `refresh_if_changed`; without a gate it runs each time. |
 | `hooks.refresh_if_changed` | `[]`               | Files whose combined hash gates `hooks.refresh`: unchanged hash, no run. The lockfile short-circuit of [pool mode](pool-mode.md). |
@@ -156,6 +158,7 @@ under `$XDG_STATE_HOME` (default `~/.local/state`):
 
 ```
 wt/repos/acme-3f2a9c1b/          # <repo basename>-<hash of the git dir path>
+  last_fetch                     # RFC3339 time of the last base fetch
   leases/slot-3/lease.toml       # who holds slot 3: pid, start time, branch
   trees/<name>/refresh_hash      # refresh_if_changed hash at last refresh
   trees/<name>/provisioned       # slot finished provisioning (setup ran)
@@ -163,4 +166,6 @@ wt/repos/acme-3f2a9c1b/          # <repo basename>-<hash of the git dir path>
 
 The slug keeps state directories human-readable;
 the hash keeps two clones named `acme` apart.
-Fetch timestamps join the layout in Phase 5.
+`last_fetch` is what `staleness_hours` is measured against —
+it is written only by an actual fetch (`wt sync`, or the
+opportunistic fetch on `wt new`/`wt claim`), never by a read.

@@ -228,6 +228,46 @@ func (g *Git) ValidBranchName(ctx context.Context, name string) bool {
 	return err == nil
 }
 
+// Fetch updates the given remote's tracking refs. It touches no
+// working tree, so it is safe to run opportunistically (D7).
+func (g *Git) Fetch(ctx context.Context, remote string) error {
+	_, err := g.run(ctx, "fetch", "--quiet", remote)
+	return err
+}
+
+// Upstream returns branch's upstream in remote-tracking spelling
+// (e.g. "origin/main"), erroring when branch tracks nothing: the
+// signal that there is nothing to fetch or be stale against.
+func (g *Git) Upstream(ctx context.Context, branch string) (string, error) {
+	return g.runLine(ctx, "rev-parse", "--abbrev-ref", "--symbolic-full-name",
+		branch+"@{upstream}")
+}
+
+// UpstreamRemote returns the remote branch tracks (e.g. "origin"),
+// the canonical source for which remote a fetch should target;
+// deriving it from the upstream ref would misparse a slash.
+func (g *Git) UpstreamRemote(ctx context.Context, branch string) (string, error) {
+	return g.runLine(ctx, "config", "--get", "branch."+branch+".remote")
+}
+
+// MergeFFOnly fast-forwards the current branch to ref, refusing any
+// merge that is not a pure fast-forward. Run in the worktree that
+// has the base checked out; git declines if its working tree would
+// be disturbed, which wt reports rather than forces.
+func (g *Git) MergeFFOnly(ctx context.Context, ref string) error {
+	_, err := g.run(ctx, "merge", "--ff-only", "--quiet", ref)
+	return err
+}
+
+// FetchLocalFF fast-forwards a local branch that is checked out
+// nowhere, by fetching ref from the local repository into it. The
+// bare (un-plus-prefixed) refspec is ff-only: a diverged branch is
+// rejected, never rewritten.
+func (g *Git) FetchLocalFF(ctx context.Context, ref, branch string) error {
+	_, err := g.run(ctx, "fetch", "--quiet", ".", ref+":"+branch)
+	return err
+}
+
 // localRepoEnv mirrors `git rev-parse --local-env-vars`: the
 // variables git exports to hooks to pin its own repository.
 // When wt itself runs under a hook it inherits them, and left in

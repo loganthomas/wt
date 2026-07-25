@@ -12,6 +12,7 @@ import (
 
 func newClaimCmd() *cobra.Command {
 	var base string
+	var noFetch bool
 	cmd := &cobra.Command{
 		Use:   "claim <branch>",
 		Short: "Claim a pool slot for a branch (plumbing)",
@@ -20,15 +21,16 @@ func newClaimCmd() *cobra.Command {
 			"Prints the slot path on stdout; scripts and agents cd there.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runClaim(cmd, args[0], base)
+			return runClaim(cmd, args[0], base, noFetch)
 		},
 	}
 	cmd.Flags().StringVar(&base, "base", "",
 		"ref to park and branch from (default: the configured base)")
+	cmd.Flags().BoolVar(&noFetch, "no-fetch", false, "skip the opportunistic fetch of a stale base")
 	return cmd
 }
 
-func runClaim(cmd *cobra.Command, branch, baseFlag string) error {
+func runClaim(cmd *cobra.Command, branch, baseFlag string, noFetch bool) error {
 	ctx := cmd.Context()
 	p, err := openPool(ctx)
 	if err != nil {
@@ -50,6 +52,7 @@ func runClaim(cmd *cobra.Command, branch, baseFlag string) error {
 	if err := checkBase(ctx, p.g, base); err != nil {
 		return err
 	}
+	maybeFetchBase(ctx, p.g, p.cfg, p.state, base, noFetch, cmd.ErrOrStderr())
 	dest, err := p.claimSlot(ctx, branch, base, cmd.ErrOrStderr())
 	if err != nil {
 		return err
