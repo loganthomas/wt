@@ -3,6 +3,7 @@ package gitx
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -268,5 +269,112 @@ func TestFetchLocalFF(t *testing.T) {
 	}
 	if behind != 0 {
 		t.Errorf("behind after local fast-forward = %d, want 0", behind)
+	}
+}
+
+func TestWorktreePruneClearsStaleRegistrations(t *testing.T) {
+	gittest.Scrub(t)
+	root := gittest.TempDir(t)
+	dir := gittest.Repo(t, filepath.Join(root, "acme"))
+	gone := filepath.Join(root, "gone")
+	gittest.Run(t, dir, "worktree", "add", "-q", "--detach", gone)
+	if err := os.RemoveAll(gone); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := t.Context()
+	g := New(dir)
+	trees, err := g.Worktrees(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trees) != 2 || !trees[1].Prunable {
+		t.Fatalf("fixture: want a prunable second tree, got %+v", trees)
+	}
+	if err := g.WorktreePrune(ctx); err != nil {
+		t.Fatalf("WorktreePrune: %v", err)
+	}
+	trees, err = g.Worktrees(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trees) != 1 {
+		t.Errorf("Worktrees() after prune = %d entries, want 1: %+v", len(trees), trees)
+	}
+}
+
+func TestIsAncestorDistinguishesMergedFromDiverged(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.Run(t, dir, "switch", "-q", "-c", "merged")
+	gittest.Run(t, dir, "switch", "-q", "main")
+	gittest.Run(t, dir, "commit", "-q", "--allow-empty", "-m", "advance main")
+	gittest.Run(t, dir, "switch", "-q", "-c", "diverged", "main~1")
+	gittest.Run(t, dir, "commit", "-q", "--allow-empty", "-m", "own work")
+	gittest.Run(t, dir, "switch", "-q", "main")
+
+	ctx := t.Context()
+	g := New(dir)
+	tests := []struct {
+		name, ancestor, descendant string
+		want                       bool
+	}{
+		{"branch at base's history is merged", "merged", "main", true},
+		{"base is not behind its own past", "main", "merged", false},
+		{"diverged branch is not merged", "diverged", "main", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := g.IsAncestor(ctx, tt.ancestor, tt.descendant)
+			if err != nil {
+				t.Fatalf("IsAncestor(%s, %s): %v", tt.ancestor, tt.descendant, err)
+			}
+			if got != tt.want {
+				t.Errorf("IsAncestor(%s, %s) = %v, want %v",
+					tt.ancestor, tt.descendant, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsAncestorSurfacesBadRefsAsErrors(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	if _, err := New(dir).IsAncestor(t.Context(), "no-such-ref", "main"); err == nil {
+		t.Error("IsAncestor(no-such-ref, main) = nil error, want the git failure")
+	}
+}
+
+func TestVersionReturnsDottedNumber(t *testing.T) {
+	gittest.Scrub(t)
+	got, err := New("").Version(t.Context())
+	if err != nil {
+		t.Fatalf("Version: %v", err)
+	}
+	if !regexp.MustCompile(`^\d+\.\d+`).MatchString(got) {
+		t.Errorf("Version() = %q, want a leading major.minor number", got)
+	}
+}
+
+func TestConfigGetReadsSetKeysAndReportsUnsetAsEmpty(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.Run(t, dir, "config", "core.hooksPath", ".husky")
+
+	ctx := t.Context()
+	g := New(dir)
+	got, err := g.ConfigGet(ctx, "core.hooksPath")
+	if err != nil {
+		t.Fatalf("ConfigGet(set key): %v", err)
+	}
+	if got != ".husky" {
+		t.Errorf("ConfigGet(core.hooksPath) = %q, want %q", got, ".husky")
+	}
+	got, err = g.ConfigGet(ctx, "wt.never-set")
+	if err != nil {
+		t.Fatalf("ConfigGet(unset key): %v", err)
+	}
+	if got != "" {
+		t.Errorf("ConfigGet(unset key) = %q, want empty", got)
 	}
 }

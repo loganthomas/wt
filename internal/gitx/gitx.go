@@ -268,6 +268,58 @@ func (g *Git) FetchLocalFF(ctx context.Context, ref, branch string) error {
 	return err
 }
 
+// WorktreePrune drops worktree registrations whose directories are
+// gone from disk. It touches no surviving tree: git prunes only
+// the administrative entries it already reports as prunable.
+func (g *Git) WorktreePrune(ctx context.Context) error {
+	_, err := g.run(ctx, "worktree", "prune")
+	return err
+}
+
+// IsAncestor reports whether ancestor is reachable from descendant,
+// the check behind "is this branch merged into the base". git
+// answers on the exit code: 0 yes, 1 no, anything else (a ref that
+// does not resolve) is a real error.
+func (g *Git) IsAncestor(ctx context.Context, ancestor, descendant string) (bool, error) {
+	_, err := g.run(ctx, "merge-base", "--is-ancestor", ancestor, descendant)
+	if err == nil {
+		return true, nil
+	}
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return false, nil
+	}
+	return false, err
+}
+
+// Version returns the running git's version number, e.g. "2.39.3".
+// Suffixes like "(Apple Git-146)" are git's packaging, not its
+// version, and are cut here so callers compare plain numbers.
+func (g *Git) Version(ctx context.Context) (string, error) {
+	line, err := g.runLine(ctx, "--version")
+	if err != nil {
+		return "", err
+	}
+	v := strings.TrimPrefix(line, "git version ")
+	v, _, _ = strings.Cut(v, " ")
+	return v, nil
+}
+
+// ConfigGet returns the value of a git config key, or "" when the
+// key is unset: git signals "unset" with exit 1, which is an
+// answer here, not a failure.
+func (g *Git) ConfigGet(ctx context.Context, key string) (string, error) {
+	out, err := g.runLine(ctx, "config", "--get", key)
+	if err == nil {
+		return out, nil
+	}
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return "", nil
+	}
+	return "", err
+}
+
 // localRepoEnv mirrors `git rev-parse --local-env-vars`: the
 // variables git exports to hooks to pin its own repository.
 // When wt itself runs under a hook it inherits them, and left in
