@@ -48,13 +48,9 @@ func runSync(cmd *cobra.Command, all bool) error {
 
 	// No upstream means no remote to be stale against: sync has
 	// nothing to do, which is a clean exit, not a failure.
-	remote, err := g.UpstreamRemote(ctx, base)
-	if err != nil {
-		fmt.Fprintf(chatter, "base %s tracks no remote — nothing to sync\n", base)
-		return nil
-	}
-	up, err := g.Upstream(ctx, base)
-	if err != nil {
+	remote, rerr := g.UpstreamRemote(ctx, base)
+	up, uerr := g.Upstream(ctx, base)
+	if rerr != nil || uerr != nil {
 		fmt.Fprintf(chatter, "base %s tracks no remote — nothing to sync\n", base)
 		return nil
 	}
@@ -65,11 +61,11 @@ func runSync(cmd *cobra.Command, all bool) error {
 	fmt.Fprintf(chatter, "fetched %s\n", remote)
 	// Best-effort: the fetch already succeeded, so a state-write
 	// hiccup must not abort the fast-forward and report that follow.
-	if st, err := w.stateDir(); err != nil {
-		warnFetchRecord(err, chatter)
-	} else {
-		warnFetchRecord(st.WriteLastFetch(time.Now()), chatter)
+	st, err := w.stateDir()
+	if err == nil {
+		err = st.WriteLastFetch(time.Now())
 	}
+	warnFetchRecord(err, chatter)
 
 	trees, err := g.Worktrees(ctx)
 	if err != nil {
