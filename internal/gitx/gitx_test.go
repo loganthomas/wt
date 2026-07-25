@@ -227,3 +227,46 @@ func TestUpstreamAbsent(t *testing.T) {
 		t.Error("Upstream on a remoteless repo = nil error, want failure")
 	}
 }
+
+// TestFetchLocalFF fast-forwards a base that is checked out in no
+// worktree — the default-mode case where the main checkout sits on
+// a feature branch. git refuses to fetch into a checked-out branch,
+// so this local-ref path is what advances the base there.
+func TestFetchLocalFF(t *testing.T) {
+	gittest.Scrub(t)
+	root := gittest.TempDir(t)
+	origin := gittest.Repo(t, filepath.Join(root, "origin"))
+	clone := filepath.Join(root, "clone")
+	gittest.Run(t, root, "clone", "-q", origin, clone)
+
+	ctx := t.Context()
+	g := New(clone)
+	// Move off main so it is checked out nowhere in the clone.
+	gittest.Run(t, clone, "switch", "-q", "-c", "feature")
+
+	gittest.WriteFile(t, origin, "new.txt", "hi\n")
+	gittest.Run(t, origin, "add", "new.txt")
+	gittest.Run(t, origin, "commit", "-q", "-m", "advance")
+
+	remote, err := g.UpstreamRemote(ctx, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := g.Fetch(ctx, remote); err != nil {
+		t.Fatalf("Fetch: %v", err)
+	}
+	up, err := g.Upstream(ctx, "main")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := g.FetchLocalFF(ctx, up, "main"); err != nil {
+		t.Fatalf("FetchLocalFF: %v", err)
+	}
+	behind, err := g.CommitCount(ctx, "main.."+up)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if behind != 0 {
+		t.Errorf("behind after local fast-forward = %d, want 0", behind)
+	}
+}
