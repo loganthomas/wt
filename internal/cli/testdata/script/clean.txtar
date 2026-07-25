@@ -60,6 +60,15 @@ stderr 'deleted branch feat-dirty'
 exec wt clean
 stderr 'nothing to clean'
 
+# a tree just created sits exactly on the base tip; wt cannot
+# tell it from a fast-forward-merged branch, so clean only reaps
+# branches strictly behind the base and leaves it alone
+exec wt new feat-fresh
+exec wt clean
+stderr 'nothing to clean'
+exists ../acme.trees/feat-fresh
+exec wt done feat-fresh
+
 # a tree deleted out of band leaves a prunable registration and
 # an orphaned state record; one clean drops both. The refresh
 # hook config makes wt record per-tree state worth orphaning.

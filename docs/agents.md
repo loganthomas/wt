@@ -50,6 +50,9 @@ then retry", never "wt is broken".
 | `wt claim`  | The claimed slot's absolute path, one line. No free slot: exit 3. |
 | `wt release` | Nothing (chatter on stderr). Not a slot / not claimed: exit 3. |
 | `wt pool ls` | One aligned row per slot: slot, state (`free`, `claimed`, `stale`, `unprovisioned`), branch, detail. |
+| `wt clean`  | Nothing (every action, and `-n`'s previews, ride stderr). |
+| `wt status` | The overview table; `--json` for the machine shape below. |
+| `wt doctor` | The check report; `--json` for the machine shape below. Exit 0 healthy, 3 when a `fail`-status check needs fixing; `warn`/`info` are advisory and never exit 3. Works outside a repository (repo checks simply absent). |
 
 The claim/release loop for agents
 (see [pool-mode.md](pool-mode.md)):
@@ -60,7 +63,75 @@ cd "$slot" && …work…
 wt release "$TICKET"               # branch survives for the PR flow
 ```
 
-`--json` on `ls`/`status`/`doctor` lands in a later phase.
+## `--json`
+
+`ls`, `status`, and `doctor` take `--json`: two-space-indented
+JSON on stdout, nothing on stderr. Fields marked *omitempty* are
+absent when zero/empty. Free-text fields (`note`, `symptom`,
+`cause`, `fix`) are for humans and may reword between releases;
+every other field name and value is stable.
+
+`wt ls --json` — an array of trees:
+
+```json
+[
+  {
+    "branch": "feature/login",
+    "path": "/Users/you/acme.trees/feature-login",
+    "head": "0b7e…",
+    "detached": false,
+    "locked": true,
+    "locked_reason": "keep me",
+    "prunable": false
+  }
+]
+```
+
+`wt status --json` — the repo overview:
+
+```json
+{
+  "mode": "pool",
+  "base": { "name": "main", "last_fetch": "2026-07-25T09:30:00Z", "stale": false },
+  "trees": [
+    { "branch": "main", "path": "/Users/you/acme", "disk_kb": 1782579 }
+  ],
+  "pool": {
+    "size": 2,
+    "slots": [
+      { "slot": "slot-1", "state": "claimed", "branch": "PROJ-123",
+        "pid": 4242, "claimed_at": "2026-07-25T08:00:00Z", "note": "…" },
+      { "slot": "slot-2", "state": "free" }
+    ]
+  }
+}
+```
+
+`base.last_fetch` is absent until wt has fetched once;
+`disk_kb` is absent when a tree could not be measured
+(sizes are cached for up to an hour);
+`pool` is absent in default mode.
+
+`wt doctor --json` — the diagnostics:
+
+```json
+{
+  "checks": [
+    { "name": "git", "status": "ok", "symptom": "2.50.1" },
+    { "name": "worktrees", "status": "fail",
+      "symptom": "1 registered tree gone from disk",
+      "cause": "a tree directory was deleted without telling git",
+      "fix": "wt clean" }
+  ],
+  "issues": 1
+}
+```
+
+`status` is one of `ok`, `info`, `warn`, `fail`;
+`issues` counts the fails and matches the exit code rule above.
+Check names are stable identifiers: `git`, `shell-shim`,
+`config`, `worktrees`, `branches`, `submodules`, `hooks-path`,
+`trees-volume`, `leases` (pool repos), `update`.
 
 A porcelain line looks like:
 

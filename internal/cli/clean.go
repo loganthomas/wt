@@ -143,9 +143,13 @@ func (c *cleaner) reapMergedTrees(
 			"base %q does not resolve to a commit — skipping merged-tree cleanup\n", base)
 		return trees, nil
 	}
+	baseSHA, err := c.g.RevParse(ctx, base)
+	if err != nil {
+		return nil, err
+	}
 	survivors := make([]gitx.Worktree, 0, len(trees))
 	for _, t := range trees {
-		reaped, err := c.reapIfMerged(ctx, t, base)
+		reaped, err := c.reapIfMerged(ctx, t, base, baseSHA[0])
 		if err != nil {
 			return nil, err
 		}
@@ -157,10 +161,18 @@ func (c *cleaner) reapMergedTrees(
 }
 
 // reapIfMerged handles one tree, reporting whether it was removed
-// (or would be, in a dry run).
-func (c *cleaner) reapIfMerged(ctx context.Context, t gitx.Worktree, base string) (bool, error) {
+// (or would be, in a dry run). A branch sitting exactly on the
+// base tip is left alone: a freshly created tree and a
+// fast-forward-merged branch are indistinguishable there, so only
+// branches strictly behind the base count as merged.
+func (c *cleaner) reapIfMerged(
+	ctx context.Context, t gitx.Worktree, base, baseSHA string,
+) (bool, error) {
 	name, managed := c.treeStateName(t.Path)
 	if !managed || pool.IsSlotName(name) || t.Branch == "" || t.Branch == base {
+		return false, nil
+	}
+	if t.Head == baseSHA {
 		return false, nil
 	}
 	merged, err := c.g.IsAncestor(ctx, t.Branch, base)
