@@ -88,6 +88,7 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 		newGoCmd(),
 		newDoneCmd(),
 		newSyncCmd(),
+		newCleanCmd(),
 		newClaimCmd(),
 		newReleaseCmd(),
 		newPoolCmd(),
