@@ -279,9 +279,10 @@ func (g *Git) WorktreePrune(ctx context.Context) error {
 // IsAncestor reports whether ancestor is reachable from descendant,
 // the check behind "is this branch merged into the base". git
 // answers on the exit code: 0 yes, 1 no, anything else (a ref that
-// does not resolve) is a real error.
+// does not resolve) is a real error. The -- keeps a dash-prefixed
+// ref (creatable via update-ref) a rev, never an option.
 func (g *Git) IsAncestor(ctx context.Context, ancestor, descendant string) (bool, error) {
-	_, err := g.run(ctx, "merge-base", "--is-ancestor", ancestor, descendant)
+	_, err := g.run(ctx, "merge-base", "--is-ancestor", "--", ancestor, descendant)
 	if err == nil {
 		return true, nil
 	}

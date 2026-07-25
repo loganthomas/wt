@@ -378,3 +378,20 @@ func TestConfigGetReadsSetKeysAndReportsUnsetAsEmpty(t *testing.T) {
 		t.Errorf("ConfigGet(unset key) = %q, want empty", got)
 	}
 }
+
+// git blocks creating dash-prefixed branches via `git branch`, but
+// update-ref can make one; it must reach merge-base as a rev, not
+// be parsed as an option that aborts the caller.
+func TestIsAncestorSurvivesDashPrefixedRefs(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.Run(t, dir, "update-ref", "refs/heads/-foo", "HEAD")
+
+	got, err := New(dir).IsAncestor(t.Context(), "-foo", "main")
+	if err != nil {
+		t.Fatalf("IsAncestor(-foo, main): %v", err)
+	}
+	if !got {
+		t.Error("IsAncestor(-foo, main) = false, want true (same tip)")
+	}
+}
