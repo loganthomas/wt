@@ -132,24 +132,21 @@ func fastForwardBase(
 		fmt.Fprintf(chatter, "%s already current with %s\n", base, up)
 		return nil
 	}
-	if ffErr := ffInPlace(ctx, g, trees, base, up); ffErr != nil {
+	// Fast-forward at whichever end holds the base: a merge in the
+	// worktree that has it checked out, or a local ref update when
+	// nothing does (git refuses to fetch into a checked-out branch).
+	var ffErr error
+	if t, held := treeHoldingBranch(trees, base); held {
+		ffErr = gitx.New(t.Path).MergeFFOnly(ctx, up)
+	} else {
+		ffErr = g.FetchLocalFF(ctx, up, base)
+	}
+	if ffErr != nil {
 		return preconditionf(
 			"%s could not fast-forward to %s (%v) — resolve it by hand", base, up, ffErr)
 	}
 	fmt.Fprintf(chatter, "%s fast-forwarded %s to %s\n", base, commits(behind), up)
 	return nil
-}
-
-// ffInPlace performs the actual fast-forward at whichever end holds
-// the base: a merge in the checked-out worktree, or a local ref
-// update when nothing has it out.
-func ffInPlace(
-	ctx context.Context, g *gitx.Git, trees []gitx.Worktree, base, up string,
-) error {
-	if t, held := treeHoldingBranch(trees, base); held {
-		return gitx.New(t.Path).MergeFFOnly(ctx, up)
-	}
-	return g.FetchLocalFF(ctx, up, base)
 }
 
 // reportBehind lists each tree's distance behind the base, aligned.
@@ -195,9 +192,9 @@ func reparkIdleSlots(ctx context.Context, p *poolRepo, base string, chatter io.W
 		if !registered || !t.Detached {
 			continue
 		}
-		if held, err := lease.Get(leases, slot); err != nil || (held != nil && !held.Stale()) {
-			continue
-		}
+		// Acquire is the authoritative gate: it takes a live or
+		// unreadable lease as held and only steals a provably dead one,
+		// all under its flock. A separate pre-read would just race it.
 		mine, err := lease.Acquire(leases, slot, lease.Reparking)
 		if err != nil {
 			if isHeld(err) {
