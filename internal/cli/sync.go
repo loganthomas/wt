@@ -74,14 +74,19 @@ func runSync(cmd *cobra.Command, all bool) error {
 	if err != nil {
 		return err
 	}
-	if err := fastForwardBase(ctx, g, trees, base, up, chatter); err != nil {
-		return err
+	ffErr := fastForwardBase(ctx, g, trees, base, up, chatter)
+	if ffErr != nil && exitCodeFor(ffErr) != exitPrecondition {
+		return ffErr
 	}
 
+	// A base that could not fast-forward (ffErr is a precondition) is
+	// left untouched, so there is no new tip to re-park onto; skip the
+	// slot work but still print the report, then surface the exit-3 so
+	// a scheduled or scripted sync can tell "synced" from "stuck".
 	// The re-park runs before the report so the behind-counts reflect
 	// the final state: an idle slot brought forward reads as current,
 	// not as trailing the base it was just parked on.
-	if all {
+	if ffErr == nil && all {
 		if err := syncPool(ctx, w, base, chatter); err != nil {
 			return err
 		}
@@ -95,7 +100,7 @@ func runSync(cmd *cobra.Command, all bool) error {
 		return err
 	}
 	reportBehind(ctx, g, trees, base, chatter)
-	return nil
+	return ffErr
 }
 
 // syncPool re-parks the repo's idle slots, or explains that --all
@@ -116,9 +121,9 @@ func syncPool(ctx context.Context, w *wtRepo, base string, chatter io.Writer) er
 // It works wherever the base lives: in the worktree that has it
 // checked out (a plain merge there), or, when it is checked out
 // nowhere, by a local fetch into the ref. A base that cannot
-// fast-forward (diverged, or a busy working tree) is reported and
-// left untouched — sync never rewrites a branch — and the rest of
-// the sync still runs.
+// fast-forward (diverged, or a busy working tree) is never rewritten:
+// it returns a precondition error so the sync exits 3 rather than
+// reporting a success it did not achieve.
 func fastForwardBase(
 	ctx context.Context, g *gitx.Git, trees []gitx.Worktree, base, up string, chatter io.Writer,
 ) error {
@@ -130,11 +135,9 @@ func fastForwardBase(
 		fmt.Fprintf(chatter, "%s already current with %s\n", base, up)
 		return nil
 	}
-	ffErr := ffInPlace(ctx, g, trees, base, up)
-	if ffErr != nil {
-		fmt.Fprintf(chatter,
-			"%s could not fast-forward to %s (%v) — resolve it by hand\n", base, up, ffErr)
-		return nil
+	if ffErr := ffInPlace(ctx, g, trees, base, up); ffErr != nil {
+		return preconditionf(
+			"%s could not fast-forward to %s (%v) — resolve it by hand", base, up, ffErr)
 	}
 	fmt.Fprintf(chatter, "%s fast-forwarded %s to %s\n", base, commits(behind), up)
 	return nil

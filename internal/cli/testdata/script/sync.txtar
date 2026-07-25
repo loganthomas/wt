@@ -57,6 +57,13 @@ stderr 'fetched origin'
 stderr 'main fast-forwarded'
 ! stderr 're-parked'
 
+# A diverged base cannot fast-forward: sync says so and exits 3
+# (a precondition, D13), never rewriting the branch.
+exec git commit -q --allow-empty -m 'local-only'
+exec git -C $WORK/origin commit -q --allow-empty -m 'remote-only'
+exitcode 3 wt sync
+stderr 'could not fast-forward'
+
 -- pool.toml --
 base = 'main'
 trees_dir = '../acme.trees'
