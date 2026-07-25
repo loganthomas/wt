@@ -182,7 +182,7 @@ func formatStatus(view statusView) string {
 		if t.DiskKB != nil {
 			size = humanKB(*t.DiskKB)
 		}
-		rows = append(rows, []string{treeStatusLabel(t), t.Path, size})
+		rows = append(rows, []string{worktreeLabel(t.Bare, t.Detached, t.Branch), t.Path, size})
 	}
 	if len(rows) > 0 {
 		out += "\n" + render.Align(rows)
@@ -207,17 +207,6 @@ func baseLine(b baseView) string {
 		line += " (stale — `wt sync` to refresh)"
 	}
 	return line
-}
-
-func treeStatusLabel(t treeStatus) string {
-	switch {
-	case t.Bare:
-		return "(bare)"
-	case t.Detached:
-		return "(detached)"
-	default:
-		return t.Branch
-	}
 }
 
 // humanKB renders a kilobyte count at gauge precision: sizes are

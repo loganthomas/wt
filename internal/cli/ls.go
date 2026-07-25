@@ -111,13 +111,20 @@ func formatRows(trees []gitx.Worktree) string {
 }
 
 func branchLabel(t gitx.Worktree) string {
+	return worktreeLabel(t.Bare, t.Detached, t.Branch)
+}
+
+// worktreeLabel is the one spelling of a tree's branch cell,
+// shared by wt ls (plain and porcelain) and wt status so the two
+// can never label the same tree differently (D13).
+func worktreeLabel(bare, detached bool, branch string) string {
 	switch {
-	case t.Bare:
+	case bare:
 		return "(bare)"
-	case t.Detached:
+	case detached:
 		return "(detached)"
 	default:
-		return t.Branch
+		return branch
 	}
 }
 
