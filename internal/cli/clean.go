@@ -73,16 +73,13 @@ func runClean(cmd *cobra.Command, dry bool) error {
 	if err != nil {
 		return err
 	}
-	// Each step hands the survivors forward, so the state scan sees
-	// the post-reap world without another git call.
-	trees, err = c.reapMergedTrees(ctx, trees)
-	if err != nil {
+	if err := c.reapMergedTrees(ctx, trees); err != nil {
 		return err
 	}
-	if err := c.reapDeadLeases(trees); err != nil {
+	if err := c.reapDeadLeases(ctx); err != nil {
 		return err
 	}
-	if err := c.dropOrphanedState(trees); err != nil {
+	if err := c.dropOrphanedState(ctx); err != nil {
 		return err
 	}
 	if !c.acted {
@@ -137,30 +134,23 @@ func (c *cleaner) pruneWorktrees(ctx context.Context) ([]gitx.Worktree, error) {
 // elsewhere are not wt's to reap — and slot names are excluded
 // unconditionally: slots are released, never removed (D14). A tree
 // a guard refuses is skipped with the reason, never forced.
-func (c *cleaner) reapMergedTrees(
-	ctx context.Context, trees []gitx.Worktree,
-) ([]gitx.Worktree, error) {
+func (c *cleaner) reapMergedTrees(ctx context.Context, trees []gitx.Worktree) error {
 	base := c.cfg.Base
 	if !c.g.HasCommit(ctx, base) {
 		fmt.Fprintf(c.chatter,
 			"base %q does not resolve to a commit — skipping merged-tree cleanup\n", base)
-		return trees, nil
+		return nil
 	}
 	baseSHA, err := c.g.RevParse(ctx, base)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	survivors := make([]gitx.Worktree, 0, len(trees))
 	for _, t := range trees {
-		reaped, err := c.reapIfMerged(ctx, t, base, baseSHA[0])
-		if err != nil {
-			return nil, err
-		}
-		if !reaped || c.dry {
-			survivors = append(survivors, t)
+		if _, err := c.reapIfMerged(ctx, t, base, baseSHA[0]); err != nil {
+			return err
 		}
 	}
-	return survivors, nil
+	return nil
 }
 
 // reapIfMerged handles one tree, reporting whether it was removed
@@ -228,7 +218,7 @@ func (c *cleaner) reapMergedTree(ctx context.Context, t gitx.Worktree, base stri
 // wt release, so a racing claim can never be double-freed. An
 // unreadable record proves nothing and is left with a pointer at
 // the documented escape hatch.
-func (c *cleaner) reapDeadLeases(trees []gitx.Worktree) error {
+func (c *cleaner) reapDeadLeases(ctx context.Context) error {
 	leases := c.st.LeasesDir()
 	slots, err := lease.Slots(leases)
 	if err != nil {
@@ -248,7 +238,7 @@ func (c *cleaner) reapDeadLeases(trees []gitx.Worktree) error {
 			c.act("would release %s (dead pid %d, was %s)", slot, held.PID, held.Branch)
 			continue
 		}
-		if err := c.releaseDead(trees, slot, held); err != nil {
+		if err := c.releaseDead(ctx, slot, held); err != nil {
 			return err
 		}
 	}
@@ -259,7 +249,7 @@ func (c *cleaner) reapDeadLeases(trees []gitx.Worktree) error {
 // left exactly as the dead session left it: a branch stays
 // reachable, and the next claim's reset (with its guards) decides
 // what survives, exactly as a claim-time steal would.
-func (c *cleaner) releaseDead(trees []gitx.Worktree, slot string, held *lease.Info) error {
+func (c *cleaner) releaseDead(ctx context.Context, slot string, held *lease.Info) error {
 	pinned, err := lease.Repin(c.st.LeasesDir(), slot, lease.Cleaning, held)
 	if err != nil {
 		if isHeld(err) {
@@ -271,6 +261,13 @@ func (c *cleaner) releaseDead(trees []gitx.Worktree, slot string, held *lease.In
 	}
 	// A slot with no tree behind it has state describing nothing;
 	// dropped while the pin still holds, as releaseVacantSlot does.
+	// Listed under the pin: a claim that came and went since the
+	// run's first listing may have provisioned the tree, and state
+	// a live tree depends on must survive.
+	trees, err := c.liveTrees(ctx)
+	if err != nil {
+		return err
+	}
 	if _, registered := findTree(trees, filepath.Join(c.treesDir(), slot)); !registered {
 		if err := c.st.RemoveTree(slot); err != nil {
 			return err
@@ -283,13 +280,30 @@ func (c *cleaner) releaseDead(trees []gitx.Worktree, slot string, held *lease.In
 	return nil
 }
 
+// liveTrees lists the worktrees as every post-prune step sees
+// them: a prunable registration is already gone in a real run,
+// and counts as gone in a preview so -n reports the same world.
+func (c *cleaner) liveTrees(ctx context.Context) ([]gitx.Worktree, error) {
+	trees, err := c.g.Worktrees(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return slices.DeleteFunc(trees, func(t gitx.Worktree) bool { return t.Prunable }), nil
+}
+
 // dropOrphanedState removes recorded state for trees git no longer
 // lists (R8): a tree deleted out of band leaves its refresh hash
 // and markers behind, and a later namesake must not inherit them.
 // Names with a lease directory are skipped — a mid-provision slot
 // has state before its worktree registers, and the lease is what
-// proves someone is working.
-func (c *cleaner) dropOrphanedState(trees []gitx.Worktree) error {
+// proves someone is working. The listing is fresh: a claim that
+// completed since the run started registered its tree, and that
+// tree's state must survive.
+func (c *cleaner) dropOrphanedState(ctx context.Context) error {
+	trees, err := c.liveTrees(ctx)
+	if err != nil {
+		return err
+	}
 	names, err := c.st.TreeNames()
 	if err != nil {
 		return err
