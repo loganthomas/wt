@@ -62,6 +62,9 @@ func TestDuCacheFreshness(t *testing.T) {
 		{"within the window", state.DiskUsage{MeasuredAt: now.Add(-duCacheTTL / 2)}, true},
 		{"aged out", state.DiskUsage{MeasuredAt: now.Add(-duCacheTTL - time.Minute)}, false},
 		{"never measured", state.DiskUsage{}, false},
+		// A future stamp (corruption, clock skew) must re-measure,
+		// not serve the bogus entry until the clock catches up.
+		{"stamped in the future", state.DiskUsage{MeasuredAt: now.Add(time.Hour)}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

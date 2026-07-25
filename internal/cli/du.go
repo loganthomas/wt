@@ -21,8 +21,15 @@ import (
 const duCacheTTL = time.Hour
 
 // duFresh reports whether a cached measurement is still usable.
+// A future stamp (corruption, clock skew) is stale, not
+// eternally fresh: the negative age would otherwise satisfy the
+// TTL until the clock caught up.
 func duFresh(u state.DiskUsage, now time.Time) bool {
-	return !u.MeasuredAt.IsZero() && now.Sub(u.MeasuredAt) <= duCacheTTL
+	if u.MeasuredAt.IsZero() {
+		return false
+	}
+	age := now.Sub(u.MeasuredAt)
+	return age >= 0 && age <= duCacheTTL
 }
 
 // measureDiskUsage sizes each path, one du apiece, all concurrent:

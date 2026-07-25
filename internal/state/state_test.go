@@ -255,4 +255,13 @@ func TestDiskUsageIgnoresGarbage(t *testing.T) {
 	if got, ok := d.TreeDiskUsage("feature-x"); ok {
 		t.Errorf("TreeDiskUsage on garbage = (%+v, true), want (_, false)", got)
 	}
+
+	// A negative size is corruption too, not a value to render.
+	negative := []byte("-42 2026-07-25T09:30:00Z\n")
+	if err := os.WriteFile(path, negative, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := d.TreeDiskUsage("feature-x"); ok {
+		t.Errorf("TreeDiskUsage on negative size = (%+v, true), want (_, false)", got)
+	}
 }

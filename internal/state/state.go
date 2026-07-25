@@ -168,6 +168,11 @@ func readDiskUsage(path string) (DiskUsage, bool) {
 	if _, err := fmt.Sscanf(strings.TrimSpace(string(raw)), "%d %s", &kb, &stamp); err != nil {
 		return DiskUsage{}, false
 	}
+	// A negative size is corruption, not a measurement: sizes come
+	// from du, which never reports one.
+	if kb < 0 {
+		return DiskUsage{}, false
+	}
 	at, err := time.Parse(time.RFC3339, stamp)
 	if err != nil {
 		return DiskUsage{}, false
