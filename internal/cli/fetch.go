@@ -33,12 +33,15 @@ func maybeFetchBase(
 	if noFetch {
 		return
 	}
-	remote, err := g.UpstreamRemote(ctx, base)
-	if err != nil {
-		return
-	}
+	// The staleness gate is a small file read and arithmetic; the
+	// remote lookup is a git subprocess. Check staleness first so the
+	// common already-fresh case on this hot path spawns no process.
 	last, _ := st.LastFetch()
 	if !freshness.Stale(last, cfg.StalenessWindow(), time.Now()) {
+		return
+	}
+	remote, err := g.UpstreamRemote(ctx, base)
+	if err != nil {
 		return
 	}
 	fmt.Fprintf(chatter, "base %s %s — fetching %s\n", base, lastFetchPhrase(last), remote)
