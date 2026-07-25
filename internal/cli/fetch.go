@@ -54,10 +54,22 @@ func maybeFetchBase(
 		fmt.Fprintf(chatter, "fetch failed: %v — continuing on the local base\n", err)
 		return
 	}
-	if err := st.WriteLastFetch(time.Now()); err != nil {
-		return
-	}
+	// The stamp is an optimization, not load-bearing: recording it is
+	// best-effort, and the behind notice runs regardless so a failed
+	// write never also swallows the "you're behind" pointer.
+	warnFetchRecord(st.WriteLastFetch(time.Now()), chatter)
 	noteBehindUpstream(ctx, g, base, chatter)
+}
+
+// warnFetchRecord surfaces a failed last_fetch write as a note and
+// otherwise stays quiet. A missed stamp only costs one extra fetch
+// next time (state.LastFetch fails open), so it must never abort the
+// work the fetch was for.
+func warnFetchRecord(err error, chatter io.Writer) {
+	if err != nil {
+		fmt.Fprintf(chatter,
+			"note: could not record the fetch time (%v); wt will refetch next time\n", err)
+	}
 }
 
 // noteBehindUpstream points at wt sync when the local base now

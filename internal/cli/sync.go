@@ -61,14 +61,14 @@ func runSync(cmd *cobra.Command, all bool) error {
 	if err := g.Fetch(ctx, remote); err != nil {
 		return fmt.Errorf("fetching %s: %w", remote, err)
 	}
-	st, err := w.stateDir()
-	if err != nil {
-		return err
-	}
-	if err := st.WriteLastFetch(time.Now()); err != nil {
-		return err
-	}
 	fmt.Fprintf(chatter, "fetched %s\n", remote)
+	// Best-effort: the fetch already succeeded, so a state-write
+	// hiccup must not abort the fast-forward and report that follow.
+	if st, err := w.stateDir(); err != nil {
+		warnFetchRecord(err, chatter)
+	} else {
+		warnFetchRecord(st.WriteLastFetch(time.Now()), chatter)
+	}
 
 	trees, err := g.Worktrees(ctx)
 	if err != nil {
