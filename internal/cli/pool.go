@@ -78,15 +78,9 @@ func slotRow(slot string, registered bool, held *lease.Info, err error) []string
 	default:
 		return []string{
 			slot, "claimed", held.Branch,
-			fmt.Sprintf("pid %d, claimed %s", held.PID, humanAge(held.ClaimedAt)),
+			fmt.Sprintf("pid %d, claimed %s", held.PID, freshness.Age(time.Since(held.ClaimedAt))),
 		}
 	}
-}
-
-// humanAge says how long ago t was, coarsely: pool occupancy is
-// read at a glance, not billed by the second.
-func humanAge(t time.Time) string {
-	return freshness.Age(time.Since(t))
 }
 
 func newPoolResizeCmd() *cobra.Command {
