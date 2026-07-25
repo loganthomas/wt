@@ -58,7 +58,7 @@ func newDoctorCmd(info BuildInfo) *cobra.Command {
 }
 
 // checkResult is one diagnostic's outcome. Status is the machine
-// vocabulary: ok, info, warn, fail — only fail counts as an issue.
+// vocabulary below — only a fail counts as an issue.
 type checkResult struct {
 	Name    string `json:"name"`
 	Status  string `json:"status"`
@@ -67,6 +67,17 @@ type checkResult struct {
 	Fix     string `json:"fix,omitempty"`
 }
 
+// The status vocabulary, as constants because the fail comparison
+// decides the exit code — the one doctor behavior scripts depend
+// on — and a typo'd literal would compile, render, and silently
+// stop counting.
+const (
+	statusOK   = "ok"
+	statusInfo = "info"
+	statusWarn = "warn"
+	statusFail = "fail"
+)
+
 type doctorView struct {
 	Checks []checkResult `json:"checks"`
 	Issues int           `json:"issues"`
@@ -74,19 +85,17 @@ type doctorView struct {
 
 func runDoctor(cmd *cobra.Command, info BuildInfo, jsonOut, offline bool) error {
 	ctx := cmd.Context()
-	var view doctorView
-	add := func(r checkResult) {
-		view.Checks = append(view.Checks, r)
-		if r.Status == "fail" {
+	v, verr := gitx.New("").Version(ctx)
+	checks := []checkResult{checkGitVersion(v, verr), checkShim(os.Getenv(shimSigEnv))}
+	checks = append(checks, repoChecks(ctx)...)
+	checks = append(checks, checkUpdate(ctx, info.Version, offline))
+
+	view := doctorView{Checks: checks}
+	for _, c := range checks {
+		if c.Status == statusFail {
 			view.Issues++
 		}
 	}
-
-	v, verr := gitx.New("").Version(ctx)
-	add(checkGitVersion(v, verr))
-	add(checkShim(os.Getenv(shimSigEnv)))
-	repoChecks(ctx, add)
-	add(checkUpdate(ctx, info.Version, offline))
 
 	out := cmd.OutOrStdout()
 	if jsonOut {
@@ -111,72 +120,71 @@ func runDoctor(cmd *cobra.Command, info BuildInfo, jsonOut, offline bool) error 
 // repository or an unrunnable git is precisely when the report is
 // needed most. A broken config is likewise itself a finding, so
 // the checks that need config values are skipped, not aborted.
-func repoChecks(ctx context.Context, add func(checkResult)) {
+func repoChecks(ctx context.Context) []checkResult {
 	r, err := repo.Find(ctx, "")
 	var notRepo *repo.NotARepoError
 	if errors.As(err, &notRepo) {
-		return
+		return nil
 	}
 	if err != nil {
-		add(checkResult{
-			Name: "repo", Status: "fail",
+		return []checkResult{{
+			Name: "repo", Status: statusFail,
 			Symptom: err.Error(),
 			Cause:   "wt cannot resolve the repository around this directory",
 			Fix:     "`git status` shows git's own view of it",
-		})
-		return
+		}}
 	}
 	g := gitx.New(r.Root)
 	trees, err := g.Worktrees(ctx)
 	if err != nil {
-		add(checkResult{
-			Name: "worktrees", Status: "fail",
+		return []checkResult{{
+			Name: "worktrees", Status: statusFail,
 			Symptom: err.Error(),
 			Cause:   "git could not list this repository's worktrees",
 			Fix:     "git worktree list",
-		})
-		return
+		}}
 	}
 	cfg, cfgErr := loadMerged(r)
-	add(checkConfig(cfgErr))
-	add(checkWorktrees(trees))
-	add(checkBranchDuplicates(trees))
-	add(checkSubmodules(r.Root))
-	hooksPath, hooksErr := g.ConfigGet(ctx, "core.hooksPath")
-	add(checkHooksPath(hooksPath, hooksErr))
-	if cfgErr != nil {
-		return
+	checks := []checkResult{
+		checkConfig(cfgErr),
+		checkWorktrees(trees),
+		checkBranchDuplicates(trees),
+		checkSubmodules(r.Root),
 	}
-	add(checkTreesVolume(r.Root, r.TreesDir(cfg.TreesDir)))
+	hooksPath, hooksErr := g.ConfigGet(ctx, "core.hooksPath")
+	checks = append(checks, checkHooksPath(hooksPath, hooksErr))
+	if cfgErr != nil {
+		return checks
+	}
+	checks = append(checks, checkTreesVolume(r.Root, r.TreesDir(cfg.TreesDir)))
 	if cfg.Pool == nil {
-		return
+		return checks
 	}
 	sd, err := r.StateDir()
 	if err != nil {
-		add(checkResult{
-			Name: "leases", Status: "info",
+		return append(checks, checkResult{
+			Name: "leases", Status: statusInfo,
 			Symptom: fmt.Sprintf("state directory unavailable (%v)", err),
 		})
-		return
 	}
-	add(checkLeases(state.Dir(sd)))
+	return append(checks, checkLeases(state.Dir(sd)))
 }
 
 func checkGitVersion(v string, err error) checkResult {
 	c := checkResult{Name: "git"}
 	switch {
 	case err != nil:
-		c.Status = "fail"
+		c.Status = statusFail
 		c.Symptom = fmt.Sprintf("git did not run (%v)", err)
 		c.Cause = "wt shells out to the real git for every operation"
 		c.Fix = "install git ≥ 2.38 — `brew install git`"
 	case !versionAtLeast(v, gitFloorMajor, gitFloorMinor):
-		c.Status = "fail"
+		c.Status = statusFail
 		c.Symptom = fmt.Sprintf("git %s predates %d.%d", v, gitFloorMajor, gitFloorMinor)
 		c.Cause = "the worktree behaviors wt relies on stabilized there"
 		c.Fix = "`brew install git`, or upgrade via your package manager"
 	default:
-		c.Status, c.Symptom = "ok", v
+		c.Status, c.Symptom = statusOK, v
 	}
 	return c
 }
@@ -201,16 +209,16 @@ func checkShim(sig string) checkResult {
 	c := checkResult{Name: "shell-shim"}
 	switch sig {
 	case shimSig():
-		c.Status, c.Symptom = "ok", "active and current"
+		c.Status, c.Symptom = statusOK, "active and current"
 	case "":
-		c.Status = "warn"
+		c.Status = statusWarn
 		c.Symptom = "not active in this shell"
 		c.Cause = "the eval line is missing from ~/.zshrc, or this is a non-interactive shell"
 		c.Fix = `add eval "$(wt shell-init zsh)" to ~/.zshrc, then restart the shell`
 	default:
 		// The mismatch points either way: a shell older than the
 		// binary, or a stale binary shadowing the upgraded one.
-		c.Status = "warn"
+		c.Status = statusWarn
 		c.Symptom = "shim and binary are from different wt builds"
 		c.Cause = "the shell predates an upgrade, or another wt on PATH shadows the new one"
 		c.Fix = "restart the shell (`exec zsh`); if it persists, `which -a wt`"
@@ -220,10 +228,10 @@ func checkShim(sig string) checkResult {
 
 func checkConfig(err error) checkResult {
 	if err == nil {
-		return checkResult{Name: "config", Status: "ok", Symptom: "parses cleanly"}
+		return checkResult{Name: "config", Status: statusOK, Symptom: "parses cleanly"}
 	}
 	return checkResult{
-		Name: "config", Status: "fail",
+		Name: "config", Status: statusFail,
 		Symptom: err.Error(),
 		Cause:   "wt refuses to run on half-read settings",
 		Fix:     "wt config --edit",
@@ -243,18 +251,18 @@ func checkWorktrees(trees []gitx.Worktree) checkResult {
 	}
 	switch {
 	case prunable > 0:
-		c.Status = "fail"
+		c.Status = statusFail
 		c.Symptom = fmt.Sprintf("%d registered %s gone from disk",
 			prunable, plural(prunable, "tree"))
 		c.Cause = "a tree directory was deleted without telling git"
 		c.Fix = "wt clean"
 	case locked > 0:
-		c.Status = "warn"
+		c.Status = statusWarn
 		c.Symptom = fmt.Sprintf("%d locked %s", locked, plural(locked, "tree"))
 		c.Cause = "locks are honored: wt done and wt clean refuse locked trees"
 		c.Fix = "`git worktree unlock <path>` when the lock has served its purpose"
 	default:
-		c.Status = "ok"
+		c.Status = statusOK
 		c.Symptom = fmt.Sprintf("%d %s, none locked or prunable",
 			len(trees), plural(len(trees), "tree"))
 	}
@@ -279,23 +287,23 @@ func checkBranchDuplicates(trees []gitx.Worktree) checkResult {
 	}
 	if len(dups) > 0 {
 		slices.Sort(dups)
-		c.Status = "fail"
+		c.Status = statusFail
 		c.Symptom = "checked out in more than one tree: " + strings.Join(dups, ", ")
 		c.Cause = "two trees on one branch silently diverge each other's HEAD"
 		c.Fix = "`git worktree list` shows them — remove the extras"
 		return c
 	}
-	c.Status, c.Symptom = "ok", "no branch is checked out twice"
+	c.Status, c.Symptom = statusOK, "no branch is checked out twice"
 	return c
 }
 
 func checkSubmodules(root string) checkResult {
 	c := checkResult{Name: "submodules"}
 	if _, err := os.Stat(filepath.Join(root, ".gitmodules")); err != nil {
-		c.Status, c.Symptom = "ok", "none"
+		c.Status, c.Symptom = statusOK, "none"
 		return c
 	}
-	c.Status = "warn"
+	c.Status = statusWarn
 	c.Symptom = "submodules present"
 	c.Cause = "git supports worktrees with submodules, but wt adds no smoothing (R5)"
 	c.Fix = "run `git submodule update --init` inside new trees; see docs/faq.md"
@@ -306,14 +314,14 @@ func checkHooksPath(path string, err error) checkResult {
 	c := checkResult{Name: "hooks-path"}
 	switch {
 	case err != nil:
-		c.Status = "info"
+		c.Status = statusInfo
 		c.Symptom = fmt.Sprintf("could not read core.hooksPath (%v)", err)
 	case path == "":
-		c.Status, c.Symptom = "ok", "default hooks path"
+		c.Status, c.Symptom = statusOK, "default hooks path"
 	case filepath.IsAbs(path):
-		c.Status, c.Symptom = "ok", fmt.Sprintf("core.hooksPath = %s (absolute, shared)", path)
+		c.Status, c.Symptom = statusOK, fmt.Sprintf("core.hooksPath = %s (absolute, shared)", path)
 	default:
-		c.Status = "warn"
+		c.Status = statusWarn
 		c.Symptom = fmt.Sprintf("core.hooksPath = %s (relative)", path)
 		c.Cause = "a relative hooks path resolves inside each tree; " +
 			"hooks vanish in trees where it is untracked (R7)"
@@ -330,7 +338,7 @@ func checkTreesVolume(root, treesDir string) checkResult {
 	c := checkResult{Name: "trees-volume"}
 	rootDev, ok := deviceOf(root)
 	if !ok {
-		c.Status, c.Symptom = "info", "could not stat the repo root"
+		c.Status, c.Symptom = statusInfo, "could not stat the repo root"
 		return c
 	}
 	probe := treesDir
@@ -339,19 +347,19 @@ func checkTreesVolume(root, treesDir string) checkResult {
 		// Not created yet: judge by where it would be created.
 		probe = filepath.Dir(treesDir)
 		if treesDev, ok = deviceOf(probe); !ok {
-			c.Status = "info"
+			c.Status = statusInfo
 			c.Symptom = fmt.Sprintf("trees dir %s does not exist yet", treesDir)
 			return c
 		}
 	}
 	if rootDev != treesDev {
-		c.Status = "warn"
+		c.Status = statusWarn
 		c.Symptom = fmt.Sprintf("trees dir %s sits on a different volume", treesDir)
 		c.Cause = "cross-volume trees pay full copies where one volume shares cheaply"
 		c.Fix = "set trees_dir in wt.toml to a path on the repo's volume"
 		return c
 	}
-	c.Status, c.Symptom = "ok", "trees share the repo's volume"
+	c.Status, c.Symptom = statusOK, "trees share the repo's volume"
 	return c
 }
 
@@ -371,7 +379,7 @@ func checkLeases(st state.Dir) checkResult {
 	c := checkResult{Name: "leases"}
 	slots, err := lease.Slots(st.LeasesDir())
 	if err != nil {
-		c.Status, c.Symptom = "info", fmt.Sprintf("could not list leases (%v)", err)
+		c.Status, c.Symptom = statusInfo, fmt.Sprintf("could not list leases (%v)", err)
 		return c
 	}
 	var stale, unreadable []string
@@ -386,18 +394,18 @@ func checkLeases(st state.Dir) checkResult {
 	}
 	switch {
 	case len(unreadable) > 0:
-		c.Status = "fail"
+		c.Status = statusFail
 		c.Symptom = fmt.Sprintf("%s lease record unreadable", strings.Join(unreadable, ", "))
 		c.Cause = "a torn write or filesystem fault; wt never steals what it cannot prove dead"
 		c.Fix = fmt.Sprintf("wt release %s", unreadable[0])
 	case len(stale) > 0:
-		c.Status = "fail"
+		c.Status = statusFail
 		c.Symptom = fmt.Sprintf("%d dead %s (%s)",
 			len(stale), plural(len(stale), "lease"), strings.Join(stale, ", "))
 		c.Cause = "a session died holding its slot"
 		c.Fix = "wt clean"
 	default:
-		c.Status, c.Symptom = "ok", "no dead leases"
+		c.Status, c.Symptom = statusOK, "no dead leases"
 	}
 	return c
 }
@@ -412,37 +420,37 @@ func checkUpdate(ctx context.Context, version string, offline bool) checkResult 
 	current, ok := parseRelease(version)
 	switch {
 	case offline:
-		c.Status, c.Symptom = "info", "check skipped (--offline)"
+		c.Status, c.Symptom = statusInfo, "check skipped (--offline)"
 		return c
 	case version == "":
-		c.Status, c.Symptom = "info", "dev build — check skipped"
+		c.Status, c.Symptom = statusInfo, "dev build — check skipped"
 		return c
 	case !ok:
-		c.Status, c.Symptom = "info", fmt.Sprintf("unrecognized version %q — check skipped", version)
+		c.Status, c.Symptom = statusInfo, fmt.Sprintf("unrecognized version %q — check skipped", version)
 		return c
 	}
 	latest, err := fetchLatestRelease(ctx)
 	if errors.Is(err, errNoStableRelease) {
-		c.Status = "info"
+		c.Status = statusInfo
 		c.Symptom = fmt.Sprintf("no stable release published yet (running %s)", version)
 		return c
 	}
 	if err != nil {
-		c.Status, c.Symptom = "info", fmt.Sprintf("check failed (%v)", err)
+		c.Status, c.Symptom = statusInfo, fmt.Sprintf("check failed (%v)", err)
 		return c
 	}
 	tag, ok := parseRelease(latest)
 	if !ok {
-		c.Status, c.Symptom = "info", fmt.Sprintf("unrecognized release tag %q", latest)
+		c.Status, c.Symptom = statusInfo, fmt.Sprintf("unrecognized release tag %q", latest)
 		return c
 	}
 	if newerRelease(tag, current) {
-		c.Status = "info"
+		c.Status = statusInfo
 		c.Symptom = fmt.Sprintf("%s is available (running %s)", latest, version)
 		c.Fix = "brew upgrade wt"
 		return c
 	}
-	c.Status, c.Symptom = "ok", fmt.Sprintf("up to date (%s)", version)
+	c.Status, c.Symptom = statusOK, fmt.Sprintf("up to date (%s)", version)
 	return c
 }
 
