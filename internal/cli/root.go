@@ -90,6 +90,7 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 		newSyncCmd(),
 		newCleanCmd(),
 		newStatusCmd(),
+		newDoctorCmd(info),
 		newClaimCmd(),
 		newReleaseCmd(),
 		newPoolCmd(),

@@ -12,6 +12,12 @@
 # whose name position is never alias-expanded.
 # The `|| :` keeps err_exit shells alive when no alias exists.
 builtin unalias wt 2>/dev/null || :
+
+# The signature of the shim sources embedded in the emitting
+# binary. `wt doctor` compares it against its own to tell "shim
+# missing" from "shell started before wt was upgraded".
+typeset -gx WT_SHIM_SIG=@SHIM_SIG@
+
 function wt {
   # emulate pins zsh semantics against exotic user setopts;
   # builtins dodge same-named user functions and aliases.
