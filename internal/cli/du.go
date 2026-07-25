@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"os/exec"
 	"strconv"
@@ -51,12 +52,17 @@ func measureDiskUsage(ctx context.Context, paths []string) map[string]int64 {
 }
 
 // duKB runs `du -sk` on one path. -k is POSIX: the macOS/BSD and
-// GNU du agree on it, where -h and friends diverge.
+// GNU du agree on it, where -h and friends diverge. du exits
+// non-zero when any subdirectory is unreadable while still
+// printing a valid total, so the exit status only matters when
+// no total parsed: a partial size beats no size, and a tree with
+// one sealed subdirectory must not re-walk on every status.
 func duKB(ctx context.Context, path string) (int64, error) {
 	out, err := exec.CommandContext(ctx, "du", "-sk", path).Output()
-	if err != nil {
-		return 0, err
-	}
 	field, _, _ := strings.Cut(strings.TrimSpace(string(out)), "\t")
-	return strconv.ParseInt(field, 10, 64)
+	kb, perr := strconv.ParseInt(field, 10, 64)
+	if perr != nil {
+		return 0, cmp.Or(err, perr)
+	}
+	return kb, nil
 }
