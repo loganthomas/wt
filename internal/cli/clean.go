@@ -167,12 +167,16 @@ func (c *cleaner) reapMergedTrees(
 // (or would be, in a dry run). A branch sitting exactly on the
 // base tip is left alone: a freshly created tree and a
 // fast-forward-merged branch are indistinguishable there, so only
-// branches strictly behind the base count as merged.
+// branches strictly behind the base count as merged. The main
+// checkout is excluded by identity, exactly as wt done excludes
+// it: a trees_dir that contains the repo root (say "..") must not
+// make the user's primary checkout read as reapable.
 func (c *cleaner) reapIfMerged(
 	ctx context.Context, t gitx.Worktree, base, baseSHA string,
 ) (bool, error) {
 	name, managed := c.treeStateName(t.Path)
-	if !managed || pool.IsSlotName(name) || t.Branch == "" || t.Branch == base {
+	if !managed || pool.IsSlotName(name) || t.Path == c.repo.Root ||
+		t.Branch == "" || t.Branch == base {
 		return false, nil
 	}
 	if t.Head == baseSHA {
