@@ -687,22 +687,55 @@ Phase 6 (doctor, clean, status) is ready once the tag is cut.
 
 ### Phase 6 — Doctor, clean, status (M)
 
-- [ ] `wt clean`: dead-lease reap, merged-branch tree reap
+- [x] `wt clean`: dead-lease reap, merged-branch tree reap
       (ancestor-of-base check), `git worktree prune`,
       orphaned state-dir GC; `-n` dry-run; every action printed.
-- [ ] `wt status`: mode, base + fetch age, occupancy,
+- [x] `wt status`: mode, base + fetch age, occupancy,
       per-tree disk usage (parallelized `du`, cached in state dir).
-- [ ] `wt doctor` checks, each formatted symptom → cause → exact fix command:
+- [x] `wt doctor` checks, each formatted symptom → cause → exact fix command:
       git ≥ 2.38; shim installed and current; config parse errors with
       line numbers; prunable/locked worktrees; branch-checked-out-twice;
       stale leases; submodules present (warn);
       `core.hooksPath`/husky note; trees on a different volume;
       update check (prerelease tags ignored when comparing versions).
-- [ ] `--json` for status/doctor/ls via a single `internal/render` layer
+- [x] `--json` for status/doctor/ls via a single `internal/render` layer
       so human and JSON views can't drift.
 - **Exit:** self-diagnosing tool —
   support questions answerable with "run `wt doctor`."
   Tag `v0.1.0-alpha.6`.
+
+**Status (2026-07-25): code complete, PR open against `dev`.**
+Design decisions surfaced by implementation:
+`wt clean` counts a branch as merged only when it is **strictly
+behind** the base tip — at the tip itself a freshly created tree
+and a fast-forward-merged branch are indistinguishable, and
+reaping the former would destroy `wt new` moments after it ran.
+Clean's merged reap runs the exact `wt done` sequence (shared
+helper, same guards, skip-with-reason on refusal) minus the
+unpushed check, which "merged" makes redundant; its dead-lease
+reap uses the same repin protocol as `wt release`, so a racing
+claim can never be double-freed; and an unreadable lease record
+is reported, never cleared on a guess (D15 intact).
+`wt doctor`'s severity model keeps scripts honest: only a `fail`
+counts toward the exit-3 issue count, while `warn`/`info`
+(submodules present, shim not detected, update available) stay
+advisory — a submodule repo must not read permanently unhealthy.
+The shim now exports `WT_SHIM_SIG`, a content hash of the
+embedded shim sources, which is how doctor tells "shim missing"
+from "shell started before the upgrade" without spawning
+anything. The update check hits `releases/latest`, which by
+definition excludes prereleases (D8), with one semver nuance: a
+full release outranks its own prereleases, so alpha users see
+the real `v0.1.0` when it lands. Doctor runs outside
+repositories — the support command must never refuse to
+diagnose — so it reserves exit 3 for findings and never exits 4.
+`wt status` reuses one `slotView` for pool `ls`, its own table,
+and `--json`; disk usage is one parallel `du -sk` pass cached in
+the state dir for an hour (R10). `render.Align` grew no options;
+doctor's cause/fix lines ride it as continuation rows.
+Remaining before exit: merge, batch fragments, tag
+`v0.1.0-alpha.6`. Phase 7 (docs, polish, first release) is ready
+once the tag is cut.
 
 ### Phase 7 — Documentation, polish, first release (L)
 
