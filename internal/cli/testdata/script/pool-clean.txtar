@@ -1,0 +1,54 @@
+# wt clean in a pool repo reaps provably dead leases (D15, R3):
+# a lease whose pid is gone frees its slot, an unreadable record
+# is never touched on a guess, and a live claim is left alone.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes --pool-size 2
+
+# a live claim: this session's lease must survive every clean
+exec wt claim feat-live
+stdout '[/\\]slot-1$'
+
+# fake a crashed session on slot-2: a record whose pid can never
+# be alive (beyond every platform's pid ceiling), on this host
+exec wt claim feat-dead
+stdout '[/\\]slot-2$'
+exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && sed "s/HOSTNAME/$(uname -n)/" "$WORK/dead-lease.toml" > "$d/leases/slot-2/lease.toml"'
+exec wt pool ls
+stdout 'slot-2\s+stale\s+feat-dead'
+
+# the dry run names the reap without performing it
+exec wt clean -n
+stderr 'would release slot-2'
+exec wt pool ls
+stdout 'slot-2\s+stale'
+
+# the real run frees the dead slot and leaves the live claim
+exec wt clean
+stderr 'released slot-2 \(dead pid 99999999, was feat-dead\)'
+! stderr 'slot-1'
+exec wt pool ls
+stdout 'slot-1\s+claimed\s+feat-live'
+stdout 'slot-2\s+free'
+
+# an unreadable record proves nothing and is never cleared on a
+# guess; clean points at the documented escape hatch, and a run
+# whose only event is that notice does not also claim there was
+# nothing to clean
+exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/slot-2" && printf "not = [toml" > "$d/leases/slot-2/lease.toml"'
+exec wt clean
+stderr 'slot-2 lease record unreadable'
+! stderr 'nothing to clean'
+exec wt pool ls
+stdout 'slot-2\s+claimed\s+\?'
+
+-- dead-lease.toml --
+pid = 99999999
+pid_start = ''
+hostname = 'HOSTNAME'
+branch = 'feat-dead'
+claimed_at = 2026-01-01T00:00:00Z

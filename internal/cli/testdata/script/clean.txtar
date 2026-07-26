@@ -1,0 +1,183 @@
+# wt clean reaps what is finished and reconciles recorded state
+# (PLAN.md Phase 6, R8): merged trees go, unmerged or dirty ones
+# stay, prunable registrations are pruned, and state records
+# whose trees are gone are dropped. -n previews every action and
+# performs none.
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+
+# a merged branch, a branch with open work, and a merged branch
+# whose tree still holds uncommitted scratch
+exec wt new feat-merged
+exec git -C ../acme.trees/feat-merged commit -q --allow-empty -m 'work'
+exec git merge -q --no-ff -m 'merge feat-merged' feat-merged
+exec wt new feat-open
+exec git -C ../acme.trees/feat-open commit -q --allow-empty -m 'wip'
+exec wt new feat-dirty
+exec git -C ../acme.trees/feat-dirty commit -q --allow-empty -m 'work'
+exec git merge -q --no-ff -m 'merge feat-dirty' feat-dirty
+exec sh -c 'echo scratch > ../acme.trees/feat-dirty/notes.txt'
+
+# the dry run reports the merged reap without performing it, and
+# stdout stays empty: clean has no machine output (D13). The
+# preview runs the same guards as the real run, so the dirty
+# merged tree previews as a skip, never as a promised removal.
+exec wt clean -n
+stderr 'would remove .*[/\\]feat-merged'
+stderr 'skipping .*[/\\]feat-dirty'
+! stderr 'would remove .*[/\\]feat-dirty'
+! stderr 'feat-open'
+! stdout .
+exists ../acme.trees/feat-merged
+
+# the real run removes the merged tree and its branch; the dirty
+# merged tree is skipped with the reason, the open branch stays
+exec wt clean
+stderr 'removed .*[/\\]feat-merged'
+stderr 'deleted branch feat-merged'
+stderr 'skipping .*[/\\]feat-dirty'
+! stderr 'feat-open'
+! stdout .
+! exists ../acme.trees/feat-merged
+exists ../acme.trees/feat-open
+exists ../acme.trees/feat-dirty
+exec git branch --list feat-merged
+! stdout .
+exec git branch --list feat-open
+stdout 'feat-open'
+
+# the dirty tree keeps its skip notice until someone resolves it;
+# once the scratch is gone the next clean reaps it like any other
+exec wt clean
+stderr 'skipping .*[/\\]feat-dirty'
+rm ../acme.trees/feat-dirty/notes.txt
+exec wt clean
+stderr 'removed .*[/\\]feat-dirty'
+stderr 'deleted branch feat-dirty'
+
+# with everything reaped, a run has nothing left to do
+exec wt clean
+stderr 'nothing to clean'
+
+# a tree just created sits exactly on the base tip; wt cannot
+# tell it from a fast-forward-merged branch, so clean only reaps
+# branches strictly behind the base and leaves it alone
+exec wt new feat-fresh
+exec wt clean
+stderr 'nothing to clean'
+exists ../acme.trees/feat-fresh
+exec wt done feat-fresh
+
+# one merged branch checked out in two managed trees (git
+# worktree add -f) must not wedge the sweep: both trees go, and
+# the branch is deleted once, after the last tree released it
+exec wt new dup-feat
+exec git -C ../acme.trees/dup-feat commit -q --allow-empty -m 'work'
+exec git merge -q --no-ff -m 'merge dup-feat' dup-feat
+exec git worktree add -q -f ../acme.trees/dup-b dup-feat
+exec wt clean -n
+stderr 'would remove .*[/\\]dup-feat'
+stderr 'would remove .*[/\\]dup-b'
+exec wt clean
+stderr 'removed .*[/\\]dup-feat'
+stderr 'removed .*[/\\]dup-b'
+stderr 'deleted branch dup-feat'
+! exists ../acme.trees/dup-feat
+! exists ../acme.trees/dup-b
+exec git branch --list dup-feat
+! stdout .
+
+# clean run from inside a merged tree must not delete the
+# caller's working directory out from under them; from outside,
+# the same tree reaps normally
+exec wt new feat-here
+exec git -C ../acme.trees/feat-here commit -q --allow-empty -m 'work'
+exec git merge -q --no-ff -m 'merge feat-here' feat-here
+cd ../acme.trees/feat-here
+exec wt clean
+stderr 'skipping .*[/\\]feat-here.*working directory'
+exists $WORK/acme.trees/feat-here
+cd $WORK/acme
+exec wt clean
+stderr 'removed .*[/\\]feat-here'
+
+# a tree deleted out of band leaves a prunable registration and
+# an orphaned state record; one clean drops both, and the dry run
+# previews exactly that — prune plus state drop, never a second
+# "would remove" for a registration the prune already covers,
+# even when its branch is merged. The refresh hook config makes
+# wt record per-tree state worth orphaning.
+cp $WORK/hooked.toml .git/wt.toml
+exec sh -c 'echo v1 > dep-lock'
+exec git add dep-lock
+exec git commit -q -m 'lockfile'
+exec wt new feat-gone
+exec git -C ../acme.trees/feat-gone commit -q --allow-empty -m 'work'
+exec git merge -q --no-ff -m 'merge feat-gone' feat-gone
+exec sh -c 'rm -rf ../acme.trees/feat-gone'
+exec wt clean -n
+stderr 'would prune .*[/\\]feat-gone'
+stderr 'would drop stale state for feat-gone'
+! stderr 'would remove .*[/\\]feat-gone'
+exists ../acme.trees/feat-open
+exec wt clean
+stderr 'pruned .*[/\\]feat-gone'
+stderr 'dropped stale state for feat-gone'
+exec git branch -q -D feat-gone
+exec git -C . worktree list
+! stdout 'feat-gone'
+
+# state orphaned by an out-of-band worktree remove is dropped too
+exec wt new feat-orphan
+exec git worktree remove --force ../acme.trees/feat-orphan
+exec git branch -q -D feat-orphan
+exec wt clean
+stderr 'dropped stale state for feat-orphan'
+
+# the main checkout is never a merged-reap candidate, even when a
+# trees_dir of '..' makes it look managed and it sits on a merged,
+# strictly-behind branch
+cp $WORK/parent.toml .git/wt.toml
+exec git switch -q -c feat-past main~1
+exec wt clean
+! stderr 'remove'
+exists .git
+exec git switch -q main
+cp $WORK/good.toml .git/wt.toml
+
+# a dash-prefixed base name must not ride rev-parse's option
+# passthrough into a garbage base SHA: an unresolvable base skips
+# the merged cleanup with the notice, exactly like any other
+cp $WORK/dashbase.toml .git/wt.toml
+exec wt clean
+stderr 'does not resolve'
+cp $WORK/good.toml .git/wt.toml
+
+# outside a repo, clean fails the not-a-repo contract
+cd $WORK
+exitcode 4 wt clean
+
+-- hooked.toml --
+base = 'main'
+trees_dir = '../acme.trees'
+
+[hooks]
+refresh = 'echo warmed'
+refresh_if_changed = ['dep-lock']
+
+-- parent.toml --
+base = 'main'
+trees_dir = '..'
+
+-- dashbase.toml --
+base = '-nope'
+trees_dir = '../acme.trees'
+
+-- good.toml --
+base = 'main'
+trees_dir = '../acme.trees'

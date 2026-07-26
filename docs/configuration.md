@@ -159,9 +159,11 @@ under `$XDG_STATE_HOME` (default `~/.local/state`):
 ```
 wt/repos/acme-3f2a9c1b/          # <repo basename>-<hash of the git dir path>
   last_fetch                     # RFC3339 time of the last base fetch
+  root_du                        # cached size of the main checkout (KB + time)
   leases/slot-3/lease.toml       # who holds slot 3: pid, start time, branch
   trees/<name>/refresh_hash      # refresh_if_changed hash at last refresh
   trees/<name>/provisioned       # slot finished provisioning (setup ran)
+  trees/<name>/du                # cached tree size (KB + time)
 ```
 
 The slug keeps state directories human-readable;
@@ -169,3 +171,6 @@ the hash keeps two clones named `acme` apart.
 `last_fetch` is what `staleness_hours` is measured against —
 it is written only by an actual fetch (`wt sync`, or the
 opportunistic fetch on `wt new`/`wt claim`), never by a read.
+The `du` caches serve `wt status` for up to an hour,
+so repeated status calls never re-walk a huge tree;
+`wt clean` drops a tree's records when the tree is gone.

@@ -4,32 +4,40 @@ import (
 	"cmp"
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
 	"github.com/loganthomas/wt/internal/gitx"
+	"github.com/loganthomas/wt/internal/render"
 )
 
 func newLsCmd() *cobra.Command {
-	var porcelain bool
+	var porcelain, jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "ls",
 		Short: "List worktrees",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runLs(cmd, porcelain)
+			return runLs(cmd, porcelain, jsonOut)
 		},
 	}
 	cmd.Flags().BoolVar(&porcelain, "porcelain", false,
 		"stable tab-separated output for scripts")
+	cmd.Flags().BoolVar(&jsonOut, "json", false, "machine-readable output")
 	return cmd
 }
 
-func runLs(cmd *cobra.Command, porcelain bool) error {
+func runLs(cmd *cobra.Command, porcelain, jsonOut bool) error {
+	if porcelain && jsonOut {
+		return usageError{fmt.Errorf("--porcelain and --json are two spellings " +
+			"of the machine listing — choose one")}
+	}
 	r, trees, err := repoTrees(cmd.Context())
 	if err != nil {
 		return err
+	}
+	if jsonOut {
+		return render.JSON(cmd.OutOrStdout(), treeViews(trees))
 	}
 	format := formatRows
 	if porcelain {
@@ -46,6 +54,38 @@ func runLs(cmd *cobra.Command, porcelain bool) error {
 		noteFetchStaleness(r, cmd.ErrOrStderr())
 	}
 	return nil
+}
+
+// treeView is one worktree in ls --json: git's facts, spelled
+// stably for machine consumers (D13).
+type treeView struct {
+	Branch         string `json:"branch,omitempty"`
+	Path           string `json:"path"`
+	Head           string `json:"head,omitempty"`
+	Bare           bool   `json:"bare,omitempty"`
+	Detached       bool   `json:"detached,omitempty"`
+	Locked         bool   `json:"locked,omitempty"`
+	LockedReason   string `json:"locked_reason,omitempty"`
+	Prunable       bool   `json:"prunable,omitempty"`
+	PrunableReason string `json:"prunable_reason,omitempty"`
+}
+
+func treeViews(trees []gitx.Worktree) []treeView {
+	views := make([]treeView, 0, len(trees))
+	for _, t := range trees {
+		views = append(views, treeView{
+			Branch:         t.Branch,
+			Path:           t.Path,
+			Head:           t.Head,
+			Bare:           t.Bare,
+			Detached:       t.Detached,
+			Locked:         t.Locked,
+			LockedReason:   t.LockedReason,
+			Prunable:       t.Prunable,
+			PrunableReason: t.PrunableReason,
+		})
+	}
+	return views
 }
 
 // formatPorcelain renders the stable machine format:
@@ -67,50 +107,24 @@ func formatRows(trees []gitx.Worktree) string {
 	for _, t := range trees {
 		rows = append(rows, []string{branchLabel(t), t.Path, stateLabel(t)})
 	}
-	return alignRows(rows)
-}
-
-// alignRows renders rows in aligned columns, shared by every
-// tabular listing. Widths are computed by hand rather than with
-// text/tabwriter: padding must only ever sit between cells,
-// because trimming rendered lines would also strip a path's own
-// trailing spaces, and stdout must stay exact for machine
-// consumers (D13). Trailing empty cells drop their padding too,
-// so no line ever ends in spaces.
-func alignRows(rows [][]string) string {
-	var width []int
-	for _, row := range rows {
-		for i, cell := range row {
-			if i == len(width) {
-				width = append(width, 0)
-			}
-			width[i] = max(width[i], utf8.RuneCountInString(cell))
-		}
-	}
-	const gap = 2
-	var out strings.Builder
-	for _, row := range rows {
-		last := len(row) - 1
-		for last > 0 && row[last] == "" {
-			last--
-		}
-		for i := range last {
-			// fmt pads %s to a minimum rune count, matching the width math above.
-			fmt.Fprintf(&out, "%-*s", width[i]+gap, row[i])
-		}
-		fmt.Fprintln(&out, row[last])
-	}
-	return out.String()
+	return render.Align(rows)
 }
 
 func branchLabel(t gitx.Worktree) string {
+	return worktreeLabel(t.Bare, t.Detached, t.Branch)
+}
+
+// worktreeLabel is the one spelling of a tree's branch cell,
+// shared by wt ls (plain and porcelain) and wt status so the two
+// can never label the same tree differently (D13).
+func worktreeLabel(bare, detached bool, branch string) string {
 	switch {
-	case t.Bare:
+	case bare:
 		return "(bare)"
-	case t.Detached:
+	case detached:
 		return "(detached)"
 	default:
-		return t.Branch
+		return branch
 	}
 }
 
