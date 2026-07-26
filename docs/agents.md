@@ -66,10 +66,12 @@ wt release "$TICKET"               # branch survives for the PR flow
 ## `--json`
 
 `ls`, `status`, and `doctor` take `--json`: two-space-indented
-JSON on stdout, nothing on stderr. Fields marked *omitempty* are
-absent when zero/empty. Free-text fields (`note`, `symptom`,
-`cause`, `fix`) are for humans and may reword between releases;
-every other field name and value is stable.
+JSON on stdout, nothing on stderr — except doctor's one-line
+issue summary, which accompanies exit 3 on stderr in both output
+modes. Fields marked *omitempty* are absent when zero/empty.
+Free-text fields (`note`, `symptom`, `cause`, `fix`) are for
+humans and may reword between releases; every other field name
+and value is stable.
 
 `wt ls --json` — an array of trees:
 
@@ -79,13 +81,15 @@ every other field name and value is stable.
     "branch": "feature/login",
     "path": "/Users/you/acme.trees/feature-login",
     "head": "0b7e…",
-    "detached": false,
     "locked": true,
-    "locked_reason": "keep me",
-    "prunable": false
+    "locked_reason": "keep me"
   }
 ]
 ```
+
+The boolean flags (`bare`, `detached`, `locked`, `prunable`) and
+the reason strings are omitted when false/empty — test presence,
+not value.
 
 `wt status --json` — the repo overview:
 
