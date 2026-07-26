@@ -128,9 +128,12 @@ func (g *Git) HasBranch(ctx context.Context, branch string) bool {
 }
 
 // DeleteBranch deletes a local branch even if unmerged;
-// callers run the unpushed-commit guard first.
+// callers run the unpushed-commit guard first. The -- keeps a
+// dash-prefixed name (creatable via update-ref) a branch, never
+// an option: the reap pipeline deliberately carries such names
+// as data, and this final step must not be the one that chokes.
 func (g *Git) DeleteBranch(ctx context.Context, branch string) error {
-	_, err := g.run(ctx, "branch", "-q", "-D", branch)
+	_, err := g.run(ctx, "branch", "-q", "-D", "--", branch)
 	return err
 }
 

@@ -406,3 +406,20 @@ func TestConfigGetReadsSetKeysAndReportsUnsetAsEmpty(t *testing.T) {
 		t.Errorf("ConfigGet(unset key) = %q, want empty", got)
 	}
 }
+
+// The reap pipeline deliberately keeps dash-prefixed branches
+// flowing as data; the final branch delete must not be the one
+// step that parses them as options.
+func TestDeleteBranchSurvivesDashPrefixedNames(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.Run(t, dir, "update-ref", "refs/heads/-foo", "HEAD")
+
+	g := New(dir)
+	if err := g.DeleteBranch(t.Context(), "-foo"); err != nil {
+		t.Fatalf("DeleteBranch(-foo): %v", err)
+	}
+	if g.HasBranch(t.Context(), "-foo") {
+		t.Error("HasBranch(-foo) = true after DeleteBranch, want deleted")
+	}
+}
