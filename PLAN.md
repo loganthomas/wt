@@ -363,7 +363,7 @@ merged-branch slots, and `wt clean -n` previews every action.
 | `wt sync [--all]`                | Fetch base, fast-forward it, re-park idle slots, report behind-counts. Never touches branches with user commits. |
 | `wt clean [-n]`                  | Reap merged/stale trees and dead leases, `git worktree prune`, drop orphaned state entries.                      |
 | `wt status [--json]`             | Repo overview: mode, base + fetch age, slot occupancy, per-tree disk usage.                                      |
-| `wt doctor [--json]`             | Actionable diagnostics + update check. Exit 0 healthy / 3 issues found.                                          |
+| `wt doctor [--json] [--offline]` | Actionable diagnostics + update check. Exit 0 healthy / 3 issues found.                                          |
 | `wt pool resize <n>`             | Grow (provision + setup hook) or shrink (free slots only) the pool.                                              |
 | `wt pool ls`                     | Slot-centric view: free/claimed/by-whom/warm-since.                                                              |
 | `wt config [--edit]`             | Print the active config paths and merged values; `--edit` opens the repo config in `$VISUAL`/`$EDITOR`.          |

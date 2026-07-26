@@ -78,7 +78,8 @@ to share caches across trees.
 ## `wt status` says the base is stale — what now?
 
 wt never fetches behind your back on read commands (D7):
-`ls` and `status` only report the age of the last fetch.
+`wt status` (and `wt ls`, once wt has a fetch on record) only
+reports the age of the last fetch.
 
 ```sh
 wt sync          # fetch + fast-forward the base
