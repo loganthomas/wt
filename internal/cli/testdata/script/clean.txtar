@@ -92,6 +92,20 @@ stderr 'deleted branch dup-feat'
 exec git branch --list dup-feat
 ! stdout .
 
+# clean run from inside a merged tree must not delete the
+# caller's working directory out from under them; from outside,
+# the same tree reaps normally
+exec wt new feat-here
+exec git -C ../acme.trees/feat-here commit -q --allow-empty -m 'work'
+exec git merge -q --no-ff -m 'merge feat-here' feat-here
+cd ../acme.trees/feat-here
+exec wt clean
+stderr 'skipping .*[/\\]feat-here.*working directory'
+exists $WORK/acme.trees/feat-here
+cd $WORK/acme
+exec wt clean
+stderr 'removed .*[/\\]feat-here'
+
 # a tree deleted out of band leaves a prunable registration and
 # an orphaned state record; one clean drops both, and the dry run
 # previews exactly that — prune plus state drop, never a second

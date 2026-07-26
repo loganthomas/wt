@@ -9,8 +9,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -42,13 +44,17 @@ func newCleanCmd() *cobra.Command {
 
 // cleaner carries one clean run's seams: the open repo, its state
 // dir, the output, and whether this is a preview. The acted flag
-// distinguishes "nothing to clean" from a quiet success.
+// distinguishes "nothing to clean" from a quiet success. cwd is
+// the resolved working directory, so the sweep can refuse to
+// delete the ground the caller stands on; empty when unresolvable,
+// which skips that protection rather than the cleaning.
 type cleaner struct {
 	*wtRepo
 	g       *gitx.Git
 	st      state.Dir
 	dry     bool
 	chatter io.Writer
+	cwd     string
 	acted   bool
 }
 
@@ -68,6 +74,7 @@ func runClean(cmd *cobra.Command, dry bool) error {
 		st:      st,
 		dry:     dry,
 		chatter: cmd.ErrOrStderr(),
+		cwd:     resolvedWd(),
 	}
 	trees, err := c.pruneWorktrees(ctx)
 	if err != nil {
@@ -195,6 +202,14 @@ func (c *cleaner) reapIfMerged(
 	if t.Head == baseSHA || !merged[t.Branch] {
 		return "", nil
 	}
+	// A bulk sweep must not delete the ground the caller stands on:
+	// the shell would be stranded in a removed directory, and no
+	// shim cd rescues a command that isn't one of the cd verbs.
+	if c.cwd == t.Path || strings.HasPrefix(c.cwd, t.Path+string(filepath.Separator)) {
+		c.act("skipping %s: it holds the working directory — rerun wt clean from outside it",
+			t.Path)
+		return "", nil
+	}
 	branch, err := c.reapMergedTree(ctx, t, base)
 	if err != nil {
 		if exitCodeFor(err) != exitPrecondition {
@@ -204,6 +219,20 @@ func (c *cleaner) reapIfMerged(
 		return "", nil
 	}
 	return branch, nil
+}
+
+// resolvedWd is the symlink-resolved working directory, matching
+// the real paths git reports for worktrees (macOS's /tmp links).
+func resolvedWd() string {
+	wd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	resolved, err := filepath.EvalSymlinks(wd)
+	if err != nil {
+		return ""
+	}
+	return resolved
 }
 
 // reapMergedTree runs the wt done sequence on one merged tree. The
