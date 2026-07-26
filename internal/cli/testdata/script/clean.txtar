@@ -117,6 +117,14 @@ exists .git
 exec git switch -q main
 cp $WORK/good.toml .git/wt.toml
 
+# a dash-prefixed base name must not ride rev-parse's option
+# passthrough into a garbage base SHA: an unresolvable base skips
+# the merged cleanup with the notice, exactly like any other
+cp $WORK/dashbase.toml .git/wt.toml
+exec wt clean
+stderr 'does not resolve'
+cp $WORK/good.toml .git/wt.toml
+
 # outside a repo, clean fails the not-a-repo contract
 cd $WORK
 exitcode 4 wt clean
@@ -132,6 +140,10 @@ refresh_if_changed = ['dep-lock']
 -- parent.toml --
 base = 'main'
 trees_dir = '..'
+
+-- dashbase.toml --
+base = '-nope'
+trees_dir = '../acme.trees'
 
 -- good.toml --
 base = 'main'

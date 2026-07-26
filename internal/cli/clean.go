@@ -139,8 +139,11 @@ func (c *cleaner) reapMergedTrees(ctx context.Context, trees []gitx.Worktree) er
 	// One rev-parse answers "does the base resolve" and "where is
 	// it", and one for-each-ref yields every merged branch, so the
 	// per-tree loop below spawns no git at all for the common
-	// not-merged case.
-	baseSHA, err := c.g.RevParse(ctx, base+"^{commit}")
+	// not-merged case. --verify --end-of-options, because plain
+	// rev-parse echoes a dash-prefixed name back verbatim (option
+	// passthrough) — a garbage "SHA" that would defeat the
+	// fresh-tree guard below instead of skipping the cleanup.
+	baseSHA, err := c.g.RevParse(ctx, "--verify", "--end-of-options", base+"^{commit}")
 	if err != nil {
 		fmt.Fprintf(c.chatter,
 			"base %q does not resolve to a commit — skipping merged-tree cleanup\n", base)
