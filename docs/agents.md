@@ -87,9 +87,10 @@ and value is stable.
 ]
 ```
 
-The boolean flags (`bare`, `detached`, `locked`, `prunable`) and
-the reason strings are omitted when false/empty — test presence,
-not value.
+Every field except `path` is omitted when false/empty — test
+presence, not value. That includes `branch` (absent on detached
+and bare trees) and `head` (absent on bare trees), not just the
+boolean flags and reason strings.
 
 `wt status --json` — the repo overview:
 
