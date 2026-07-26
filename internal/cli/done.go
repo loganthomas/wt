@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -75,17 +77,31 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 		}
 	}
 
-	// The pristine copies go first: git itself refuses to remove
-	// a tree holding untracked files, and these are wt's to clean.
+	chatter := cmd.ErrOrStderr()
+	if err := w.removeTree(ctx, g, target, pristine, chatter); err != nil {
+		return err
+	}
+	return finishBranch(ctx, g, target.Branch, deleteBranch, chatter)
+}
+
+// removeTree deletes a finished tree and its recorded state,
+// sweeping wt's pristine planted copies first: git itself refuses
+// to remove a tree holding untracked files, and these are wt's to
+// clean. The caller has already run every guard. Shared by wt done
+// and wt clean's merged-tree reap, so the two removal paths cannot
+// drift.
+func (w *wtRepo) removeTree(
+	ctx context.Context, g *gitx.Git, t gitx.Worktree, pristine []string, chatter io.Writer,
+) error {
 	for _, name := range pristine {
-		if err := os.Remove(filepath.Join(target.Path, name)); err != nil {
+		if err := os.Remove(filepath.Join(t.Path, name)); err != nil {
 			return err
 		}
 	}
-	if err := g.WorktreeRemove(ctx, target.Path); err != nil {
+	if err := g.WorktreeRemove(ctx, t.Path); err != nil {
 		return err
 	}
-	if name, ok := w.treeStateName(target.Path); ok {
+	if name, ok := w.treeStateName(t.Path); ok {
 		st, err := w.stateDir()
 		if err != nil {
 			return err
@@ -94,7 +110,6 @@ func runDone(cmd *cobra.Command, name string, keepBranch bool) error {
 			return err
 		}
 	}
-	chatter := cmd.ErrOrStderr()
-	fmt.Fprintf(chatter, "removed %s\n", target.Path)
-	return finishBranch(ctx, g, target.Branch, deleteBranch, chatter)
+	fmt.Fprintf(chatter, "removed %s\n", t.Path)
+	return nil
 }

@@ -128,9 +128,12 @@ func (g *Git) HasBranch(ctx context.Context, branch string) bool {
 }
 
 // DeleteBranch deletes a local branch even if unmerged;
-// callers run the unpushed-commit guard first.
+// callers run the unpushed-commit guard first. The -- keeps a
+// dash-prefixed name (creatable via update-ref) a branch, never
+// an option: the reap pipeline deliberately carries such names
+// as data, and this final step must not be the one that chokes.
 func (g *Git) DeleteBranch(ctx context.Context, branch string) error {
-	_, err := g.run(ctx, "branch", "-q", "-D", branch)
+	_, err := g.run(ctx, "branch", "-q", "-D", "--", branch)
 	return err
 }
 
@@ -266,6 +269,65 @@ func (g *Git) MergeFFOnly(ctx context.Context, ref string) error {
 func (g *Git) FetchLocalFF(ctx context.Context, ref, branch string) error {
 	_, err := g.run(ctx, "fetch", "--quiet", ".", ref+":"+branch)
 	return err
+}
+
+// WorktreePrune drops worktree registrations whose directories are
+// gone from disk. It touches no surviving tree: git prunes only
+// the administrative entries it already reports as prunable.
+func (g *Git) WorktreePrune(ctx context.Context) error {
+	_, err := g.run(ctx, "worktree", "prune")
+	return err
+}
+
+// MergedBranches lists the local branches whose tips are reachable
+// from rev, keyed for membership checks: one subprocess answers
+// "is this branch merged" for every branch at once. The rev rides
+// inside --merged=, so even a dash-prefixed name stays an option
+// value, and branch names come back as data, never options.
+// lstrip=2, not :short — short-form disambiguation prints
+// "heads/x" whenever a tag shares the branch's name, which would
+// silently miss the worktree list's bare spelling.
+func (g *Git) MergedBranches(ctx context.Context, rev string) (map[string]bool, error) {
+	out, err := g.run(ctx,
+		"for-each-ref", "--format=%(refname:lstrip=2)", "--merged="+rev, "refs/heads/")
+	if err != nil {
+		return nil, err
+	}
+	merged := make(map[string]bool)
+	for name := range strings.Lines(string(out)) {
+		if name = strings.TrimSpace(name); name != "" {
+			merged[name] = true
+		}
+	}
+	return merged, nil
+}
+
+// Version returns the running git's version number, e.g. "2.39.3".
+// Suffixes like "(Apple Git-146)" are git's packaging, not its
+// version, and are cut here so callers compare plain numbers.
+func (g *Git) Version(ctx context.Context) (string, error) {
+	line, err := g.runLine(ctx, "--version")
+	if err != nil {
+		return "", err
+	}
+	v := strings.TrimPrefix(line, "git version ")
+	v, _, _ = strings.Cut(v, " ")
+	return v, nil
+}
+
+// ConfigGet returns the value of a git config key, or "" when the
+// key is unset: git signals "unset" with exit 1, which is an
+// answer here, not a failure.
+func (g *Git) ConfigGet(ctx context.Context, key string) (string, error) {
+	out, err := g.runLine(ctx, "config", "--get", key)
+	if err == nil {
+		return out, nil
+	}
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == 1 {
+		return "", nil
+	}
+	return "", err
 }
 
 // localRepoEnv mirrors `git rev-parse --local-env-vars`: the

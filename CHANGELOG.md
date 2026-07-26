@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.1.0-alpha.6 - 2026-07-26
+
+### Enhancements
+
+- wt becomes self-diagnosing: `wt doctor` checks the whole setup (git version, shim currency, config errors, prunable/locked trees, duplicate checkouts, dead leases, submodules, hooks path, trees volume) with a symptom, cause, and exact fix per finding plus an opt-out release update check, `wt clean` reaps merged trees, provably dead leases, prunable registrations, and orphaned state behind a `-n` preview, `wt status` shows mode, base freshness, cached per-tree disk usage, and slot occupancy, and `ls`/`status`/`doctor` all speak `--json`. (#17)
+
+### Documentation
+
+- New docs/faq.md answers the doctor-adjacent questions (submodules, hooks paths, locked trees, disk usage), docs/agents.md documents the `--json` schemas, and the bug-report template now asks for `wt doctor --json` (#17)
+
 ## v0.1.0-alpha.5 - 2026-07-25
 
 ### Enhancements

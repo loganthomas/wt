@@ -13,6 +13,7 @@ import (
 	"github.com/loganthomas/wt/internal/guard"
 	"github.com/loganthomas/wt/internal/lease"
 	"github.com/loganthomas/wt/internal/pool"
+	"github.com/loganthomas/wt/internal/render"
 )
 
 func newSyncCmd() *cobra.Command {
@@ -169,7 +170,7 @@ func reportBehind(
 		}
 		rows = append(rows, []string{filepath.Base(t.Path), branchLabel(t), behind})
 	}
-	fmt.Fprint(chatter, alignRows(rows))
+	fmt.Fprint(chatter, render.Align(rows))
 }
 
 // reparkIdleSlots resets every idle slot onto the new base and runs

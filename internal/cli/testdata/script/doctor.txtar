@@ -1,0 +1,90 @@
+# wt doctor (PLAN.md Phase 6): actionable diagnostics, each
+# symptom with its cause and exact fix. Exit 0 healthy, 3 when a
+# real issue needs fixing; advisories (warn/info) never fail a
+# script. --offline skips the one network call (D8).
+
+[!exec:git] skip 'git not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+
+# a healthy repo: exit 0, every hard check ok; the shim warn is
+# expected here (no eval line in this test shell) and advisory
+exec wt doctor --offline
+stdout 'ok\s+git'
+stdout 'ok\s+config'
+stdout 'ok\s+worktrees'
+stdout 'ok\s+branches'
+stdout 'warn\s+shell-shim'
+stdout 'update .*skipped'
+! stderr .
+
+# a shim/binary signature mismatch is told to restart the shell
+# (the mismatch can point either way, so the wording blames neither)
+env WT_SHIM_SIG=deadbeefdead
+exec wt doctor --offline
+stdout 'warn\s+shell-shim\s+.*different wt builds'
+stdout 'restart'
+env WT_SHIM_SIG=
+
+# a broken config is a fail with position and fix, and exit 3
+cp $WORK/broken.toml .git/wt.toml
+exitcode 3 wt doctor --offline
+stdout 'fail\s+config'
+stdout 'fix:'
+stderr 'issue'
+cp $WORK/good.toml .git/wt.toml
+
+# a prunable worktree is a fail whose fix is wt clean
+exec wt new feat-a
+exec sh -c 'rm -rf ../acme.trees/feat-a'
+exitcode 3 wt doctor --offline
+stdout 'fail\s+worktrees'
+stdout 'wt clean'
+exec wt clean
+stderr 'pruned'
+exec git branch -q -D feat-a
+exec wt doctor --offline
+
+# submodule presence is an advisory, never an exit-3 issue
+exec sh -c 'printf "[submodule \"dep\"]\n\tpath = dep\n\turl = ./dep\n" > .gitmodules'
+exec wt doctor --offline
+stdout 'warn\s+submodules'
+rm .gitmodules
+
+# --json carries the same checks, machine-shaped
+exec wt doctor --offline --json
+stdout '"checks"'
+stdout '"name": "git"'
+stdout '"issues": 0'
+! stderr .
+
+# outside a repo the portable checks still run: doctor is the
+# support command and must never refuse to diagnose
+cd $WORK
+exec wt doctor --offline
+stdout 'ok\s+git'
+! stdout 'config'
+
+# a repository git itself chokes on (corrupt .git/config) still
+# gets a rendered report: the breakage becomes the repo finding,
+# every portable check still prints, and the run exits 3
+mkdir broken
+cd broken
+exec git init -q -b main .
+exec sh -c 'echo "[core" >> .git/config'
+exitcode 3 wt doctor --offline
+stdout 'ok\s+git'
+stdout 'fail\s+repo\s+.*bad config'
+stdout 'fix:'
+
+-- broken.toml --
+base = 'main'
+trees_dir = '../acme.trees'
+no_such_key = true
+
+-- good.toml --
+base = 'main'
+trees_dir = '../acme.trees'

@@ -120,8 +120,5 @@ func lastFetchPhrase(last time.Time) string {
 
 // commits pluralizes a commit count for user-facing notices.
 func commits(n int) string {
-	if n == 1 {
-		return "1 commit"
-	}
-	return fmt.Sprintf("%d commits", n)
+	return fmt.Sprintf("%d %s", n, plural(n, "commit"))
 }
