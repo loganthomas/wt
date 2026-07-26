@@ -161,10 +161,12 @@ func (c *cleaner) reapMergedTrees(ctx context.Context, trees []gitx.Worktree) er
 		return err
 	}
 	var doomed []string
+	var sweepErr error
 	for _, t := range trees {
 		branch, err := c.reapIfMerged(ctx, t, base, baseSHA[0], merged)
 		if err != nil {
-			return err
+			sweepErr = err
+			break
 		}
 		if branch != "" && !slices.Contains(doomed, branch) {
 			doomed = append(doomed, branch)
@@ -174,14 +176,16 @@ func (c *cleaner) reapMergedTrees(ctx context.Context, trees []gitx.Worktree) er
 	// be checked out in several trees (git worktree add -f), and a
 	// delete attempted while a later tree still held it would abort
 	// the run half-done. A delete git still refuses (the branch
-	// lingers in some unmanaged tree) is reported, not fatal: the
-	// reaped trees are gone and every commit stays reachable.
+	// lingers in some unmanaged tree) is reported, not fatal, and
+	// the queue drains even when the sweep itself aborted partway:
+	// a branch whose tree is already gone can never be re-collected
+	// by a later run, so leaving it queued would leak it for good.
 	for _, branch := range doomed {
 		if err := finishBranch(ctx, c.g, branch, true, c.chatter); err != nil {
 			c.act("could not delete branch %s: %v", branch, err)
 		}
 	}
-	return nil
+	return sweepErr
 }
 
 // reapIfMerged handles one tree. A branch sitting exactly on the
