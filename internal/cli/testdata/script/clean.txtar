@@ -73,6 +73,25 @@ stderr 'nothing to clean'
 exists ../acme.trees/feat-fresh
 exec wt done feat-fresh
 
+# one merged branch checked out in two managed trees (git
+# worktree add -f) must not wedge the sweep: both trees go, and
+# the branch is deleted once, after the last tree released it
+exec wt new dup-feat
+exec git -C ../acme.trees/dup-feat commit -q --allow-empty -m 'work'
+exec git merge -q --no-ff -m 'merge dup-feat' dup-feat
+exec git worktree add -q -f ../acme.trees/dup-b dup-feat
+exec wt clean -n
+stderr 'would remove .*[/\\]dup-feat'
+stderr 'would remove .*[/\\]dup-b'
+exec wt clean
+stderr 'removed .*[/\\]dup-feat'
+stderr 'removed .*[/\\]dup-b'
+stderr 'deleted branch dup-feat'
+! exists ../acme.trees/dup-feat
+! exists ../acme.trees/dup-b
+exec git branch --list dup-feat
+! stdout .
+
 # a tree deleted out of band leaves a prunable registration and
 # an orphaned state record; one clean drops both, and the dry run
 # previews exactly that — prune plus state drop, never a second
