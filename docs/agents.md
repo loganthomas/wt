@@ -130,6 +130,7 @@ every other field name and value is stable.
 `status` is one of `ok`, `info`, `warn`, `fail`;
 `issues` counts the fails and matches the exit code rule above.
 Check names are stable identifiers: `git`, `shell-shim`,
+`repo` (only when the repository itself cannot be resolved),
 `config`, `worktrees`, `branches`, `submodules`, `hooks-path`,
 `trees-volume`, `leases` (pool repos), `update`.
 
