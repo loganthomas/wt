@@ -80,9 +80,18 @@ func (r *Repo) ConfigPath() string {
 }
 
 // StateDir is where wt keeps this repo's leases, hashes, and
-// timestamps, honoring $XDG_STATE_HOME with the ~/.local/state
-// fallback. The directory is not created here.
+// timestamps. The directory is not created here.
 func (r *Repo) StateDir() (string, error) {
+	root, err := StateRoot()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(root, "repos", r.Slug()), nil
+}
+
+// StateRoot is the parent of every repo's state directory,
+// honoring $XDG_STATE_HOME with the ~/.local/state fallback.
+func StateRoot() (string, error) {
 	base := os.Getenv("XDG_STATE_HOME")
 	if base == "" {
 		home, err := os.UserHomeDir()
@@ -91,7 +100,7 @@ func (r *Repo) StateDir() (string, error) {
 		}
 		base = filepath.Join(home, ".local", "state")
 	}
-	return filepath.Join(base, "wt", "repos", r.Slug()), nil
+	return filepath.Join(base, "wt"), nil
 }
 
 // DefaultTreesDir is the built-in trees container in its relative
