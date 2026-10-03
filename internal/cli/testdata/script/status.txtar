@@ -1,0 +1,55 @@
+# wt status (PLAN.md Phase 6): one overview of the repo — mode,
+# base freshness, per-tree disk usage, slot occupancy — as an
+# aligned table for humans and the same view as --json (D13).
+
+[!exec:git] skip 'git not on PATH'
+[!exec:du] skip 'du not on PATH'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+exec wt new feat-a
+
+# the human view: mode, base, and one sized row per tree
+exec wt status
+stdout 'mode  default'
+stdout 'base  main — not yet fetched'
+stdout 'main\s+.*[/\\]acme\s+\d+(\.\d+)?[KMG]'
+stdout 'feat-a\s+.*[/\\]feat-a\s+\d+(\.\d+)?[KMG]'
+! stderr .
+
+# the JSON view carries the same facts, machine-shaped
+exec wt status --json
+stdout '"mode": "default"'
+stdout '"name": "main"'
+stdout '"branch": "feat-a"'
+stdout '"disk_kb"'
+! stdout '"pool"'
+! stderr .
+
+# pool mode adds size and slot occupancy
+exec wt done feat-a
+cp $WORK/pool.toml .git/wt.toml
+exec wt pool resize 2
+exec wt claim feat-b
+exec wt status
+stdout 'mode  pool \(2 slots\)'
+stdout 'slot-1\s+claimed\s+feat-b'
+stdout 'slot-2\s+free'
+exec wt status --json
+stdout '"mode": "pool"'
+stdout '"slot": "slot-1"'
+stdout '"state": "claimed"'
+stdout '"pid":'
+
+# outside a repo, status fails the not-a-repo contract
+cd $WORK
+exitcode 4 wt status
+
+-- pool.toml --
+base = 'main'
+trees_dir = '../acme.trees'
+
+[pool]
+size = 1

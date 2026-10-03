@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 	"github.com/loganthomas/wt/internal/gitx"
 	"github.com/loganthomas/wt/internal/lease"
 	"github.com/loganthomas/wt/internal/pool"
+	"github.com/loganthomas/wt/internal/render"
+	"github.com/loganthomas/wt/internal/state"
 )
 
 func newPoolCmd() *cobra.Command {
@@ -49,38 +52,77 @@ func runPoolLs(cmd *cobra.Command) error {
 		return err
 	}
 	rows := make([][]string, 0, p.cfg.Pool.Size)
-	for _, slot := range pool.Names(p.cfg.Pool.Size) {
-		_, registered := findTree(trees, filepath.Join(p.treesDir(), slot))
-		held, err := lease.Get(p.state.LeasesDir(), slot)
-		rows = append(rows, slotRow(slot, registered, held, err))
+	for _, view := range slotViews(p.wtRepo, p.state, trees) {
+		rows = append(rows, slotRow(view))
 	}
-	_, err = fmt.Fprint(cmd.OutOrStdout(), alignRows(rows))
+	_, err = fmt.Fprint(cmd.OutOrStdout(), render.Align(rows))
 	return err
 }
 
-// slotRow renders one slot's occupancy: slot, state, branch, detail.
-func slotRow(slot string, registered bool, held *lease.Info, err error) []string {
+// slotViews builds every configured slot's occupancy view, in
+// slot order. It takes the bare repo seams rather than a
+// poolRepo, so wt status can feed it without re-deriving what it
+// already holds.
+func slotViews(w *wtRepo, st state.Dir, trees []gitx.Worktree) []slotView {
+	views := make([]slotView, 0, w.cfg.Pool.Size)
+	for _, slot := range pool.Names(w.cfg.Pool.Size) {
+		_, registered := findTree(trees, filepath.Join(w.treesDir(), slot))
+		held, err := lease.Get(st.LeasesDir(), slot)
+		views = append(views, newSlotView(slot, registered, held, err))
+	}
+	return views
+}
+
+// slotView is one slot's occupancy, the single source for wt pool
+// ls rows and wt status, human and JSON alike, so the views
+// cannot drift (D13). Note carries the human detail; its wording
+// is informational, not part of the machine contract.
+type slotView struct {
+	Slot      string     `json:"slot"`
+	State     string     `json:"state"` // claimed | free | stale | unprovisioned
+	Branch    string     `json:"branch,omitempty"`
+	PID       int        `json:"pid,omitempty"`
+	ClaimedAt *time.Time `json:"claimed_at,omitempty"`
+	Note      string     `json:"note,omitempty"`
+}
+
+// newSlotView classifies one slot's occupancy. An unreadable
+// lease record reads as claimed with branch "?": wt never treats
+// what it cannot prove as free (D15).
+func newSlotView(slot string, registered bool, held *lease.Info, err error) slotView {
 	switch {
 	case err != nil:
-		return []string{
-			slot, "claimed", "?",
-			fmt.Sprintf("lease record unreadable — `wt release %s` clears it", slot),
-		}
+		return slotView{Slot: slot, State: "claimed", Branch: "?", Note: unreadableLeaseAdvice(slot)}
 	case held == nil && !registered:
-		return []string{slot, "unprovisioned", "-", "provisions on first claim"}
+		return slotView{Slot: slot, State: "unprovisioned", Note: "provisions on first claim"}
 	case held == nil:
-		return []string{slot, "free", "-", ""}
+		return slotView{Slot: slot, State: "free"}
 	case held.Stale():
-		return []string{
-			slot, "stale", held.Branch,
-			fmt.Sprintf("dead pid %d — reclaimed on next claim", held.PID),
+		return slotView{
+			Slot: slot, State: "stale", Branch: held.Branch, PID: held.PID,
+			Note: fmt.Sprintf("dead pid %d — reclaimed on next claim", held.PID),
 		}
 	default:
-		return []string{
-			slot, "claimed", held.Branch,
-			fmt.Sprintf("pid %d, claimed %s", held.PID, freshness.Age(time.Since(held.ClaimedAt))),
+		at := held.ClaimedAt
+		return slotView{
+			Slot: slot, State: "claimed", Branch: held.Branch, PID: held.PID, ClaimedAt: &at,
+			Note: fmt.Sprintf("pid %d, claimed %s",
+				held.PID, freshness.Age(time.Since(held.ClaimedAt))),
 		}
 	}
+}
+
+// slotRow renders one slot view as a table row:
+// slot, state, branch, detail.
+func slotRow(v slotView) []string {
+	return []string{v.Slot, v.State, cmp.Or(v.Branch, "-"), v.Note}
+}
+
+// unreadableLeaseAdvice is the one spelling of the escape hatch
+// for a lease record wt cannot read and so never clears on a
+// guess (D15): shared by pool ls and wt clean.
+func unreadableLeaseAdvice(slot string) string {
+	return fmt.Sprintf("lease record unreadable — `wt release %s` clears it", slot)
 }
 
 func newPoolResizeCmd() *cobra.Command {

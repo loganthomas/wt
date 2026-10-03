@@ -26,6 +26,22 @@ stdout '^feature/login\t.*[/\\]login\t-$'
 stdout '^\(detached\)\t.*[/\\]scratch\t-$'
 ! stderr .
 
+# --json: the same listing, machine-shaped, with git's state
+# flags spelled out; stderr stays silent for machine callers
+exec git worktree lock ../trees/scratch --reason 'keep me'
+exec wt ls --json
+stdout '"branch": "feature/login"'
+stdout '"detached": true'
+stdout '"locked": true'
+stdout '"locked_reason": "keep me"'
+stdout '"head"'
+! stderr .
+
+# --json and --porcelain are two spellings of one job; asking for
+# both is a usage error (D13: exit 2)
+exitcode 2 wt ls --json --porcelain
+stderr 'choose one'
+
 # outside any repository: exit 4 (D13), explanation on stderr only
 mkdir $WORK/elsewhere
 cd $WORK/elsewhere

@@ -8,4 +8,4 @@ Pages land alongside the features they document
 - [`pool-mode.md`](pool-mode.md) — monorepo pool setup, claim/release lifecycle, leases
 - [`recipes.md`](recipes.md) — how caches are (and aren't) shared across trees; per-ecosystem examples
 - [`shell.md`](shell.md) — shim internals, cd protocol, prompt indicator, completions
-- `faq.md` — doctor-adjacent questions (Phase 6)
+- [`faq.md`](faq.md) — doctor-adjacent questions: submodules, hooks, locked trees, disk usage

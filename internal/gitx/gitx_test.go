@@ -3,6 +3,7 @@ package gitx
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -268,5 +269,157 @@ func TestFetchLocalFF(t *testing.T) {
 	}
 	if behind != 0 {
 		t.Errorf("behind after local fast-forward = %d, want 0", behind)
+	}
+}
+
+func TestWorktreePruneClearsStaleRegistrations(t *testing.T) {
+	gittest.Scrub(t)
+	root := gittest.TempDir(t)
+	dir := gittest.Repo(t, filepath.Join(root, "acme"))
+	gone := filepath.Join(root, "gone")
+	gittest.Run(t, dir, "worktree", "add", "-q", "--detach", gone)
+	if err := os.RemoveAll(gone); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := t.Context()
+	g := New(dir)
+	trees, err := g.Worktrees(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trees) != 2 || !trees[1].Prunable {
+		t.Fatalf("fixture: want a prunable second tree, got %+v", trees)
+	}
+	if err := g.WorktreePrune(ctx); err != nil {
+		t.Fatalf("WorktreePrune: %v", err)
+	}
+	trees, err = g.Worktrees(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trees) != 1 {
+		t.Errorf("Worktrees() after prune = %d entries, want 1: %+v", len(trees), trees)
+	}
+}
+
+func TestMergedBranchesDistinguishesMergedFromDiverged(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.Run(t, dir, "switch", "-q", "-c", "merged")
+	gittest.Run(t, dir, "switch", "-q", "main")
+	gittest.Run(t, dir, "commit", "-q", "--allow-empty", "-m", "advance main")
+	gittest.Run(t, dir, "switch", "-q", "-c", "diverged", "main~1")
+	gittest.Run(t, dir, "commit", "-q", "--allow-empty", "-m", "own work")
+	gittest.Run(t, dir, "switch", "-q", "main")
+
+	merged, err := New(dir).MergedBranches(t.Context(), "main")
+	if err != nil {
+		t.Fatalf("MergedBranches: %v", err)
+	}
+	for branch, want := range map[string]bool{
+		"merged":   true,  // at a commit in main's history
+		"main":     true,  // trivially reachable from itself
+		"diverged": false, // carries its own commit
+	} {
+		if merged[branch] != want {
+			t.Errorf("MergedBranches(main)[%s] = %v, want %v", branch, merged[branch], want)
+		}
+	}
+}
+
+// A tag sharing a branch's name makes %(refname:short) print
+// "heads/x" for disambiguation; the keys must stay the worktree
+// list's bare spelling regardless.
+func TestMergedBranchesKeysStayBareUnderTagShadow(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.Run(t, dir, "switch", "-q", "-c", "release")
+	gittest.Run(t, dir, "switch", "-q", "main")
+	gittest.Run(t, dir, "tag", "release")
+
+	merged, err := New(dir).MergedBranches(t.Context(), "main")
+	if err != nil {
+		t.Fatalf("MergedBranches: %v", err)
+	}
+	if !merged["release"] {
+		t.Errorf("MergedBranches(main) = %v, want the bare key %q despite the tag shadow",
+			merged, "release")
+	}
+}
+
+func TestMergedBranchesSurfacesBadRevsAsErrors(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	if _, err := New(dir).MergedBranches(t.Context(), "no-such-ref"); err == nil {
+		t.Error("MergedBranches(no-such-ref) = nil error, want the git failure")
+	}
+}
+
+// git blocks creating dash-prefixed branches via `git branch`, but
+// update-ref can make one; both as the rev (inside --merged=) and
+// as a listed branch it must stay data, never an option.
+func TestMergedBranchesSurvivesDashPrefixedRefs(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.Run(t, dir, "update-ref", "refs/heads/-foo", "HEAD")
+
+	merged, err := New(dir).MergedBranches(t.Context(), "-foo")
+	if err != nil {
+		t.Fatalf("MergedBranches(-foo): %v", err)
+	}
+	if !merged["-foo"] || !merged["main"] {
+		t.Errorf("MergedBranches(-foo) = %v, want -foo and main both merged", merged)
+	}
+}
+
+func TestVersionReturnsDottedNumber(t *testing.T) {
+	gittest.Scrub(t)
+	got, err := New("").Version(t.Context())
+	if err != nil {
+		t.Fatalf("Version: %v", err)
+	}
+	if !regexp.MustCompile(`^\d+\.\d+`).MatchString(got) {
+		t.Errorf("Version() = %q, want a leading major.minor number", got)
+	}
+}
+
+func TestConfigGetReadsSetKeysAndReportsUnsetAsEmpty(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.Run(t, dir, "config", "core.hooksPath", ".husky")
+
+	ctx := t.Context()
+	g := New(dir)
+	got, err := g.ConfigGet(ctx, "core.hooksPath")
+	if err != nil {
+		t.Fatalf("ConfigGet(set key): %v", err)
+	}
+	if got != ".husky" {
+		t.Errorf("ConfigGet(core.hooksPath) = %q, want %q", got, ".husky")
+	}
+	got, err = g.ConfigGet(ctx, "wt.never-set")
+	if err != nil {
+		t.Fatalf("ConfigGet(unset key): %v", err)
+	}
+	if got != "" {
+		t.Errorf("ConfigGet(unset key) = %q, want empty", got)
+	}
+}
+
+// The reap pipeline deliberately keeps dash-prefixed branches
+// flowing as data; the final branch delete must not be the one
+// step that parses them as options.
+func TestDeleteBranchSurvivesDashPrefixedNames(t *testing.T) {
+	gittest.Scrub(t)
+	dir := gittest.Repo(t, gittest.TempDir(t))
+	gittest.Run(t, dir, "update-ref", "refs/heads/-foo", "HEAD")
+
+	g := New(dir)
+	if err := g.DeleteBranch(t.Context(), "-foo"); err != nil {
+		t.Fatalf("DeleteBranch(-foo): %v", err)
+	}
+	if g.HasBranch(t.Context(), "-foo") {
+		t.Error("HasBranch(-foo) = true after DeleteBranch, want deleted")
 	}
 }
