@@ -179,7 +179,7 @@ an unbounded compatibility surface._
 ### D6. Distribution: Homebrew tap via goreleaser + `go install` fallback
 
 **Decision:** goreleaser on git tags via GitHub Actions,
-publishing to a personal tap (`brew install logan/tap/wt`).
+publishing to a personal tap (`brew install loganthomas/tap/wt`).
 Use goreleaser's **`homebrew_casks`**, not `brews` —
 the formula route was deprecated in goreleaser v2.10 (2025);
 casks are the current vehicle for pre-built binaries.
@@ -571,7 +571,8 @@ so they track the installed binary and golden files stay stable.
 - **Exit:** claim → work → release loop with crash-safe leases and
   warm-cache resets. Tag `v0.1.0-alpha.4`.
 
-**Status (2026-07-21):** code complete, PR open against `dev`.
+**Status (2026-07-24): complete.**
+Merged to `main`; `v0.1.0-alpha.4` tagged and released.
 Design refinements surfaced by implementation:
 the lease is a **two-phase handoff**: a claim is held under wt's
 own PID while it provisions (a killed wt leaves a provably dead
@@ -625,9 +626,6 @@ A simplification pass then removed what the hardening had
 over-built: a memo over `ps` start tokens that saved a handful of
 subprocesses and cost a PID-reuse hazard, and a layer of derived
 helpers around the init scan's notes.
-Remaining before exit is met: merge, batch fragments,
-tag `v0.1.0-alpha.4`.
-Phase 5 (sync & freshness) is ready once the tag is cut.
 
 ### Phase 5 — Sync & freshness (M)
 
@@ -659,7 +657,8 @@ Phase 5 (sync & freshness) is ready once the tag is cut.
 - **Exit:** the 24h freshness window holds with zero daemons.
   Tag `v0.1.0-alpha.5`.
 
-**Status (2026-07-24): code complete, PR open against `dev`.**
+**Status (2026-07-25): complete.**
+Merged to `main`; `v0.1.0-alpha.5` tagged and released.
 Design decisions and refinements surfaced by implementation:
 the opportunistic fetch on `wt new`/`wt claim` is deliberately
 **non-invasive** — it updates remote-tracking refs and notes when
@@ -682,8 +681,6 @@ until wt has a fetch on record: it never touches the network and
 never regresses the config-free listing. One dedupe landed too:
 `freshness.Age` now backs both the fetch note and pool `ls`'s
 claim-age column, so the two coarse formatters can't drift.
-Remaining before exit: merge, batch fragments, tag `v0.1.0-alpha.5`.
-Phase 6 (doctor, clean, status) is ready once the tag is cut.
 
 ### Phase 6 — Doctor, clean, status (M)
 
@@ -704,7 +701,8 @@ Phase 6 (doctor, clean, status) is ready once the tag is cut.
   support questions answerable with "run `wt doctor`."
   Tag `v0.1.0-alpha.6`.
 
-**Status (2026-07-25): code complete, PR open against `dev`.**
+**Status (2026-10-03): complete.**
+Merged to `main`; `v0.1.0-alpha.6` tagged and released.
 Design decisions surfaced by implementation:
 `wt clean` counts a branch as merged only when it is **strictly
 behind** the base tip — at the tip itself a freshly created tree
@@ -733,9 +731,6 @@ diagnose — so it reserves exit 3 for findings and never exits 4.
 and `--json`; disk usage is one parallel `du -sk` pass cached in
 the state dir for an hour (R10). `render.Align` grew no options;
 doctor's cause/fix lines ride it as continuation rows.
-Remaining before exit: merge, batch fragments, tag
-`v0.1.0-alpha.6`. Phase 7 (docs, polish, first release) is ready
-once the tag is cut.
 
 ### Phase 7 — Documentation, polish, first release (L)
 
