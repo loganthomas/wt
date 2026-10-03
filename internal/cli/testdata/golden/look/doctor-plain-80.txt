@@ -1,0 +1,9 @@
+ok    git         2.50.1
+warn  hooks-path  core.hooksPath = .githooks (relative)
+                  cause: a relative hooks path resolves inside each tree;
+                    hooks vanish in trees where it is untracked
+                  fix: `git config core.hooksPath <absolute path>`, or keep
+                    the hooks directory tracked
+fail  config      wt.toml:3:1: unknown key "colour"
+                  fix: wt config --edit
+info  update      check skipped (--offline)

@@ -1,0 +1,10 @@
+mode  pool (4 slots)
+base  [33mmain — not yet fetched[m
+
+main        /Users/me/src/acme               54.0M
+(detached)  /Users/me/src/acme.trees/slot-1  ?
+
+slot-1  [32mfree[m           -
+slot-2  claimed        feature/pay
+slot-3  [33mstale[m          spike        holder exited
+slot-4  [2munprovisioned[m  -            provisions on first claim

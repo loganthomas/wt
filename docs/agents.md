@@ -12,6 +12,12 @@ suite.
 - **stderr** carries everything meant for humans:
   progress notes, hook output, hints, errors.
 
+Output that isn't a terminal is never colored, shortened, or wrapped,
+so captured output is byte-identical to what a script expects.
+The one opt-out is `ui.color = "always"` in the global config,
+which colors human tables even when piped;
+`--json` and `--porcelain` are never colored.
+
 So this is always safe:
 
 ```sh

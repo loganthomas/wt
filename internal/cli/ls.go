@@ -39,11 +39,11 @@ func runLs(cmd *cobra.Command, porcelain, jsonOut bool) error {
 	if jsonOut {
 		return render.JSON(cmd.OutOrStdout(), treeViews(trees))
 	}
-	format := formatRows
-	if porcelain {
-		format = formatPorcelain
+	out := formatPorcelain(trees)
+	if !porcelain {
+		out = formatRows(trees, lookFor(cmd.OutOrStdout()))
 	}
-	if _, err := fmt.Fprint(cmd.OutOrStdout(), format(trees)); err != nil {
+	if _, err := fmt.Fprint(cmd.OutOrStdout(), out); err != nil {
 		return err
 	}
 	// A human staleness note on stderr, so stdout stays the machine
@@ -101,11 +101,16 @@ func formatPorcelain(trees []gitx.Worktree) string {
 	return out.String()
 }
 
-// formatRows renders one aligned row per worktree.
-func formatRows(trees []gitx.Worktree) string {
+// formatRows renders one aligned row per worktree,
+// paths fitted to the terminal and states colored as warnings.
+func formatRows(trees []gitx.Worktree, l look) string {
 	rows := make([][]string, 0, len(trees))
 	for _, t := range trees {
 		rows = append(rows, []string{branchLabel(t), t.Path, stateLabel(t)})
+	}
+	rows = render.FitColumn(rows, 1, l.width)
+	for _, row := range rows {
+		row[2] = l.paint(styleWarn, row[2])
 	}
 	return render.Align(rows)
 }

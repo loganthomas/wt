@@ -1,0 +1,3 @@
+main                           /Users/me/src/acme
+feature/login                  /Users/me/src/acme.trees/feature-login   [33mlocked[m
+fix/a-rather-long-branch-name  /Users/me/sr…-a-rather-long-branch-name  [33mprunable[m

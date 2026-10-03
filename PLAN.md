@@ -775,9 +775,11 @@ stays short):
 - [ ] README rewrite to the two-tier structure;
       verify the 60-second walkthrough by literally following it on a
       clean machine, timing it.
-- [ ] lipgloss pass over all human output, golden-file tested
-      (`NO_COLOR` and width-degradation cases);
-      help-text audit — every `--help` fits one screen and links its
+- [x] lipgloss pass over all human output, golden-file tested
+      (`NO_COLOR` and width-degradation cases).
+      Color marks status only; narrow terminals middle-truncate paths
+      and wrap doctor text; non-terminal output is never touched.
+- [ ] Help-text audit — every `--help` fits one screen and links its
       `docs/` page.
 - [x] `wt uninstall`: prints the removal plan with real paths
       (Homebrew cask detected through the PATH symlink;

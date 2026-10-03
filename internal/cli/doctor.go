@@ -23,6 +23,8 @@ import (
 	"syscall"
 	"time"
 
+	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/spf13/cobra"
 
 	"github.com/loganthomas/wt/internal/gitx"
@@ -103,7 +105,7 @@ func runDoctor(cmd *cobra.Command, info BuildInfo, jsonOut, offline bool) error 
 		if err := render.JSON(out, view); err != nil {
 			return err
 		}
-	} else if _, err := fmt.Fprint(out, formatDoctor(view)); err != nil {
+	} else if _, err := fmt.Fprint(out, formatDoctor(view, lookFor(out))); err != nil {
 		return err
 	}
 	// No locational claim in the message: under --json the fixes are
@@ -307,7 +309,7 @@ func checkSubmodules(root string) checkResult {
 	}
 	c.Status = statusWarn
 	c.Symptom = "submodules present"
-	c.Cause = "git supports worktrees with submodules, but wt adds no smoothing (R5)"
+	c.Cause = "git supports worktrees with submodules, but wt adds no smoothing"
 	c.Fix = "run `git submodule update --init` inside new trees; see docs/faq.md"
 	return c
 }
@@ -326,7 +328,7 @@ func checkHooksPath(path string, err error) checkResult {
 		c.Status = statusWarn
 		c.Symptom = fmt.Sprintf("core.hooksPath = %s (relative)", path)
 		c.Cause = "a relative hooks path resolves inside each tree; " +
-			"hooks vanish in trees where it is untracked (R7)"
+			"hooks vanish in trees where it is untracked"
 		c.Fix = "`git config core.hooksPath <absolute path>`, " +
 			"or keep the hooks directory tracked"
 	}
@@ -532,16 +534,86 @@ func newerRelease(latest, current release) bool {
 // per check, causes and fixes indented under their symptom. The
 // continuation rows ride through render.Align as rows with empty
 // leading cells, so the indent always lands at the symptom column.
-func formatDoctor(view doctorView) string {
+// On a terminal, text wraps to its width with a hanging indent.
+func formatDoctor(view doctorView, l look) string {
+	budget := doctorTextBudget(view.Checks, l.width)
 	var rows [][]string
 	for _, c := range view.Checks {
-		rows = append(rows, []string{c.Status, c.Name, c.Symptom})
+		status := l.paint(doctorStatusStyle(c.Status), c.Status)
+		rows = append(rows, doctorText{text: c.Symptom}.rows(status, c.Name, budget, l)...)
 		if c.Cause != "" {
-			rows = append(rows, []string{"", "", "cause: " + c.Cause})
+			cause := doctorText{"cause: ", c.Cause, styleDim, styleDim}
+			rows = append(rows, cause.rows("", "", budget, l)...)
 		}
 		if c.Fix != "" {
-			rows = append(rows, []string{"", "", "fix: " + c.Fix})
+			fix := doctorText{label: "fix: ", text: c.Fix, labelStyle: styleBold}
+			rows = append(rows, fix.rows("", "", budget, l)...)
 		}
 	}
 	return render.Align(rows)
+}
+
+// hangIndent sets wrapped continuation lines in from their first,
+// so a long cause still reads as one item.
+const hangIndent = "  "
+
+// minDoctorText is the narrowest text column worth wrapping into;
+// any tighter and the terminal's own wrapping reads better.
+const minDoctorText = 30
+
+// doctorTextBudget is the width left for the text column once the
+// status and name columns take theirs; 0 means don't wrap.
+func doctorTextBudget(checks []checkResult, width int) int {
+	if width <= 0 {
+		return 0
+	}
+	used := 0
+	for _, c := range checks {
+		used = max(used, len(c.Status)+2+len(c.Name)+2)
+	}
+	if budget := width - used; budget >= minDoctorText {
+		return budget
+	}
+	return 0
+}
+
+// doctorText is one text cell of the report: an optional label
+// ("cause: ", "fix: ") and its text, each with its own style.
+type doctorText struct {
+	label, text           string
+	labelStyle, textStyle lipgloss.Style
+}
+
+// rows renders the cell wrapped to budget (0: unwrapped), the
+// first row carrying status and name, continuation rows leaving
+// them empty so the text stays in its column.
+func (d doctorText) rows(status, name string, budget int, l look) [][]string {
+	lines := []string{d.label + d.text}
+	if budget > 0 {
+		lines = strings.Split(ansi.Wrap(d.label+d.text, budget-len(hangIndent), ""), "\n")
+	}
+	rows := make([][]string, len(lines))
+	for i, line := range lines {
+		if i == 0 {
+			rest := strings.TrimPrefix(line, d.label)
+			line = l.paint(d.labelStyle, d.label) + l.paint(d.textStyle, rest)
+		} else {
+			line = hangIndent + l.paint(d.textStyle, line)
+		}
+		rows[i] = []string{"", "", line}
+	}
+	rows[0][0], rows[0][1] = status, name
+	return rows
+}
+
+func doctorStatusStyle(status string) lipgloss.Style {
+	switch status {
+	case statusOK:
+		return styleGood
+	case statusWarn:
+		return styleWarn
+	case statusFail:
+		return styleBad
+	}
+	return styleDim
 }

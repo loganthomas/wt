@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/loganthomas/wt/internal/config"
@@ -51,12 +52,36 @@ func runPoolLs(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-	rows := make([][]string, 0, p.cfg.Pool.Size)
-	for _, view := range slotViews(p.wtRepo, p.state, trees) {
-		rows = append(rows, slotRow(view))
-	}
-	_, err = fmt.Fprint(cmd.OutOrStdout(), render.Align(rows))
+	out := cmd.OutOrStdout()
+	_, err = fmt.Fprint(out, formatSlots(slotViews(p.wtRepo, p.state, trees), lookFor(out)))
 	return err
+}
+
+// formatSlots is the one slot table, shared by pool ls and status
+// so the two can never disagree on a slot's spelling.
+func formatSlots(views []slotView, l look) string {
+	rows := make([][]string, 0, len(views))
+	for _, v := range views {
+		row := slotRow(v)
+		row[1] = l.paint(slotStateStyle(v.State), row[1])
+		rows = append(rows, row)
+	}
+	return render.Align(rows)
+}
+
+// slotStateStyle colors what needs attention: a stale lease is
+// a warning, a free slot is good news, an unprovisioned one is
+// merely latent.
+func slotStateStyle(state string) lipgloss.Style {
+	switch state {
+	case "free":
+		return styleGood
+	case "stale":
+		return styleWarn
+	case "unprovisioned":
+		return styleDim
+	}
+	return lipgloss.NewStyle()
 }
 
 // slotViews builds every configured slot's occupancy view, in
