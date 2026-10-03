@@ -43,7 +43,8 @@ func Find(ctx context.Context, dir string) (*Repo, error) {
 	common, bare := lines[0], lines[1] == "true"
 	if bare {
 		return nil, fmt.Errorf(
-			"%s is a bare repository; wt needs a main checkout to anchor config and trees", common)
+			"%s is a bare repository; wt needs a main checkout to anchor config and trees — "+
+				"run wt from a clone with a working tree", common)
 	}
 	if filepath.Base(common) == ".git" {
 		return &Repo{CommonDir: common, Root: filepath.Dir(common)}, nil
@@ -143,7 +144,7 @@ type NotARepoError struct {
 }
 
 func (e *NotARepoError) Error() string {
-	return fmt.Sprintf("%s is not inside a git repository", e.Dir)
+	return fmt.Sprintf("%s is not inside a git repository — cd into one first", e.Dir)
 }
 
 // WtExitCode maps to D13's "not a wt repo" contract code;

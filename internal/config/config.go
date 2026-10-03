@@ -119,7 +119,7 @@ func Load(globalPath, repoPath string) (Config, error) {
 	normalize(&cfg)
 
 	if err := validate(cfg); err != nil {
-		return Config{}, err
+		return Config{}, fmt.Errorf("%w — fix it in %s or %s", err, repoPath, globalPath)
 	}
 	return cfg, nil
 }

@@ -47,7 +47,8 @@ func runClaim(cmd *cobra.Command, branch, baseFlag string, noFetch bool) error {
 		return err
 	}
 	if t, ok := treeHoldingBranch(trees, branch); ok {
-		return preconditionf("branch %q is already checked out in %s", branch, t.Path)
+		return preconditionf(
+			"branch %q is already checked out in %s — `wt go %s` jumps there", branch, t.Path, branch)
 	}
 	if err := checkBase(ctx, p.g, base); err != nil {
 		return err

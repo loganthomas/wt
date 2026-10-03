@@ -1,0 +1,47 @@
+# Every error names its fix: the user should never have to guess
+# the next command. One case per family of failure.
+
+[!exec:git] skip 'git not on PATH'
+
+# outside a repository
+exitcode 4 wt ls
+stderr 'not inside a git repository — cd into one first'
+
+# unsupported shell
+exitcode 2 wt shell-init bash
+stderr 'wt supports zsh only: `wt shell-init zsh`'
+
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+
+# a branch already checked out points at the tree that holds it
+exec wt new feature/login
+exitcode 3 wt new feature/login
+stderr 'already checked out in .*feature-login — `wt go feature/login` jumps there'
+
+# an invalid config value names both files it could live in
+cp $WORK/bad-staleness.toml .git/wt.toml
+exitcode 1 wt config
+stderr 'staleness_hours must not be negative, got -1 — fix it in .*\.git[/\\]wt\.toml or '
+
+# an unknown key says what to do about it
+cp $WORK/unknown-key.toml .git/wt.toml
+exitcode 1 wt config
+stderr 'unknown key "colour" .* — remove it or fix its spelling'
+
+# a failing setup hook names the key to fix
+cp $WORK/bad-hook.toml .git/wt.toml
+! exec wt new feature/pay
+stderr 'setup hook failed: .* — fix hooks.setup with `wt config --edit`'
+
+-- bad-staleness.toml --
+staleness_hours = -1
+
+-- unknown-key.toml --
+colour = "auto"
+
+-- bad-hook.toml --
+[hooks]
+setup = "exit 7"

@@ -47,7 +47,7 @@ func copyFiles(
 			continue
 		}
 		if err != nil {
-			return fmt.Errorf("copy %s: %w", name, err)
+			return copyError(name, err)
 		}
 		fmt.Fprintf(chatter, "copy: %s\n", name)
 	}
@@ -147,7 +147,11 @@ func readCopy(root, name string) (data []byte, ok bool, err error) {
 		return nil, false, nil
 	}
 	if err != nil {
-		return nil, false, fmt.Errorf("copy %s: %w", name, err)
+		return nil, false, copyError(name, err)
 	}
 	return data, true, nil
+}
+
+func copyError(name string, err error) error {
+	return fmt.Errorf("copy %s: %w — fix the file, or drop it from copy in wt.toml", name, err)
 }

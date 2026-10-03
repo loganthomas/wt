@@ -783,7 +783,7 @@ stays short):
       (Homebrew cask detected through the PATH symlink;
       the rc file's actual eval lines quoted by line number).
 - [ ] End-to-end `brew uninstall` re-verification (needs the `v0.1.0` cask).
-- [ ] Failure-message audit: every error names the fix
+- [x] Failure-message audit: every error names the fix
       (`error: branch 'x' already checked out in ../acme.trees/x — wt go x?`).
 - [ ] Cut `v0.1.0` — the first real release:
       the cask publishes to the tap;

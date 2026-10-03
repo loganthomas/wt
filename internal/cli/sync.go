@@ -57,7 +57,8 @@ func runSync(cmd *cobra.Command, all bool) error {
 	}
 
 	if err := g.Fetch(ctx, remote); err != nil {
-		return fmt.Errorf("fetching %s: %w", remote, err)
+		return fmt.Errorf("fetching %s: %w — check `git remote -v` and your network, then rerun",
+			remote, err)
 	}
 	fmt.Fprintf(chatter, "fetched %s\n", remote)
 	// Best-effort: the fetch already succeeded, so a state-write
@@ -144,7 +145,8 @@ func fastForwardBase(
 	}
 	if ffErr != nil {
 		return preconditionf(
-			"%s could not fast-forward to %s (%v) — resolve it by hand", base, up, ffErr)
+			"%s could not fast-forward to %s (%v) — `git log %s..%s` lists the local commits "+
+				"in the way; move them to a branch, then rerun", base, up, ffErr, up, base)
 	}
 	fmt.Fprintf(chatter, "%s fast-forwarded %s to %s\n", base, commits(behind), up)
 	return nil

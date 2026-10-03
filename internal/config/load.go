@@ -57,7 +57,8 @@ func positionedError(path string, err error) error {
 		// beats a wall of positions.
 		e := strict.Errors[0]
 		row, col := e.Position()
-		return fmt.Errorf("%s:%d:%d: unknown key %q (not part of wt's config)",
+		return fmt.Errorf(
+			"%s:%d:%d: unknown key %q (not part of wt's config) — remove it or fix its spelling",
 			path, row, col, strings.Join(e.Key(), "."))
 	}
 	var decode *toml.DecodeError

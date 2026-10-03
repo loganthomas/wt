@@ -448,7 +448,8 @@ func (p *poolRepo) pinForRelease(
 	// lease reaches Repin as "expect nothing" without further ado.
 	held, err := lease.Get(leases, slot)
 	if err == nil && held == nil && claimRequired {
-		return nil, preconditionf("%s is not claimed — nothing to release", slot)
+		return nil, preconditionf(
+			"%s is not claimed — nothing to release; `wt pool ls` shows the claimed slots", slot)
 	}
 	pinned, err := lease.Repin(leases, slot, branch, held)
 	if err != nil {
