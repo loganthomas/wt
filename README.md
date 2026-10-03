@@ -63,10 +63,9 @@ Details in [docs/shell.md](docs/shell.md).
 | `wt path [name]`                 | Print a tree's absolute path (plumbing).                                      |
 | `wt config [--edit]`             | Show active config paths and merged values; `--edit` opens `$VISUAL`/`$EDITOR`. |
 | `wt shell-init zsh [--prompt]`   | Emit the shim, completions, and optional prompt hook for eval in `.zshrc`.    |
+| `wt uninstall`                   | Print the exact removal steps with your real paths; removes nothing itself.   |
 | `wt --version`                   | Version, commit, build date.                                                  |
 
-The remaining surface (`wt uninstall`, …)
-lands phase by phase; see [PLAN.md](PLAN.md).
 Monorepo pool mode: [docs/pool-mode.md](docs/pool-mode.md).
 Configuration reference: [docs/configuration.md](docs/configuration.md).
 Scripting and agent contract: [docs/agents.md](docs/agents.md).

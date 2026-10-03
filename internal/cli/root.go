@@ -97,6 +97,7 @@ func newRootCmd(info BuildInfo) *cobra.Command {
 		newPathCmd(),
 		newConfigCmd(),
 		newShellInitCmd(),
+		newUninstallCmd(),
 	)
 	// Argument validators are wrapped centrally so bad arguments
 	// exit 2 (D13) on every command, present and future:

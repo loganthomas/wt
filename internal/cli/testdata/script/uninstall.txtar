@@ -1,0 +1,54 @@
+# `wt uninstall` prints the removal plan with real paths and
+# deletes nothing. Outside a repo, on a fresh machine, it
+# still answers: generic eval line, no data dirs to remove.
+
+[!exec:git] skip 'git not on PATH'
+
+env HOME=$WORK/home
+env XDG_CONFIG_HOME=
+env ZDOTDIR=
+mkdir home
+
+exec wt uninstall
+stdout '^# 1\. Finish your trees'
+stdout 'keeps a \.git/wt\.toml; delete it there\.$'
+stdout '^# 2\. Delete the eval line from .*home[/\\]\.zshrc, if you added it:$'
+stdout '^#    eval "\$\(wt shell-init zsh\)"$'
+stdout '^# 3\. Remove the binary:$'
+stdout '^rm '
+! stdout 'rm -rf'
+! stderr .
+
+# inside an initialized repo, with an rc file and wt's data dirs:
+# the actual rc lines are quoted, and every path is the real one
+exec git init -q -b main acme
+cd acme
+exec git commit -q --allow-empty -m 'initial'
+exec wt init --yes
+mkdir $WORK/home/.config/wt $WORK/.state/wt
+cp $WORK/zshrc $WORK/home/.zshrc
+
+exec wt uninstall
+stdout 'this one included:$'
+stdout '^rm .*acme[/\\]\.git[/\\]wt\.toml$'
+stdout '^# 2\. Delete the shell integration from .*home[/\\]\.zshrc:$'
+stdout '^#    line 3: eval "\$\(wt shell-init zsh --prompt\)"$'
+stdout '^# 4\. Delete wt''s global config and state'
+stdout '^rm -rf .*home[/\\]\.config[/\\]wt .*\.state[/\\]wt$'
+! stderr .
+
+# ZDOTDIR moves the rc file, and the plan follows it
+env ZDOTDIR=$WORK/zdot
+exec wt uninstall
+stdout 'Delete the eval line from .*zdot[/\\]\.zshrc'
+
+# nothing was removed
+exists .git/wt.toml
+exists $WORK/home/.zshrc
+exists $WORK/home/.config/wt
+exists $WORK/.state/wt
+
+-- zshrc --
+export EDITOR=vim
+
+eval "$(wt shell-init zsh --prompt)"

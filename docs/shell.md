@@ -8,7 +8,7 @@ eval "$(wt shell-init zsh)"
 ```
 
 Add `--prompt` to also get the [prompt indicator](#prompt-indicator).
-`wt` never edits `.zshrc` for you, and `wt uninstall` (Phase 7)
+`wt` never edits `.zshrc` for you, and `wt uninstall`
 tells you the exact line to delete.
 
 ## The cd protocol

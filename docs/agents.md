@@ -52,6 +52,7 @@ then retry", never "wt is broken".
 | `wt pool ls` | One aligned row per slot: slot, state (`free`, `claimed`, `stale`, `unprovisioned`), branch, detail. |
 | `wt clean`  | Nothing (every action, and `-n`'s previews, ride stderr). |
 | `wt status` | The overview table; `--json` for the machine shape below. |
+| `wt uninstall` | The removal plan as a shell document: explanation as `#` comments, commands bare. Removes nothing; always exit 0. |
 | `wt doctor` | The check report; `--json` for the machine shape below. Exit 0 healthy, 3 when a `fail`-status check needs fixing; `warn`/`info` are advisory and never exit 3. Works outside a repository (repo checks simply absent). |
 
 The claim/release loop for agents
