@@ -88,7 +88,7 @@ func runConfigEdit(cmd *cobra.Command) error {
 	edit.Stdout = os.Stdout
 	edit.Stderr = os.Stderr
 	if err := edit.Run(); err != nil {
-		return fmt.Errorf("editor %q: %w", editor, err)
+		return fmt.Errorf("editor %q: %w — set $VISUAL or $EDITOR to a working editor", editor, err)
 	}
 
 	// Validate right away: a typo surfaces now, at the terminal

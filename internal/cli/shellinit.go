@@ -27,7 +27,7 @@ func newShellInitCmd() *cobra.Command {
 		Short: "Emit the shell integration for eval in ~/.zshrc",
 		Args: cobra.MatchAll(cobra.ExactArgs(1), func(_ *cobra.Command, args []string) error {
 			if args[0] != "zsh" {
-				return fmt.Errorf("unsupported shell %q — v1 supports zsh only", args[0])
+				return fmt.Errorf("unsupported shell %q — wt supports zsh only: `wt shell-init zsh`", args[0])
 			}
 			return nil
 		}),

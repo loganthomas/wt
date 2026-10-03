@@ -128,7 +128,7 @@ func runRoot(cmd *cobra.Command, _ []string) error {
 	err := runJump(cmd, "")
 	var notRepo *repo.NotARepoError
 	if errors.As(err, &notRepo) {
-		return fmt.Errorf("%w — `wt --help` shows usage", err)
+		return fmt.Errorf("%w; `wt --help` shows usage", err)
 	}
 	return err
 }

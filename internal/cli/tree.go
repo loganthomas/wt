@@ -22,7 +22,8 @@ func resolveTree(ctx context.Context, trees []gitx.Worktree, name string) (gitx.
 		if t, ok := findTree(trees, top); ok {
 			return t, nil
 		}
-		return gitx.Worktree{}, fmt.Errorf("git does not list the current tree %s", top)
+		return gitx.Worktree{}, fmt.Errorf(
+			"git does not list the current tree %s — `git worktree repair` re-registers it", top)
 	}
 	// Every tree is a candidate here, bare entries included:
 	// exact-name commands may need to name states a jump never

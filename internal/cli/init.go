@@ -167,8 +167,7 @@ func provisionInitialPool(ctx context.Context, r *repo.Repo, chatter io.Writer) 
 		// exists: a resize to the size already configured returns
 		// early, while every claim provisions what it finds missing.
 		return fmt.Errorf(
-			"%w — the config is saved; fix the cause (`wt config --edit` for hooks), "+
-				"and the missing slots provision on the next claim", err)
+			"%w; the config is saved, and the missing slots provision on the next claim", err)
 	}
 	return nil
 }

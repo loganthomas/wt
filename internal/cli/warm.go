@@ -38,7 +38,7 @@ func finishFresh(
 	}
 	fmt.Fprintf(chatter, "running setup hook: %s\n", setup)
 	if err := runHook(ctx, dest, setup, chatter); err != nil {
-		return fmt.Errorf("setup hook failed: %w", err)
+		return fmt.Errorf("setup hook failed: %w — fix hooks.setup with `wt config --edit`", err)
 	}
 	if files := cfg.Hooks.RefreshIfChanged; len(files) > 0 {
 		hash, err := pool.Hash(dest, files)
@@ -76,7 +76,7 @@ func refreshTree(
 	}
 	fmt.Fprintf(chatter, "running refresh hook: %s\n", refresh)
 	if err := runHook(ctx, dest, refresh, chatter); err != nil {
-		return fmt.Errorf("refresh hook failed: %w", err)
+		return fmt.Errorf("refresh hook failed: %w — fix hooks.refresh with `wt config --edit`", err)
 	}
 	if len(files) > 0 {
 		return st.WriteRefreshHash(name, current)

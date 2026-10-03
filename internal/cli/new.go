@@ -52,7 +52,8 @@ func runNew(cmd *cobra.Command, branch, baseFlag string, noFetch bool) error {
 		// R4: when the branch lives in some tree already,
 		// the error must point straight at it.
 		if t, ok := treeHoldingBranch(trees, branch); ok {
-			return preconditionf("branch %q is already checked out in %s", branch, t.Path)
+			return preconditionf("branch %q is already checked out in %s — `wt go %s` jumps there",
+				branch, t.Path, branch)
 		}
 		// In pool mode the natural resume for an existing branch,
 		// say one left by a claim that failed after its branch

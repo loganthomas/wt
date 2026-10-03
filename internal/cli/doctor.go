@@ -109,7 +109,8 @@ func runDoctor(cmd *cobra.Command, info BuildInfo, jsonOut, offline bool) error 
 	// No locational claim in the message: under --json the fixes are
 	// in the payload, not "above".
 	if view.Issues > 0 {
-		return preconditionf("%d %s found", view.Issues, plural(view.Issues, "issue"))
+		return preconditionf("%d %s found — each fix is listed above",
+			view.Issues, plural(view.Issues, "issue"))
 	}
 	return nil
 }
