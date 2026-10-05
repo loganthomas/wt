@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Git runs git commands rooted at a fixed working directory.
@@ -147,6 +148,39 @@ func (g *Git) ShortStatus(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return strings.TrimRight(string(out), "\n"), nil
+}
+
+// IsDirty reports whether the tree has any change git status
+// shows: staged, unstaged, or untracked (ignored files never count).
+func (g *Git) IsDirty(ctx context.Context) (bool, error) {
+	out, err := g.run(ctx, "status", "--porcelain")
+	if err != nil {
+		return false, err
+	}
+	return len(out) > 0, nil
+}
+
+// CommitTimes maps each commit to its committer date, in one git
+// call however many commits are asked for. Any unknown commit
+// fails the whole call: callers treat the map as best-effort.
+func (g *Git) CommitTimes(ctx context.Context, shas []string) (map[string]time.Time, error) {
+	times := make(map[string]time.Time, len(shas))
+	if len(shas) == 0 {
+		return times, nil
+	}
+	out, err := g.run(ctx, append([]string{"show", "-s", "--format=%H %ct"}, shas...)...)
+	if err != nil {
+		return nil, err
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		sha, stamp, ok := strings.Cut(line, " ")
+		secs, perr := strconv.ParseInt(stamp, 10, 64)
+		if !ok || perr != nil {
+			return nil, fmt.Errorf("unexpected git show output: %q", line)
+		}
+		times[sha] = time.Unix(secs, 0)
+	}
+	return times, nil
 }
 
 // LastCommit returns a one-line summary of the tree's HEAD.

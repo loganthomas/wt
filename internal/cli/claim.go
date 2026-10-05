@@ -89,7 +89,7 @@ func runRelease(cmd *cobra.Command, name string) error {
 	// A slot named directly can be leased yet have no worktree: a
 	// claim or provision killed before worktree-add, or a tree
 	// removed out of band. resolveTree cannot name such a slot, and
-	// pool ls sends users here to clear exactly those states.
+	// wt ls sends users here to clear exactly those states.
 	if pool.IsSlotName(name) {
 		if _, registered := findTree(trees, filepath.Join(p.treesDir(), name)); !registered {
 			return p.releaseVacantSlot(name, cmd.ErrOrStderr())

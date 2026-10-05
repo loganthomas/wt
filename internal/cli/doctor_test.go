@@ -205,7 +205,7 @@ func TestFormatDoctorIndentsCauseAndFix(t *testing.T) {
 		},
 		Issues: 1,
 	}
-	got := formatDoctor(view)
+	got := formatDoctor(view, plainLook)
 	lines := strings.Split(strings.TrimSuffix(got, "\n"), "\n")
 	if !strings.HasPrefix(lines[0], "ok") || !strings.Contains(lines[0], "2.50.1") {
 		t.Errorf("first row = %q, want the ok git row", lines[0])

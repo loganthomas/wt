@@ -40,7 +40,7 @@ func TestFormatStatusDefaultMode(t *testing.T) {
 			{Branch: "feature/login", Path: "/repo.trees/feature-login"},
 		},
 	}
-	got := formatStatus(view)
+	got := formatStatus(view, plainLook)
 	for _, want := range []string{
 		"mode  default",
 		"base  main — not yet fetched",
@@ -70,7 +70,7 @@ func TestFormatStatusPoolModeListsSlots(t *testing.T) {
 			},
 		},
 	}
-	got := formatStatus(view)
+	got := formatStatus(view, plainLook)
 	for _, want := range []string{
 		"mode  pool (2 slots)",
 		"last fetched 2h ago",

@@ -32,7 +32,7 @@ stderr 'no free slot'
 ! stdout .
 
 # slot-centric view
-exec wt pool ls
+exec wt ls
 stdout 'slot-1\s+claimed\s+feat-a'
 stdout 'slot-2\s+claimed\s+feat-b'
 
@@ -50,7 +50,7 @@ exec git -C ../acme.trees/slot-1 branch --show-current
 ! stdout .
 exec git -C ../acme.trees/slot-1 status --porcelain
 ! stdout .
-exec wt pool ls
+exec wt ls
 stdout 'slot-1\s+free'
 
 # a released slot is claimable again; claim prints the slot path
@@ -84,7 +84,7 @@ stderr 'already checked out in .*[/\\]slot-2'
 cp $WORK/junk.txt ../acme.trees/slot-1/junk.txt
 exitcode 3 wt done feat-c
 stderr 'uncommitted changes'
-exec wt pool ls
+exec wt ls
 stdout 'slot-1\s+claimed\s+feat-c'
 rm ../acme.trees/slot-1/junk.txt
 exec wt done feat-c

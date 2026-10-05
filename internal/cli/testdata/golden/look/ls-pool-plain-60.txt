@@ -1,0 +1,6 @@
+TREE    LEASE          BRANCH       STATE         TOOLS  HEAD       AGE  NOTE                       PATH
+acme    -              main         clean         -      82506bc30  -    -                          ~/src/acme
+slot-1  free           -            clean         fresh  878e4ca68  -    -                          ~/src/acme.trees/slot-1
+slot-2  claimed        feature/pay  dirty         stale  a08fe1242  4d   pid 4242                   ~/src/acme.trees/slot-2
+slot-3  stale          spike        clean,locked  fresh  422825f71  -    dead pid 7                 ~/src/acme.trees/slot-3
+slot-4  unprovisioned  -            -             -      -          -    provisions on first claim  ~/src/acme.trees/slot-4

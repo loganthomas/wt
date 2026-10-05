@@ -1,0 +1,7 @@
+[32mok[m    git         2.50.1
+[33mwarn[m  hooks-path  core.hooksPath = .githooks (relative)
+                  [2mcause: [m[2ma relative hooks path resolves inside each tree; hooks vanish in trees where it is untracked[m
+                  [1mfix: [m`git config core.hooksPath <absolute path>`, or keep the hooks directory tracked
+[31mfail[m  config      wt.toml:3:1: unknown key "colour"
+                  [1mfix: [mwt config --edit
+[2minfo[m  update      check skipped (--offline)

@@ -15,8 +15,8 @@ exec wt new feat-a
 exec wt status
 stdout 'mode  default'
 stdout 'base  main — not yet fetched'
-stdout 'main\s+.*[/\\]acme\s+\d+(\.\d+)?[KMG]'
-stdout 'feat-a\s+.*[/\\]feat-a\s+\d+(\.\d+)?[KMG]'
+stdout 'main\s+\d+(\.\d+)?[KMG]\s+.*[/\\]acme$'
+stdout 'feat-a\s+\d+(\.\d+)?[KMG]\s+.*[/\\]feat-a$'
 ! stderr .
 
 # the JSON view carries the same facts, machine-shaped

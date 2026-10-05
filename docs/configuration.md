@@ -138,6 +138,19 @@ copy = [".env"]
 color = "auto"        # auto | always | never
 ```
 
+`ui.color` decides when human output is colored.
+Color only marks status (doctor's ok/warn/fail, tree and slot states, errors),
+never decoration:
+
+- `auto` colors only on a terminal,
+  and respects [`NO_COLOR`](https://no-color.org/) and `CLICOLOR_FORCE`.
+- `always` colors even through pipes; `never` turns it off everywhere.
+
+On a terminal too narrow for a table,
+wt shortens long paths in the middle (`/Users/me/sr…/feature-login`)
+and wraps `wt doctor`'s text.
+Piped output is never colored (outside `always`), shortened, or wrapped.
+
 `[pool]` is deliberately not accepted under `[defaults]`:
 pool mode is a per-repo decision (PLAN.md D3),
 and a global pool would silently flip every repo into it.

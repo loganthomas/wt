@@ -55,7 +55,7 @@ func (b BuildInfo) String() string {
 func Main(info BuildInfo) int {
 	root := newRootCmd(info)
 	if err := root.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "wt: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%s %v\n", lookFor(os.Stderr).paint(styleBad, "wt:"), err)
 		return exitCodeFor(err)
 	}
 	return 0

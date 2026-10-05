@@ -68,3 +68,14 @@ func positionedError(path string, err error) error {
 	}
 	return fmt.Errorf("%s: %w", path, err)
 }
+
+// LoadUI reads only the presentation settings from the global
+// config at path, for commands that otherwise never load config.
+// A missing file yields the zero UI.
+func LoadUI(path string) (UI, error) {
+	var global globalFile
+	if err := decodeFile(path, &global); err != nil {
+		return UI{}, err
+	}
+	return global.UI, nil
+}

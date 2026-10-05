@@ -77,7 +77,7 @@ func runStatus(cmd *cobra.Command, jsonOut bool) error {
 	if jsonOut {
 		return render.JSON(cmd.OutOrStdout(), view)
 	}
-	_, err = fmt.Fprint(cmd.OutOrStdout(), formatStatus(view))
+	_, err = fmt.Fprint(cmd.OutOrStdout(), formatStatus(view, lookFor(cmd.OutOrStdout())))
 	return err
 }
 
@@ -99,8 +99,10 @@ func buildStatusView(
 		view.Trees = append(view.Trees, ts)
 	}
 	if w.cfg.Pool != nil {
+		slots := w.slotTrees(trees)
+		facts := gatherTreeFacts(ctx, gitx.New(w.repo.Root), slots, w.refreshTools(st), now)
 		view.Mode = "pool"
-		view.Pool = &poolStatus{Size: w.cfg.Pool.Size, Slots: slotViews(w, st, trees)}
+		view.Pool = &poolStatus{Size: w.cfg.Pool.Size, Slots: slotViews(w, st, trees, facts)}
 	}
 	return view
 }
@@ -165,37 +167,37 @@ func writeCachedSize(w *wtRepo, st state.Dir, path string, u state.DiskUsage) {
 
 // formatStatus lays the view out for humans: a mode/base header,
 // one sized row per tree, and, in pool mode, one row per slot in
-// exactly the wt pool ls spelling.
-func formatStatus(view statusView) string {
+// exactly the pool-mode wt ls spelling.
+func formatStatus(view statusView, l look) string {
 	mode := view.Mode
 	if view.Pool != nil {
 		mode = fmt.Sprintf("pool (%d %s)", view.Pool.Size, plural(view.Pool.Size, "slot"))
 	}
+	base := baseLine(view.Base)
+	if view.Base.Stale {
+		base = l.paint(styleWarn, base)
+	}
 	out := render.Align([][]string{
 		{"mode", mode},
-		{"base", baseLine(view.Base)},
+		{"base", base},
 	})
 
-	rows := make([][]string, 0, len(view.Trees))
-	for _, t := range view.Trees {
-		size := "?"
-		if t.DiskKB != nil {
-			size = humanKB(*t.DiskKB)
+	if len(view.Trees) > 0 {
+		rows := [][]string{l.header("branch", "size", "path")}
+		for _, t := range view.Trees {
+			size := "?"
+			if t.DiskKB != nil {
+				size = humanKB(*t.DiskKB)
+			}
+			rows = append(rows, []string{worktreeLabel(t.Bare, t.Detached, t.Branch), size, l.path(t.Path)})
 		}
-		rows = append(rows, []string{worktreeLabel(t.Bare, t.Detached, t.Branch), t.Path, size})
-	}
-	if len(rows) > 0 {
-		out += "\n" + render.Align(rows)
+		out += "\n" + render.Align(render.FitColumn(rows, 2, l.width))
 	}
 
 	if view.Pool == nil {
 		return out
 	}
-	slotRows := make([][]string, 0, len(view.Pool.Slots))
-	for _, s := range view.Pool.Slots {
-		slotRows = append(slotRows, slotRow(s))
-	}
-	return out + "\n" + render.Align(slotRows)
+	return out + "\n" + formatSlots(view.Pool.Slots, l)
 }
 
 // baseLine phrases the base's fetch age through lastFetchPhrase,

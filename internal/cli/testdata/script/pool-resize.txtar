@@ -14,7 +14,7 @@ exec wt pool resize 3
 stderr 'provisioned slot-2'
 stderr 'provisioned slot-3'
 grep 'size = 3' .git/wt.toml
-exec wt pool ls
+exec wt ls
 stdout 'slot-2\s+free'
 stdout 'slot-3\s+free'
 
@@ -35,7 +35,7 @@ stderr 'removed slot-3'
 ! exists ../acme.trees/slot-2
 ! exists ../acme.trees/slot-3
 grep 'size = 1' .git/wt.toml
-exec wt pool ls
+exec wt ls
 stdout 'slot-1\s+claimed\s+feat-a'
 ! stdout 'slot-2'
 

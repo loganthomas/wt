@@ -185,7 +185,7 @@ func (p *poolRepo) prepareSlot(
 		// An unregistered slot may have just been removed by a
 		// shrink working from a newer config than this claim
 		// loaded; re-read the size before materializing a tree the
-		// pool no longer owns; it would be invisible to pool ls.
+		// pool no longer owns; it would be invisible to wt ls.
 		if err := p.checkStillInPool(slot); err != nil {
 			return "", err
 		}
@@ -284,7 +284,7 @@ func (p *poolRepo) acquire(
 				"resolve a blocked slot, or `wt pool resize %d`", size, len(skip), size+1)
 	}
 	return "", nil, nil, preconditionf(
-		"no free slot in the pool of %d — `wt pool ls` shows the holders; "+
+		"no free slot in the pool of %d — `wt ls` shows the holders; "+
 			"`wt done` a finished one, or `wt pool resize %d`", size, size+1)
 }
 
@@ -449,7 +449,7 @@ func (p *poolRepo) pinForRelease(
 	held, err := lease.Get(leases, slot)
 	if err == nil && held == nil && claimRequired {
 		return nil, preconditionf(
-			"%s is not claimed — nothing to release; `wt pool ls` shows the claimed slots", slot)
+			"%s is not claimed — nothing to release; `wt ls` shows the claimed slots", slot)
 	}
 	pinned, err := lease.Repin(leases, slot, branch, held)
 	if err != nil {

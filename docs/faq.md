@@ -107,7 +107,7 @@ wt doctor
 
 exits 0 when healthy and 3 when something needs fixing,
 with the fix command printed next to each finding.
-For pool repos, `wt pool ls` shows who holds every slot,
+For pool repos, `wt ls` shows who holds every slot,
 `wt clean` releases provably dead leases,
 and `wt release <slot>` is the documented escape hatch
 for a lease record that cannot be read.

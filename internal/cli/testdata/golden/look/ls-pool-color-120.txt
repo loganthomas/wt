@@ -1,0 +1,6 @@
+[2mTREE[m    [2mLEASE[m          [2mBRANCH[m       [2mSTATE[m         [2mTOOLS[m  [2mHEAD[m       [2mAGE[m  [2mNOTE[m                       [2mPATH[m
+acme    -              main         clean         -      82506bc30  -    -                          ~/src/acme
+slot-1  [32mfree[m           -            clean         fresh  878e4ca68  -    -                          ~/src/acme.trees/slot-1
+slot-2  claimed        feature/pay  [33mdirty[m         [33mstale[m  a08fe1242  4d   pid 4242                   ~/src/acme.trees/slot-2
+slot-3  [33mstale[m          spike        [33mclean,locked[m  fresh  422825f71  -    dead pid 7                 ~/src/acme.trees/slot-3
+slot-4  [2munprovisioned[m  -            -             -      -          -    provisions on first claim  ~/src/acme.trees/slot-4
