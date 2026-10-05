@@ -18,20 +18,20 @@ stdout '[/\\]slot-1$'
 exec wt claim feat-dead
 stdout '[/\\]slot-2$'
 exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && sed "s/HOSTNAME/$(uname -n)/" "$WORK/dead-lease.toml" > "$d/leases/slot-2/lease.toml"'
-exec wt pool ls
+exec wt ls
 stdout 'slot-2\s+stale\s+feat-dead'
 
 # the dry run names the reap without performing it
 exec wt clean -n
 stderr 'would release slot-2'
-exec wt pool ls
+exec wt ls
 stdout 'slot-2\s+stale'
 
 # the real run frees the dead slot and leaves the live claim
 exec wt clean
 stderr 'released slot-2 \(dead pid 99999999, was feat-dead\)'
 ! stderr 'slot-1'
-exec wt pool ls
+exec wt ls
 stdout 'slot-1\s+claimed\s+feat-live'
 stdout 'slot-2\s+free'
 
@@ -43,7 +43,7 @@ exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/slot
 exec wt clean
 stderr 'slot-2 lease record unreadable'
 ! stderr 'nothing to clean'
-exec wt pool ls
+exec wt ls
 stdout 'slot-2\s+claimed\s+\?'
 
 -- dead-lease.toml --

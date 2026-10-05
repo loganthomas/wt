@@ -23,7 +23,7 @@ exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/slot
 # the pool is wedged: claim must not steal what it cannot prove dead
 exitcode 3 wt claim feat-b
 stderr 'no free slot'
-exec wt pool ls
+exec wt ls
 stdout 'slot-1\s+claimed\s+\?\s+.*lease record unreadable'
 
 # the escape hatch: release frees the slot anyway

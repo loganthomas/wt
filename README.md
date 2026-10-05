@@ -49,7 +49,7 @@ Details in [docs/shell.md](docs/shell.md).
 | `wt`                             | Interactive fuzzy picker over trees → cd. Without a TTY: porcelain list.      |
 | `wt init`                        | Set up wt for a repo (prompts, or `--yes` + flags); writes `.git/wt.toml`. Pre-fills its answers from a [scan of the repo root](docs/configuration.md#detected-defaults). |
 | `wt new <branch> [--base <ref>]` | Create a worktree + branch off the base, and cd there under the shim. In [pool mode](docs/pool-mode.md): claim a pre-warmed slot instead. |
-| `wt ls [--porcelain] [--json]`   | List worktrees: branch, clean/dirty, HEAD, commit age, path.                  |
+| `wt ls [--porcelain] [--json]`   | List worktrees: branch, clean/dirty, HEAD, age, path. In pool mode: every slot too, with its lease. |
 | `wt go [query]`                  | Fuzzy-jump: best match cds (with a query) or picker (without).                |
 | `wt done [name] [--keep-branch]` | Finish a tree: safety checks, remove it, delete its branch. Alias: `wt rm`.   |
 | `wt sync [--all]`                | Fetch the base, fast-forward it (ff-only), report tree staleness; `--all` re-parks idle [pool](docs/pool-mode.md#staying-fresh) slots onto the new tip. |
@@ -58,7 +58,6 @@ Details in [docs/shell.md](docs/shell.md).
 | `wt doctor [--json] [--offline]` | Diagnostics: each symptom with cause and exact fix, plus an update check. Exit 0 healthy, 3 issues found. |
 | `wt claim <branch>`              | Pool mode: claim a slot for a branch; slot path on stdout (plumbing).         |
 | `wt release [name]`              | Pool mode: park a slot back on the base, keeping its branch (plumbing).       |
-| `wt pool ls`                     | Pool mode: every slot — lease, branch, clean/dirty, HEAD, claim age, path.    |
 | `wt pool resize <n>`             | Pool mode: grow (provision + warm) or shrink (free slots only).               |
 | `wt path [name]`                 | Print a tree's absolute path (plumbing).                                      |
 | `wt config [--edit]`             | Show active config paths and merged values; `--edit` opens `$VISUAL`/`$EDITOR`. |

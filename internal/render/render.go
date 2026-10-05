@@ -42,8 +42,9 @@ func Align(rows [][]string) string {
 const gap = 2
 
 // minFit keeps a squeezed column legible: below it, a truncated
-// path says too little to be worth the lost characters.
-const minFit = 16
+// path says too little to be worth the lost characters, and a
+// slightly long row reads better than a mangled short path.
+const minFit = 24
 
 // FitColumn middle-truncates column col so the aligned table fits
 // within maxWidth display cells; maxWidth 0 means unlimited.

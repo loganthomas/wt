@@ -357,7 +357,7 @@ merged-branch slots, and `wt clean -n` previews every action.
 | `wt`                             | Interactive fuzzy picker over trees → cd. Non-TTY: porcelain list.                                               |
 | `wt init`                        | Interactive setup: base branch, trees dir, pool y/n + size, prompt indicator, copy list; writes `.git/wt.toml`. Answers pre-filled from a repo-root scan. |
 | `wt new <branch> [--base <ref>]` | Default: create worktree + branch off base. Pool: claim a slot, reset, branch there. Prints tree path on stdout. |
-| `wt ls [--porcelain] [--json]`   | List trees: branch, path, age, ahead/behind base, dirty, slot/lease state.                                       |
+| `wt ls [--porcelain] [--json]`   | List trees: branch, clean/dirty, HEAD, age, path. Pool mode: every slot with its lease (replaces `wt pool ls`). |
 | `wt go [query]`                  | Fuzzy-jump: best match cd (with query) or picker (without).                                                      |
 | `wt done [name] [--keep-branch]` | Finish a tree: safety checks, then remove (default) or release+reset slot (pool). Alias: `wt rm`.                |
 | `wt sync [--all]`                | Fetch base, fast-forward it, re-park idle slots, report behind-counts. Never touches branches with user commits. |
@@ -365,7 +365,6 @@ merged-branch slots, and `wt clean -n` previews every action.
 | `wt status [--json]`             | Repo overview: mode, base + fetch age, slot occupancy, per-tree disk usage.                                      |
 | `wt doctor [--json] [--offline]` | Actionable diagnostics + update check. Exit 0 healthy / 3 issues found.                                          |
 | `wt pool resize <n>`             | Grow (provision + setup hook) or shrink (free slots only) the pool.                                              |
-| `wt pool ls`                     | Slot-centric view: free/claimed/by-whom/warm-since.                                                              |
 | `wt config [--edit]`             | Print the active config paths and merged values; `--edit` opens the repo config in `$VISUAL`/`$EDITOR`.          |
 | `wt path [name]`                 | Plumbing: print a tree's path (or the current tree's root).                                                      |
 | `wt claim` / `wt release`        | Pool plumbing for scripts/agents: claim prints slot path on stdout.                                              |

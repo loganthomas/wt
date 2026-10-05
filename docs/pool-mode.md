@@ -116,7 +116,7 @@ where `wt done` deletes it (unless `--keep-branch`).
 ## Sizing
 
 ```sh
-wt pool ls          # every slot: lease, branch, clean/dirty, HEAD, claim age
+wt ls               # every slot: lease, branch, clean/dirty, HEAD, claim age
 wt pool resize 6    # grow: provision + warm the new slots
 wt pool resize 2    # shrink: refuses while a doomed slot is claimed
 ```
@@ -138,7 +138,7 @@ Deadness is only provable on the host that claimed:
 a lease from another machine — or from before a hostname change —
 reads as unverifiable and is never reaped;
 `wt release slot-N` clears it.
-`wt pool ls` shows stale leases as `stale`;
+`wt ls` shows stale leases as `stale`;
 a wedged slot can always be freed by hand with `wt release slot-N`.
 A slot the guards refuse to reset — stranded commits, say —
 is skipped with a notice and the claim moves on to the next one.

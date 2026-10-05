@@ -99,8 +99,10 @@ func buildStatusView(
 		view.Trees = append(view.Trees, ts)
 	}
 	if w.cfg.Pool != nil {
+		slots := w.slotTrees(trees)
+		facts := gatherTreeFacts(ctx, gitx.New(w.repo.Root), slots, w.refreshTools(st), now)
 		view.Mode = "pool"
-		view.Pool = &poolStatus{Size: w.cfg.Pool.Size, Slots: slotViews(ctx, w, st, trees)}
+		view.Pool = &poolStatus{Size: w.cfg.Pool.Size, Slots: slotViews(w, st, trees, facts)}
 	}
 	return view
 }
@@ -165,7 +167,7 @@ func writeCachedSize(w *wtRepo, st state.Dir, path string, u state.DiskUsage) {
 
 // formatStatus lays the view out for humans: a mode/base header,
 // one sized row per tree, and, in pool mode, one row per slot in
-// exactly the wt pool ls spelling.
+// exactly the pool-mode wt ls spelling.
 func formatStatus(view statusView, l look) string {
 	mode := view.Mode
 	if view.Pool != nil {

@@ -56,26 +56,32 @@ func TestHumanOutputMatchesGolden(t *testing.T) {
 			{Detached: true, Path: "/Users/me/src/acme.trees/slot-1"},
 		},
 		Pool: &poolStatus{Size: 4, Slots: []slotView{
-			{
+			slotView{
 				Slot: "slot-1", State: "free", Path: "/Users/me/src/acme.trees/slot-1",
 				Head: "878e4ca68ee5", Tools: "fresh",
-			},
-			{
+			}.withWork(gitx.Worktree{}, treeFacts{Dirty: &clean}),
+			slotView{
 				Slot: "slot-2", State: "claimed", Branch: "feature/pay", Note: "pid 4242",
 				Age: "4d", Path: "/Users/me/src/acme.trees/slot-2",
 				Head: "a08fe1242bb2", Dirty: true, Tools: "stale",
-			},
-			{
+			}.withWork(gitx.Worktree{}, treeFacts{Dirty: &dirty}),
+			slotView{
 				Slot: "slot-3", State: "stale", Branch: "spike",
 				Note: "dead pid 7", Path: "/Users/me/src/acme.trees/slot-3",
 				Head: "422825f71cc3", Tools: "fresh",
-			},
+			}.withWork(gitx.Worktree{Locked: true}, treeFacts{Dirty: &clean}),
 			{
 				Slot: "slot-4", State: "unprovisioned", Note: "provisions on first claim",
 				Path: "/Users/me/src/acme.trees/slot-4",
 			},
 		}},
 	}
+	// wt ls in pool mode: the main checkout, unleased, then the slots.
+	poolLs := append([]slotView{
+		slotView{
+			Slot: "acme", Branch: "main", Path: "/Users/me/src/acme", Head: "82506bc30aa1",
+		}.withWork(gitx.Worktree{}, treeFacts{Dirty: &clean}),
+	}, status.Pool.Slots...)
 	doctor := doctorView{Issues: 1, Checks: []checkResult{
 		{Name: "git", Status: statusOK, Symptom: "2.50.1"},
 		{
@@ -95,9 +101,10 @@ func TestHumanOutputMatchesGolden(t *testing.T) {
 
 	for _, gl := range goldenLooks {
 		for name, got := range map[string]string{
-			"ls":     formatRows(trees, facts, gl.look),
-			"status": formatStatus(status, gl.look),
-			"doctor": formatDoctor(doctor, gl.look),
+			"ls":      formatRows(trees, facts, gl.look),
+			"ls-pool": formatSlots(poolLs, gl.look),
+			"status":  formatStatus(status, gl.look),
+			"doctor":  formatDoctor(doctor, gl.look),
 		} {
 			t.Run(name+"-"+gl.name, func(t *testing.T) {
 				checkGolden(t, filepath.Join("look", name+"-"+gl.name+".txt"), got)
@@ -127,9 +134,10 @@ func checkGolden(t *testing.T, name, got string) {
 	}
 }
 
-// checkFitsWidth holds every line inside the terminal, except the
-// one documented overflow: a table whose fixed columns alone are
-// wider than the terminal, where FitColumn stops at its minimum.
+// checkFitsWidth holds the truncation bargain: a line that lost
+// characters to "…" must fit the terminal, since cutting a path and
+// still overflowing would lose information for nothing. Lines too
+// wide even at the minimum path width are left whole and overflow.
 func checkFitsWidth(t *testing.T, got string, width int) {
 	t.Helper()
 	for line := range strings.Lines(got) {
@@ -137,8 +145,9 @@ func checkFitsWidth(t *testing.T, got string, width int) {
 		if strings.HasSuffix(line, " ") {
 			t.Errorf("trailing whitespace: %q", line)
 		}
-		if w := ansi.StringWidth(line); width >= 120 && w > width {
-			t.Errorf("line is %d cells wide, terminal is %d: %q", w, width, line)
+		truncated := strings.Contains(line, "…")
+		if w := ansi.StringWidth(line); truncated && width > 0 && w > width {
+			t.Errorf("truncated line is %d cells wide, terminal is %d: %q", w, width, line)
 		}
 	}
 }

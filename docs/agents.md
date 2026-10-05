@@ -45,7 +45,7 @@ then retry", never "wt is broken".
 | `wt new`    | The new tree's absolute path, one line.       |
 | `wt path`   | The resolved tree's absolute path, one line.  |
 | `wt go <q>` | The matched tree's absolute path, one line. Ambiguous: contenders on stderr, exit 3. No match: exit 1. |
-| `wt ls`     | A header, then one aligned row per tree: `BRANCH STATE [TOOLS] HEAD AGE PATH`. STATE is `clean`/`dirty` plus `locked`/`prunable`; AGE is the HEAD commit's age; TOOLS (`fresh`/`stale`) appears only with a `refresh_if_changed` gate. For scripts, use `--porcelain` or `--json`: this table may gain columns. |
+| `wt ls`     | A header, then one aligned row per tree: `BRANCH STATE [TOOLS] HEAD AGE PATH`, or in pool mode `TREE LEASE BRANCH STATE [TOOLS] HEAD AGE NOTE PATH` with every slot (LEASE `free`, `claimed`, `stale`, `unprovisioned`; AGE is claim age). STATE is `clean`/`dirty` plus `locked`/`prunable`; AGE is the HEAD commit's age; TOOLS (`fresh`/`stale`) appears only with a `refresh_if_changed` gate. For scripts, use `--porcelain` or `--json`: this table may gain columns. |
 | `wt ls --porcelain` | One tree per line, three tab-separated fields: branch label, absolute path, comma-joined states (`-` when none). The field count never varies. |
 | bare `wt`, bare `wt go` | Without a TTY on stdin and stderr: exactly the `--porcelain` listing, so agents never hang on the interactive picker. |
 | `wt shell-init zsh` | The zsh integration script itself (it is the machine output — meant for `eval`). |
@@ -55,7 +55,6 @@ then retry", never "wt is broken".
 | `wt sync`   | Nothing (fetch, fast-forward, and per-tree behind report all ride stderr). |
 | `wt claim`  | The claimed slot's absolute path, one line. No free slot: exit 3. |
 | `wt release` | Nothing (chatter on stderr). Not a slot / not claimed: exit 3. |
-| `wt pool ls` | A header, then one row per slot: `SLOT LEASE BRANCH STATE [TOOLS] HEAD AGE NOTE PATH`. LEASE is `free`, `claimed`, `stale`, or `unprovisioned`; AGE is how long it has been claimed. |
 | `wt clean`  | Nothing (every action, and `-n`'s previews, ride stderr). |
 | `wt status` | The overview table; `--json` for the machine shape below. |
 | `wt uninstall` | The removal plan as a shell document: explanation as `#` comments, commands bare. Removes nothing; always exit 0. |
@@ -102,7 +101,8 @@ presence, not value. That includes `branch` (absent on detached
 and bare trees) and `head` (absent on bare trees), not just the
 boolean flags and reason strings.
 `dirty` is present only for a tree with changes;
-`tools` only when a `refresh_if_changed` gate is configured.
+`tools` only when a `refresh_if_changed` gate is configured;
+`slot` and `lease` only on pool slots (an unprovisioned slot has no tree, so no entry).
 
 `wt status --json` — the repo overview:
 

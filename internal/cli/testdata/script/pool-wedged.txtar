@@ -24,7 +24,7 @@ exec wt release feat-a
 # of band and the lease record is torn
 exec git worktree remove --force ../acme.trees/slot-1
 exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/slot-1" && printf "not = [toml" > "$d/leases/slot-1/lease.toml"'
-exec wt pool ls
+exec wt ls
 stdout 'slot-1\s+claimed\s+\?\s+.*lease record unreadable'
 
 # no claim can prove that record dead, so the pool is full
@@ -79,7 +79,7 @@ exec wt release feat-f
 exec sh -c 'echo x > fail-now'
 exitcode 1 wt claim feat-g
 stderr 'refresh hook failed'
-exec wt pool ls
+exec wt ls
 stdout 'slot-1\s+free'
 exec git -C ../acme.trees/slot-1 status
 stdout 'HEAD detached'

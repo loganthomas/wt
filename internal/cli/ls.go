@@ -13,6 +13,7 @@ import (
 	"github.com/loganthomas/wt/internal/gitx"
 	"github.com/loganthomas/wt/internal/render"
 	"github.com/loganthomas/wt/internal/repo"
+	"github.com/loganthomas/wt/internal/state"
 )
 
 func newLsCmd() *cobra.Command {
@@ -45,11 +46,25 @@ func runLs(cmd *cobra.Command, porcelain, jsonOut bool) error {
 		_, err := fmt.Fprint(cmd.OutOrStdout(), formatPorcelain(trees))
 		return err
 	}
-	facts := gatherTreeFacts(ctx, gitx.New(r.Root), trees, lsTools(r), time.Now())
-	if jsonOut {
-		return render.JSON(cmd.OutOrStdout(), treeViews(trees, facts))
+	w, st := lsRepo(r)
+	var tools toolsFunc
+	if w != nil {
+		tools = w.refreshTools(st)
 	}
-	out := formatRows(trees, facts, lookFor(cmd.OutOrStdout()))
+	facts := gatherTreeFacts(ctx, gitx.New(r.Root), trees, tools, time.Now())
+	pooled := w != nil && w.cfg.Pool != nil
+	if jsonOut {
+		views := treeViews(trees, facts)
+		if pooled {
+			markSlots(views, slotViews(w, st, trees, facts))
+		}
+		return render.JSON(cmd.OutOrStdout(), views)
+	}
+	l := lookFor(cmd.OutOrStdout())
+	out := formatRows(trees, facts, l)
+	if pooled {
+		out = formatSlots(poolRows(w, st, trees, facts), l)
+	}
 	if _, err := fmt.Fprint(cmd.OutOrStdout(), out); err != nil {
 		return err
 	}
@@ -60,20 +75,35 @@ func runLs(cmd *cobra.Command, porcelain, jsonOut bool) error {
 	return nil
 }
 
-// lsTools gives ls its TOOLS column when the config allows. ls
-// must keep listing in a repo whose wt.toml is broken, so a config
-// that won't load only costs the column.
-func lsTools(r *repo.Repo) toolsFunc {
+// lsRepo loads what ls reads beyond git: the config, for pool mode
+// and the refresh gate, and the state dir, for leases. ls must keep
+// listing in a repo whose wt.toml is broken, so any failure returns
+// nil and ls falls back to the plain tree table.
+func lsRepo(r *repo.Repo) (*wtRepo, state.Dir) {
 	cfg, err := loadMerged(r)
 	if err != nil {
-		return nil
+		return nil, ""
 	}
 	w := &wtRepo{repo: r, cfg: cfg}
 	st, err := w.stateDir()
 	if err != nil {
-		return nil
+		return nil, ""
 	}
-	return w.refreshTools(st)
+	return w, st
+}
+
+// markSlots tags each slot tree in ls --json with its slot name and
+// lease state. Unprovisioned slots have no tree, so no entry.
+func markSlots(views []treeView, slots []slotView) {
+	byPath := make(map[string]slotView, len(slots))
+	for _, s := range slots {
+		byPath[s.Path] = s
+	}
+	for i, v := range views {
+		if s, ok := byPath[v.Path]; ok {
+			views[i].Slot, views[i].Lease = s.Slot, s.State
+		}
+	}
 }
 
 // treeView is one worktree in ls --json: git's facts, spelled
@@ -91,6 +121,8 @@ type treeView struct {
 	Dirty          bool       `json:"dirty,omitempty"`
 	CommittedAt    *time.Time `json:"committed_at,omitempty"` // HEAD's committer date
 	Tools          string     `json:"tools,omitempty"`        // fresh | stale
+	Slot           string     `json:"slot,omitempty"`         // pool mode only
+	Lease          string     `json:"lease,omitempty"`        // free | claimed | stale
 }
 
 func treeViews(trees []gitx.Worktree, facts map[string]treeFacts) []treeView {
