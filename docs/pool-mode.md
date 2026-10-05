@@ -116,7 +116,7 @@ where `wt done` deletes it (unless `--keep-branch`).
 ## Sizing
 
 ```sh
-wt pool ls          # slot, state, branch, holder
+wt pool ls          # every slot: lease, branch, clean/dirty, HEAD, claim age
 wt pool resize 6    # grow: provision + warm the new slots
 wt pool resize 2    # shrink: refuses while a doomed slot is claimed
 ```

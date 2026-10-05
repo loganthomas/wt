@@ -1,8 +1,10 @@
 package cli
 
 import (
+	"cmp"
 	"io"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -14,15 +16,17 @@ import (
 )
 
 // look is how human output should appear where it is going:
-// whether to color it, and how many columns the terminal has
-// (0 means unlimited: never truncate or wrap).
+// whether to color it, how many columns the terminal has
+// (0 means unlimited: never truncate or wrap), and the home
+// directory to abbreviate as ~ ("" keeps paths whole).
 type look struct {
 	color bool
 	width int
+	home  string
 }
 
-// plainLook is output for pipes and files: no color, full width,
-// byte-identical to what scripts have always parsed.
+// plainLook is the barest human output: no color, full width,
+// full paths.
 var plainLook = look{}
 
 // Color carries meaning only (status, never decoration), in the
@@ -44,6 +48,46 @@ func (l look) paint(s lipgloss.Style, text string) string {
 	return s.Render(text)
 }
 
+// header renders a table's column titles: uppercase and dim,
+// so they frame the data without competing with it.
+func (l look) header(titles ...string) []string {
+	row := make([]string, len(titles))
+	for i, t := range titles {
+		row[i] = l.paint(styleDim, strings.ToUpper(t))
+	}
+	return row
+}
+
+// path abbreviates the home directory as ~ for human tables;
+// machine output always carries the absolute path.
+func (l look) path(p string) string {
+	if l.home == "" {
+		return p
+	}
+	if p == l.home {
+		return "~"
+	}
+	if rest, ok := strings.CutPrefix(p, l.home+string(filepath.Separator)); ok {
+		return "~" + string(filepath.Separator) + rest
+	}
+	return p
+}
+
+// dash fills an unknown or empty cell, so a column never reads
+// as missing.
+func dash(s string) string {
+	return cmp.Or(s, "-")
+}
+
+// shortHead is the abbreviated commit for a HEAD column.
+func shortHead(sha string) string {
+	const n = 9
+	if len(sha) <= n {
+		return dash(sha)
+	}
+	return sha[:n]
+}
+
 // lookFor resolves the look for one output stream. Only a real
 // terminal gets a width: piped output is never truncated.
 func lookFor(w io.Writer) look {
@@ -52,6 +96,9 @@ func lookFor(w io.Writer) look {
 		return plainLook
 	}
 	l := look{color: useColor(f, colorSetting(), os.Environ())}
+	if home, err := os.UserHomeDir(); err == nil {
+		l.home = home
+	}
 	if isTerminal(f) {
 		if width, _, err := term.GetSize(int(f.Fd())); err == nil {
 			l.width = width

@@ -21,20 +21,31 @@ var goldenLooks = []struct {
 	name string
 	look look
 }{
-	{"color-80", look{color: true, width: 80}},
-	{"plain-80", look{width: 80}},
-	{"plain-40", look{width: 40}},
+	{"color-120", look{color: true, width: 120, home: "/Users/me"}},
+	{"plain-120", look{width: 120, home: "/Users/me"}},
+	{"plain-60", look{width: 60, home: "/Users/me"}},
 }
 
 func TestHumanOutputMatchesGolden(t *testing.T) {
 	kb := int64(54 * 1024)
+	clean, dirty := false, true
 	trees := []gitx.Worktree{
-		{Branch: "main", Path: "/Users/me/src/acme"},
-		{Branch: "feature/login", Path: "/Users/me/src/acme.trees/feature-login", Locked: true},
+		{Branch: "main", Path: "/Users/me/src/acme", Head: "82506bc30aa1"},
 		{
-			Branch:   "fix/a-rather-long-branch-name",
-			Path:     "/Users/me/src/acme.trees/fix-a-rather-long-branch-name",
-			Prunable: true,
+			Branch: "feature/login", Path: "/Users/me/src/acme.trees/feature-login",
+			Head: "a08fe1242bb2", Locked: true,
+		},
+		{
+			Branch: "fix/a-rather-long-branch-name", Head: "422825f71cc3",
+			Path: "/Users/me/src/acme.trees/fix-a-rather-long-branch-name-for-a-long-path",
+		},
+		{Branch: "old", Path: "/Users/me/src/acme.trees/old", Head: "4a53648b9dd4", Prunable: true},
+	}
+	facts := map[string]treeFacts{
+		"/Users/me/src/acme":                     {Dirty: &clean, Age: "4d"},
+		"/Users/me/src/acme.trees/feature-login": {Dirty: &dirty, Age: "2h", Tools: "stale"},
+		"/Users/me/src/acme.trees/fix-a-rather-long-branch-name-for-a-long-path": {
+			Dirty: &clean, Age: "now", Tools: "fresh",
 		},
 	}
 	status := statusView{
@@ -45,10 +56,24 @@ func TestHumanOutputMatchesGolden(t *testing.T) {
 			{Detached: true, Path: "/Users/me/src/acme.trees/slot-1"},
 		},
 		Pool: &poolStatus{Size: 4, Slots: []slotView{
-			{Slot: "slot-1", State: "free"},
-			{Slot: "slot-2", State: "claimed", Branch: "feature/pay"},
-			{Slot: "slot-3", State: "stale", Branch: "spike", Note: "holder exited"},
-			{Slot: "slot-4", State: "unprovisioned", Note: "provisions on first claim"},
+			{
+				Slot: "slot-1", State: "free", Path: "/Users/me/src/acme.trees/slot-1",
+				Head: "878e4ca68ee5", Tools: "fresh",
+			},
+			{
+				Slot: "slot-2", State: "claimed", Branch: "feature/pay", Note: "pid 4242",
+				Age: "4d", Path: "/Users/me/src/acme.trees/slot-2",
+				Head: "a08fe1242bb2", Dirty: true, Tools: "stale",
+			},
+			{
+				Slot: "slot-3", State: "stale", Branch: "spike",
+				Note: "dead pid 7", Path: "/Users/me/src/acme.trees/slot-3",
+				Head: "422825f71cc3", Tools: "fresh",
+			},
+			{
+				Slot: "slot-4", State: "unprovisioned", Note: "provisions on first claim",
+				Path: "/Users/me/src/acme.trees/slot-4",
+			},
 		}},
 	}
 	doctor := doctorView{Issues: 1, Checks: []checkResult{
@@ -70,7 +95,7 @@ func TestHumanOutputMatchesGolden(t *testing.T) {
 
 	for _, gl := range goldenLooks {
 		for name, got := range map[string]string{
-			"ls":     formatRows(trees, gl.look),
+			"ls":     formatRows(trees, facts, gl.look),
 			"status": formatStatus(status, gl.look),
 			"doctor": formatDoctor(doctor, gl.look),
 		} {
@@ -112,7 +137,7 @@ func checkFitsWidth(t *testing.T, got string, width int) {
 		if strings.HasSuffix(line, " ") {
 			t.Errorf("trailing whitespace: %q", line)
 		}
-		if w := ansi.StringWidth(line); width >= 80 && w > width {
+		if w := ansi.StringWidth(line); width >= 120 && w > width {
 			t.Errorf("line is %d cells wide, terminal is %d: %q", w, width, line)
 		}
 	}

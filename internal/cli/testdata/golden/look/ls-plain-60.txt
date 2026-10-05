@@ -1,0 +1,5 @@
+BRANCH                         STATE         TOOLS  HEAD       AGE  PATH
+main                           clean         -      82506bc30  4d   ~/src/acme
+feature/login                  dirty,locked  stale  a08fe1242  2h   ~/src/acme.trees/feature-login
+fix/a-rather-long-branch-name  clean         fresh  422825f71  now  ~/src/acme.trees/fix-a-rather-long-branch-name-for-a-long-path
+old                            prunable      -      4a53648b9  -    ~/src/acme.trees/old

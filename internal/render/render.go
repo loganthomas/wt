@@ -82,9 +82,10 @@ func FitColumn(rows [][]string, col, maxWidth int) [][]string {
 }
 
 // truncateMiddle shortens s to width cells around an ellipsis,
-// keeping more of the tail, where a path names its tree.
+// keeping a short head for orientation and the rest for the tail,
+// where a path names its tree.
 func truncateMiddle(s string, width int) string {
-	head := (width - 1) / 3
+	head := (width - 1) / 4
 	tail := width - 1 - head
 	return ansi.Truncate(s, head, "") + "…" + ansi.TruncateLeft(s, ansi.StringWidth(s)-tail, "")
 }

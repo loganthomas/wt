@@ -1,0 +1,5 @@
+[2mBRANCH[m                         [2mSTATE[m         [2mTOOLS[m  [2mHEAD[m       [2mAGE[m  [2mPATH[m
+main                           clean         -      82506bc30  4d   ~/src/acme
+feature/login                  [33mdirty,locked[m  [33mstale[m  a08fe1242  2h   ~/src/acme.trees/feature-login
+fix/a-rather-long-branch-name  clean         fresh  422825f71  now  ~/src/acme.t…rather-long-branch-name-for-a-long-path
+old                            [31mprunable[m      -      4a53648b9  -    ~/src/acme.trees/old

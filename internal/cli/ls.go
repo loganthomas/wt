@@ -3,12 +3,16 @@ package cli
 import (
 	"cmp"
 	"fmt"
+	"slices"
 	"strings"
+	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/loganthomas/wt/internal/gitx"
 	"github.com/loganthomas/wt/internal/render"
+	"github.com/loganthomas/wt/internal/repo"
 )
 
 func newLsCmd() *cobra.Command {
@@ -32,48 +36,71 @@ func runLs(cmd *cobra.Command, porcelain, jsonOut bool) error {
 		return usageError{fmt.Errorf("--porcelain and --json are two spellings " +
 			"of the machine listing — choose one")}
 	}
-	r, trees, err := repoTrees(cmd.Context())
+	ctx := cmd.Context()
+	r, trees, err := repoTrees(ctx)
 	if err != nil {
 		return err
 	}
+	if porcelain {
+		_, err := fmt.Fprint(cmd.OutOrStdout(), formatPorcelain(trees))
+		return err
+	}
+	facts := gatherTreeFacts(ctx, gitx.New(r.Root), trees, lsTools(r), time.Now())
 	if jsonOut {
-		return render.JSON(cmd.OutOrStdout(), treeViews(trees))
+		return render.JSON(cmd.OutOrStdout(), treeViews(trees, facts))
 	}
-	out := formatPorcelain(trees)
-	if !porcelain {
-		out = formatRows(trees, lookFor(cmd.OutOrStdout()))
-	}
+	out := formatRows(trees, facts, lookFor(cmd.OutOrStdout()))
 	if _, err := fmt.Fprint(cmd.OutOrStdout(), out); err != nil {
 		return err
 	}
 	// A human staleness note on stderr, so stdout stays the machine
-	// contract (D13). Porcelain callers are scripts: no chatter for
-	// them. Best-effort, and silent until wt has a fetch on record,
-	// so it never touches the network or disturbs the listing.
-	if !porcelain {
-		noteFetchStaleness(r, cmd.ErrOrStderr())
-	}
+	// contract. Best-effort, and silent until wt has a fetch on
+	// record, so it never touches the network or disturbs the listing.
+	noteFetchStaleness(r, cmd.ErrOrStderr())
 	return nil
+}
+
+// lsTools gives ls its TOOLS column when the config allows. ls
+// must keep listing in a repo whose wt.toml is broken, so a config
+// that won't load only costs the column.
+func lsTools(r *repo.Repo) toolsFunc {
+	cfg, err := loadMerged(r)
+	if err != nil {
+		return nil
+	}
+	w := &wtRepo{repo: r, cfg: cfg}
+	st, err := w.stateDir()
+	if err != nil {
+		return nil
+	}
+	return w.refreshTools(st)
 }
 
 // treeView is one worktree in ls --json: git's facts, spelled
 // stably for machine consumers (D13).
 type treeView struct {
-	Branch         string `json:"branch,omitempty"`
-	Path           string `json:"path"`
-	Head           string `json:"head,omitempty"`
-	Bare           bool   `json:"bare,omitempty"`
-	Detached       bool   `json:"detached,omitempty"`
-	Locked         bool   `json:"locked,omitempty"`
-	LockedReason   string `json:"locked_reason,omitempty"`
-	Prunable       bool   `json:"prunable,omitempty"`
-	PrunableReason string `json:"prunable_reason,omitempty"`
+	Branch         string     `json:"branch,omitempty"`
+	Path           string     `json:"path"`
+	Head           string     `json:"head,omitempty"`
+	Bare           bool       `json:"bare,omitempty"`
+	Detached       bool       `json:"detached,omitempty"`
+	Locked         bool       `json:"locked,omitempty"`
+	LockedReason   string     `json:"locked_reason,omitempty"`
+	Prunable       bool       `json:"prunable,omitempty"`
+	PrunableReason string     `json:"prunable_reason,omitempty"`
+	Dirty          bool       `json:"dirty,omitempty"`
+	CommittedAt    *time.Time `json:"committed_at,omitempty"` // HEAD's committer date
+	Tools          string     `json:"tools,omitempty"`        // fresh | stale
 }
 
-func treeViews(trees []gitx.Worktree) []treeView {
+func treeViews(trees []gitx.Worktree, facts map[string]treeFacts) []treeView {
 	views := make([]treeView, 0, len(trees))
 	for _, t := range trees {
+		f := facts[t.Path]
 		views = append(views, treeView{
+			Dirty:          f.dirty(),
+			CommittedAt:    f.Committed,
+			Tools:          f.Tools,
 			Branch:         t.Branch,
 			Path:           t.Path,
 			Head:           t.Head,
@@ -101,18 +128,66 @@ func formatPorcelain(trees []gitx.Worktree) string {
 	return out.String()
 }
 
-// formatRows renders one aligned row per worktree,
-// paths fitted to the terminal and states colored as warnings.
-func formatRows(trees []gitx.Worktree, l look) string {
-	rows := make([][]string, 0, len(trees))
+// formatRows renders the human tree table: a header, then one
+// row per worktree with the path last, so a long path runs off
+// the edge instead of pushing columns around. TOOLS appears only
+// when some tree has a refresh gate to report on.
+func formatRows(trees []gitx.Worktree, facts map[string]treeFacts, l look) string {
+	tools := slices.ContainsFunc(trees, func(t gitx.Worktree) bool {
+		return facts[t.Path].Tools != ""
+	})
+	titles := []string{"branch", "state", "head", "age", "path"}
+	if tools {
+		titles = slices.Insert(titles, 2, "tools")
+	}
+	rows := [][]string{l.header(titles...)}
 	for _, t := range trees {
-		rows = append(rows, []string{branchLabel(t), t.Path, stateLabel(t)})
+		f := facts[t.Path]
+		state := treeState(t, f)
+		row := []string{branchLabel(t), l.paint(treeStateStyle(t, f), state)}
+		if tools {
+			row = append(row, l.paint(toolsStyle(f.Tools), dash(f.Tools)))
+		}
+		rows = append(rows, append(row, shortHead(t.Head), dash(f.Age), l.path(t.Path)))
 	}
-	rows = render.FitColumn(rows, 1, l.width)
-	for _, row := range rows {
-		row[2] = l.paint(styleWarn, row[2])
+	return render.Align(render.FitColumn(rows, len(titles)-1, l.width))
+}
+
+// treeState joins what's worth knowing about a working tree:
+// clean or dirty first, then git's own locked/prunable marks.
+// A prunable tree is gone from disk, so it has no clean or dirty.
+func treeState(t gitx.Worktree, f treeFacts) string {
+	var parts []string
+	switch {
+	case f.Dirty == nil:
+	case *f.Dirty:
+		parts = append(parts, "dirty")
+	default:
+		parts = append(parts, "clean")
 	}
-	return render.Align(rows)
+	if label := stateLabel(t); label != "" {
+		parts = append(parts, label)
+	}
+	return dash(strings.Join(parts, ","))
+}
+
+// treeStateStyle flags a vanished tree as an error and anything
+// blocking a clean `wt done` (edits, a lock) as a warning.
+func treeStateStyle(t gitx.Worktree, f treeFacts) lipgloss.Style {
+	switch {
+	case t.Prunable:
+		return styleBad
+	case t.Locked || (f.Dirty != nil && *f.Dirty):
+		return styleWarn
+	}
+	return lipgloss.NewStyle()
+}
+
+func toolsStyle(tools string) lipgloss.Style {
+	if tools == "stale" {
+		return styleWarn
+	}
+	return lipgloss.NewStyle()
 }
 
 func branchLabel(t gitx.Worktree) string {

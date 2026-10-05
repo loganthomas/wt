@@ -100,7 +100,7 @@ func buildStatusView(
 	}
 	if w.cfg.Pool != nil {
 		view.Mode = "pool"
-		view.Pool = &poolStatus{Size: w.cfg.Pool.Size, Slots: slotViews(w, st, trees)}
+		view.Pool = &poolStatus{Size: w.cfg.Pool.Size, Slots: slotViews(ctx, w, st, trees)}
 	}
 	return view
 }
@@ -180,16 +180,16 @@ func formatStatus(view statusView, l look) string {
 		{"base", base},
 	})
 
-	rows := make([][]string, 0, len(view.Trees))
-	for _, t := range view.Trees {
-		size := "?"
-		if t.DiskKB != nil {
-			size = humanKB(*t.DiskKB)
+	if len(view.Trees) > 0 {
+		rows := [][]string{l.header("branch", "size", "path")}
+		for _, t := range view.Trees {
+			size := "?"
+			if t.DiskKB != nil {
+				size = humanKB(*t.DiskKB)
+			}
+			rows = append(rows, []string{worktreeLabel(t.Bare, t.Detached, t.Branch), size, l.path(t.Path)})
 		}
-		rows = append(rows, []string{worktreeLabel(t.Bare, t.Detached, t.Branch), t.Path, size})
-	}
-	if len(rows) > 0 {
-		out += "\n" + render.Align(render.FitColumn(rows, 1, l.width))
+		out += "\n" + render.Align(render.FitColumn(rows, 2, l.width))
 	}
 
 	if view.Pool == nil {

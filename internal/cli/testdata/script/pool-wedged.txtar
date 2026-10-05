@@ -25,7 +25,7 @@ exec wt release feat-a
 exec git worktree remove --force ../acme.trees/slot-1
 exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/slot-1" && printf "not = [toml" > "$d/leases/slot-1/lease.toml"'
 exec wt pool ls
-stdout 'slot-1\s+claimed\s+\?\s+lease record unreadable'
+stdout 'slot-1\s+claimed\s+\?\s+.*lease record unreadable'
 
 # no claim can prove that record dead, so the pool is full
 exitcode 3 wt claim feat-b

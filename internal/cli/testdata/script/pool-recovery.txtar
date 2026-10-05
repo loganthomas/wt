@@ -24,7 +24,7 @@ exec sh -c 'd="$(echo "$XDG_STATE_HOME"/wt/repos/*)" && mkdir -p "$d/leases/slot
 exitcode 3 wt claim feat-b
 stderr 'no free slot'
 exec wt pool ls
-stdout 'slot-1\s+claimed\s+\?\s+lease record unreadable'
+stdout 'slot-1\s+claimed\s+\?\s+.*lease record unreadable'
 
 # the escape hatch: release frees the slot anyway
 exec wt release slot-1
